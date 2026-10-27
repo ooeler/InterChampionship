@@ -1,0 +1,454 @@
+const { test, expect, login } = require("./fixtures");
+
+const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
+const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
+
+test.describe("Rollen", () => {
+  test("Spieler sehen den Bereich Teams nicht", async ({ page }) => {
+    await login(page, SPIELER);
+    await expect(page.locator("nav [data-tab=rang]")).toBeVisible();
+    await expect(page.locator("nav [data-tab=spiel]")).toBeVisible();
+    await expect(page.locator("nav [data-tab=team]")).toHaveCount(0);
+    await page.evaluate(() => { tab = "team"; render() });
+    await expect(page.locator("main")).not.toContainText("Team 1 ·");
+  });
+
+  test("Captains sehen den Bereich Teams", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator("main")).toContainText("Team 1 · 8 Spieler");
+  });
+
+  test("Admins sehen den Bereich Teams", async ({ page }) => {
+    await login(page, ADMIN);
+    await expect(page.locator("nav [data-tab=team]")).toBeVisible();
+  });
+
+  test("Spieler-Änderungen an Teams lehnt der Server ab", async ({ page }) => {
+    await login(page); // Captain legt die Saison an
+    await expect.poll(() => page.evaluate(() => !!localStorage.getItem("__mock_db"))).toBe(true);
+    await page.click("#lo");
+    await login(page, SPIELER);
+    await page.evaluate(() => { S.t[0].n = "Gehackt"; save() });
+    await page.waitForTimeout(600);
+    const name = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")).data.t[0].n);
+    expect(name).toBe("Lochball Legenden");
+  });
+});
+
+test.describe("Benutzer & Spieler-Zuordnung", () => {
+  test("Spielleitung ordnet Benutzern Rolle und Spieler zu", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.click("nav [data-tab=team]");
+    const card = page.locator(".card", { hasText: "Benutzer & Rollen" });
+    await expect(card).toContainText("spieler@flyingpenguins.test");
+    await card.locator("select[data-mpl='u-captain@flyingpenguins.test']").selectOption("Andreas Scherrer");
+    await card.locator("select[data-mrole='u-spieler@flyingpenguins.test']").selectOption("captain");
+    const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")).filter((l) => l.fn == "set_member"));
+    expect(log[0].args).toEqual({ uid: "u-captain@flyingpenguins.test", new_role: "captain", new_player: "Andreas Scherrer" });
+    expect(log[1].args).toEqual({ uid: "u-spieler@flyingpenguins.test", new_role: "captain", new_player: null });
+  });
+
+  test("Spielleitung kann sich die Admin-Rolle nicht selbst entziehen", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.click("nav [data-tab=team]");
+    const msg = page.waitForEvent("dialog");
+    await page.locator("select[data-mrole='u-admin@flyingpenguins.test']").selectOption("player");
+    expect((await msg).message()).toContain("nicht selbst entziehen");
+    await expect(page.locator("select[data-mrole='u-admin@flyingpenguins.test']")).toHaveValue("admin");
+  });
+
+  test("Captains sehen die Benutzerverwaltung nicht", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator(".card", { hasText: "Benutzer & Rollen" })).toHaveCount(0);
+  });
+
+  test("Begrüssung mit zugeordnetem Spieler", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("__mock_player", "Othmar Oeler"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Othmar!");
+  });
+
+  test("Umbenennen eines Spielers behält die Zuordnung", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    const inp = page.locator("input[data-pn='0']").first();
+    const old = await inp.inputValue();
+    await inp.fill("Andi S.");
+    await inp.blur();
+    const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")).filter((l) => l.fn == "rename_player"));
+    expect(log[0].args).toEqual({ old_name: old, new_name: "Andi S." });
+  });
+});
+
+test.describe("Konzept", () => {
+  test("Infos-Tab zeigt das Konzept für alle", async ({ page }) => {
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=info]");
+    const main = page.locator("main");
+    for (const t of ["Jeder erste Mittwoch im Monat ist Match-Tag.", "Wintermeisterschaft", "Sommermeisterschaft", "Forfait 0 : 5", "Spielleitung: Michael Süess, Othmar Oeler"]) {
+      await expect(main).toContainText(t);
+    }
+    await expect(main).toContainText("Nächster Match-Tag" + "Mi, 04.11.2026");
+    await expect(main).toContainText("zweiten Dezember-Mittwoch (09.12.2026)");
+    await expect(main).toContainText("ersten Mai-Freitag (07.05.2027)");
+  });
+
+  test("Spieltag zeigt den Ablauf des Matchtags", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    const card = page.locator(".card", { hasText: "Ablauf Matchtag" });
+    await expect(card.locator("h3")).toContainText("Mi, 04.11.2026");
+    await expect(card).toContainText("19:40");
+  });
+
+  test("Forfait ergibt 0 : 5", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-ff='1']");
+    await expect(page.locator(".pill.win")).toHaveText("Sieger: Lochball Legenden");
+    expect(await page.evaluate(() => S.m[cur].res)).toEqual([5, 0]);
+  });
+
+  test("Spieler sehen keinen Forfait-Knopf", async ({ page }) => {
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator("[data-ff]")).toHaveCount(0);
+  });
+
+  test("Spielstand zeigt bis Ende Dezember die Wintermeisterschaft", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-12-31T20:00:00"));
+    await login(page);
+    await page.evaluate(() => { S.m[4].res = [7, 1]; render() }); // Januar zählt noch nicht
+    const card = page.locator(".card", { hasText: "Meisterschaft" }).first();
+    await expect(card.locator(".score .vs").first()).toHaveText("Wintermeisterschaft");
+    await expect(card.locator(".score b").nth(0)).toHaveText("1");
+    await expect(card.locator(".score b").nth(1)).toHaveText("1");
+  });
+
+  test("Ab Januar zeigt der Spielstand die Serie zum Sommermeister", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2027-01-02T10:00:00"));
+    await login(page);
+    await page.evaluate(() => { S.m[4].res = [7, 1]; S.m[7].res = [2, 3]; render() });
+    const card = page.locator(".card", { hasText: "Meisterschaft" }).first();
+    await expect(card.locator(".score .vs").first()).toHaveText("Sommermeisterschaft");
+    await expect(card.locator(".score b").nth(0)).toHaveText("1");
+    await expect(card.locator(".score b").nth(1)).toHaveText("2"); // April zählt doppelt
+  });
+
+  test("Rangliste nennt das Verliererteam mit Event-Datum", async ({ page }) => {
+    await login(page);
+    await page.evaluate(() => { S.m[2].res = [4, 1]; S.m[3].res = [6, 2]; render() });
+    const card = page.locator(".card", { hasText: "Meisterschaft" }).first();
+    await expect(card).toContainText("🏆 Wintermeister");
+    await expect(card).toContainText("SpVgg Nieder organisiert den Weihnachts-Apéro am 09.12.2026");
+    await expect(card).toContainText("Sommermeister (Jan–Apr)");
+  });
+});
+
+test.describe("Social-Media-Bild", () => {
+  test("Nur die Spielleitung sieht den Generator", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator("[data-sm]")).toHaveCount(0);
+  });
+
+  test("Bild wird aus den Daten erzeugt und gespeichert", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='1']"); // Oktober: 9 : 5
+    await page.click("[data-sm]");
+    const c = page.locator("#smc");
+    await expect(c).toBeVisible();
+    await page.waitForTimeout(300);
+    const px = await page.evaluate(() => {
+      const x = document.getElementById("smc").getContext("2d");
+      return { right: Array.from(x.getImageData(1060, 500, 1, 1).data), band: Array.from(x.getImageData(300, 100, 1, 1).data), sponsor: Array.from(x.getImageData(40, 600, 1, 1).data) };
+    });
+    expect(px.right.slice(0, 3)).toEqual([205, 42, 42]); // rote Fläche
+    expect(px.band.slice(0, 3)).toEqual([38, 38, 38]);   // Fotoband ohne Foto
+    expect(px.sponsor.slice(0, 3)).toEqual([255, 255, 255]);
+
+    await page.setInputFiles("[data-smimg='0']", { name: "a.png", mimeType: "image/png", buffer: require("fs").readFileSync(require("path").join(__dirname, "..", "app", "icon-192.png")) });
+    await expect(page.locator("label", { hasText: "✓ Foto 1" })).toBeVisible();
+
+    await page.fill("[data-smt]", "Herren Inter 26/27");
+    await page.locator("[data-smt]").blur();
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-smdl]")]);
+    expect(dl.suggestedFilename()).toBe("interchampionship-oktober.png");
+    const buf = require("fs").readFileSync(await dl.path());
+    expect(buf.readUInt32BE(16)).toBe(1080); // PNG-Breite
+    expect(buf.readUInt32BE(20)).toBe(1080); // PNG-Höhe
+  });
+
+  test("Ohne Resultat kommt ein Hinweis", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-sm]");
+    await expect(page.locator(".card", { hasText: "Social Media" })).toContainText("Zuerst das Endresultat erfassen.");
+  });
+});
+
+test.describe("Begrüssung", () => {
+  test("Standard: Hallo + Name", async ({ page }) => {
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain!");
+  });
+
+  test("Name aus dem Profil (z. B. Google/Microsoft)", async ({ page }) => {
+    await login(page, SPIELER);
+    await expect(page.locator("#hi")).toHaveText("Hallo Silvan!");
+  });
+
+  test("Am Match Day", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-04T18:00:00"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Match Day! ⚑");
+  });
+
+  test("Frühaufsteher", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-27T06:15:00"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Frühaufsteher Captain! ☀️");
+  });
+
+  test("Willkommen zurück nach über 30 Tagen", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("__mock_prev_seen", "2026-08-15T10:00:00Z"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, willkommen zurück!");
+  });
+
+  test("Kein 'Willkommen zurück' nach kurzer Pause", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("__mock_prev_seen", "2026-10-20T10:00:00Z"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain!");
+  });
+});
+
+test.describe("Anwesenheit", () => {
+  test("Spieltag öffnet automatisch das nächste Training", async ({ page }) => {
+    await login(page); // heute = 27.10.2026, nächstes Training 28.10.2026
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator("[data-c].on")).toHaveText("Nov");
+    await expect(page.locator("input[data-dt]")).toHaveCount(1);
+    await expect(page.locator("input[data-dt]")).toHaveValue("2026-10-28");
+  });
+
+  test("Auch beim Monatswechsel ist das nächste Training offen", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='3']");
+    await expect(page.locator("input[data-dt]")).toHaveValue("2026-11-11");
+  });
+
+  test("Am Trainingstag ist das heutige Training offen", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-18T19:00:00"));
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator("input[data-dt]")).toHaveValue("2026-11-18");
+  });
+});
+
+test.describe("Abmeldungen", () => {
+  async function seed(page) { // Saison existiert bereits (vom Captain angelegt)
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: fix(def()) }));
+      localStorage.setItem("__mock_player", "Silvan Frey");
+    });
+  }
+
+  test("Spieler meldet sich für das nächste Training ab", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=spiel]");
+    const card = page.locator(".card", { hasText: "Meine Trainings" });
+    const first = card.locator(".row").first();
+    await expect(first).toContainText("Mi, 28.10.2026");
+    await expect(card.locator(".row", { hasText: "Match Day" }).first()).toContainText("Mi, 04.11.2026");
+    await first.locator("[data-abw]").click();
+    await expect(first.locator("[data-abw]")).toHaveText("✗ abgemeldet");
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")).data.m[2].tr[1].ab)).toEqual(["Silvan Frey"]);
+    await first.locator("[data-abw]").click(); // wieder anmelden
+    await expect(first.locator("[data-abw]")).toHaveText("✓ dabei");
+  });
+
+  test("Captain sieht Abmeldungen in Training und Matchtag", async ({ page }) => {
+    await seed(page);
+    await page.evaluate(() => {
+      const r = JSON.parse(localStorage.getItem("__mock_db"));
+      r.data.m[2].tr[1].ab = ["Silvan Frey"];
+      r.data.m[2].tr[2].ab = ["Silvan Frey", "Beat Rentsch"];
+      localStorage.setItem("__mock_db", JSON.stringify(r));
+      localStorage.removeItem("__mock_player");
+    });
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator(".tr").nth(1)).toContainText("geplant · 1 abgemeldet");
+    await expect(page.locator("button.pb.off", { hasText: "Silvan Frey" })).toBeVisible(); // nächstes Training ist offen
+    const md = page.locator(".card", { hasText: "Ablauf Matchtag" });
+    await expect(md).toContainText("Lochball Legenden8 von 8 dabei");
+    await expect(md).toContainText("SpVgg Nieder6 von 8 dabei");
+    await expect(md).toContainText("abgemeldet: Beat Rentsch, Silvan Frey");
+  });
+
+  test("Ohne Spieler-Zuordnung kommt ein Hinweis", async ({ page }) => {
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator(".card", { hasText: "Meine Trainings" })).toContainText("noch keinem Spieler zugeordnet");
+  });
+});
+
+test.describe("Push-Nachrichten", () => {
+  test("Resultat melden schickt Push über die Edge Function", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator("[data-notify]")).toHaveCount(0);
+    await page.click('[data-k=res][data-t="0"][data-d="1"]');
+    const msg = page.waitForEvent("dialog", (d) => d.type() === "alert");
+    await page.click("[data-notify]");
+    expect((await msg).message()).toBe("Push-Nachricht wurde verschickt.");
+    const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")));
+    expect(log).toContainEqual({ op: "invoke", name: "notify", body: { type: "result", month: 2 } });
+    // Resultat wurde vor dem Versand gespeichert
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")).data.m[2].res)).toEqual([1, 0]);
+  });
+
+  test("Benachrichtigungen aktivieren speichert das Abo", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "Web-Push-Stub nur in Chromium");
+    await page.addInitScript(() => {
+      const sub = { endpoint: "https://push.test/abc", toJSON() { return { endpoint: this.endpoint, keys: { p256dh: "k", auth: "a" } } } };
+      let current = null;
+      const reg = { pushManager: { getSubscription: async () => current, subscribe: async () => (current = sub) } };
+      Object.defineProperty(navigator, "serviceWorker", { value: { register: async () => reg, ready: Promise.resolve(reg) } });
+      Notification.requestPermission = async () => "granted";
+      Object.defineProperty(Notification, "permission", { get: () => (current ? "granted" : "default") });
+      localStorage.setItem("__mock_vapid", "BElw0d9Vj8C0eJQ0b1n5S8rS9QH0iZ3n2B4kq9pKX7pZ6Y0iN3QnB9uU1c8m2Wl8hYqK7vQyR8hC3f5a4Tz6x1A");
+    });
+    await login(page);
+    const card = page.locator(".card", { hasText: "Benachrichtigungen" });
+    await expect(card).toBeVisible();
+    await card.locator("[data-push]").click();
+    await expect(card).toHaveCount(0);
+    const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")));
+    const up = log.find((l) => l.table === "push_subscriptions");
+    expect(up.row).toMatchObject({ endpoint: "https://push.test/abc", user_id: "u-captain@flyingpenguins.test" });
+  });
+
+  test("iPhone ohne Installation bekommt eine Anleitung", async ({ page, browserName }) => {
+    test.skip(browserName !== "webkit", "nur iPhone-Profil");
+    await page.addInitScript(() => localStorage.setItem("__mock_vapid", "x"));
+    await login(page);
+    await expect(page.locator(".card", { hasText: "Benachrichtigungen" })).toContainText("Zum Home-Bildschirm");
+  });
+});
+
+test.describe("Verbesserungsvorschläge", () => {
+  test("Vorschlag wird als GitHub-Issue erfasst", async ({ page }) => {
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=info]");
+    const card = page.locator(".card", { hasText: "Verbesserungsvorschlag" });
+    await card.locator("[data-fbk=fehler]").click();
+    await expect(card.locator("[data-fbk=fehler]")).toHaveClass(/on/);
+    await card.locator("input[name=title]").fill("Tore lassen sich nicht löschen");
+    await card.locator("textarea[name=text]").fill("Beim Minus-Knopf passiert nichts.");
+    await card.locator("button.add").click();
+    await expect(card.locator(".fbm")).toContainText("Danke! Erfasst als Issue #42");
+    await expect(card.locator(".fbm a")).toHaveAttribute("href", "https://github.com/flyingpenguins/InterChampionship/issues/42");
+    await expect(card.locator("input[name=title]")).toHaveValue("");
+    const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")).filter((l) => l.name == "feedback"));
+    expect(log[0].body).toEqual({ kind: "fehler", title: "Tore lassen sich nicht löschen", text: "Beim Minus-Knopf passiert nichts." });
+  });
+
+  test("Titel ist Pflicht", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=info]");
+    await page.locator("#fb button.add").click();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log") || "[]").some((l) => l.name == "feedback"))).toBe(false);
+  });
+
+  test("Entwurf bleibt bei Live-Aktualisierung erhalten", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=info]");
+    await page.locator("#fb textarea").fill("Halb geschrieben");
+    await page.evaluate(() => render());
+    await expect(page.locator("#fb textarea")).toHaveValue("Halb geschrieben");
+  });
+
+  test("Fehlermeldung vom Server wird angezeigt", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=info]");
+    await page.locator("#fb input[name=title]").fill("zu viele");
+    await page.locator("#fb button.add").click();
+    await expect(page.locator("#fb .fbm")).toHaveText("Senden fehlgeschlagen: Maximal 5 Vorschläge pro Tag.");
+  });
+});
+
+test.describe("Issue-Texte (Edge Function feedback)", () => {
+  let F;
+  test.beforeAll(async () => { F = await import("../supabase/functions/feedback/logic.mjs") });
+
+  test("Issue mit Label, ohne Mail-Adresse, ohne @-Ping", () => {
+    const i = F.buildIssue({ kind: "idee", title: "  Dark   Mode  ", text: "Bitte @othmar anschauen" }, { player: "Silvan Frey", role: "player" }, new Date("2026-10-27T10:00:00Z"));
+    expect(i.title).toBe("💡 Dark Mode");
+    expect(i.labels).toEqual(["verbesserung", "aus-der-app"]);
+    expect(i.body).toContain("@​othmar");
+    expect(i.body).toContain("Eingereicht in der App von **Silvan Frey** (player) am 27.10.2026.");
+    expect(i.body).not.toMatch(/@\w+\.\w+/);
+  });
+
+  test("Ohne Spieler-Zuordnung anonym", () => {
+    expect(F.buildIssue({ kind: "fehler", title: "Absturz" }, { role: "captain" }).body).toContain("von **ein Mitglied** (captain)");
+  });
+
+  test("Ungültige Eingaben werden abgelehnt", () => {
+    expect(() => F.buildIssue({ kind: "spam", title: "Hallo" }, {})).toThrow("Idee oder Fehler");
+    expect(() => F.buildIssue({ kind: "idee", title: "x" }, {})).toThrow("3–100");
+    expect(() => F.buildIssue({ kind: "idee", title: "ok ok", text: "a".repeat(4001) }, {})).toThrow("4000");
+  });
+});
+
+test.describe("Push-Texte (Edge Function)", () => {
+  let L, state;
+  test.beforeAll(async () => {
+    L = await import("../supabase/functions/notify/logic.mjs");
+    const DT = [[], [], ["2026-10-21", "2026-10-28", "2026-11-04"], ["2026-11-11", "2026-12-02"], [], [], [], ["2027-03-10", "2027-04-07"]];
+    state = {
+      t: [{ n: "Lochball Legenden" }, { n: "SpVgg Nieder" }],
+      m: DT.map((d) => ({ tr: d.map((x) => ({ d: x, p: [] })), res: [null, null] })),
+    };
+  });
+
+  test("Match Day genau 3 Tage vorher", () => {
+    expect(L.matchdayMessages(state, "2026-11-01")).toEqual([{
+      key: "matchday:2026-11-04", tag: "matchday-2", title: "⚑ Match Day in 3 Tagen!",
+      body: "November: Lochball Legenden vs SpVgg Nieder am 04.11.2026",
+    }]);
+    expect(L.matchdayMessages(state, "2026-11-02")).toEqual([]);
+    expect(L.matchdayMessages(state, "2026-10-25")).toEqual([]); // normales Training, kein Match Day
+  });
+
+  test("Doppel-Spieltag wird erwähnt, auch über Monatsgrenzen", () => {
+    expect(L.matchdayMessages(state, "2026-11-29")[0].body).toContain("zählt doppelt");
+    expect(L.matchdayMessages(state, "2027-04-04")[0].body).toBe("April: Lochball Legenden vs SpVgg Nieder am 07.04.2027 – zählt doppelt!");
+  });
+
+  test("Resultat-Texte", () => {
+    expect(L.resultMessage(state, 2)).toBeNull();
+    state.m[2].res = [4, 2];
+    expect(L.resultMessage(state, 2)).toMatchObject({ key: "result:2:4-2", title: "Endstand November", body: "Lochball Legenden 4 : 2 SpVgg Nieder – Sieger: Lochball Legenden" });
+    state.m[3].res = [3, 3];
+    expect(L.resultMessage(state, 3).body).toBe("Lochball Legenden 3 : 3 SpVgg Nieder – Unentschieden (2 : 2 Punkte)");
+    state.m[7].res = [1, 5];
+    expect(L.resultMessage(state, 7).body).toContain("Sieger: SpVgg Nieder (2 Punkte)");
+  });
+
+  test("Datum in Schweizer Zeit", () => {
+    expect(L.zurichDate(new Date("2026-11-03T23:30:00Z"))).toBe("2026-11-04");
+    expect(L.addDays("2026-12-30", 3)).toBe("2027-01-02");
+  });
+});

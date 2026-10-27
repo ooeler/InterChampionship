@@ -1,0 +1,6 @@
+node_modules/
+app/vendor/
+playwright-report/
+test-results/
+.secrets/
+supabase/.temp/

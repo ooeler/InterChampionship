@@ -1,0 +1,79 @@
+# Live gehen = auf GitHub ein Release veröffentlichen (Releases → Draft a new release → Publish).
+# Ausnahme: Sicherheitspatches von Dependabot starten diesen Workflow automatisch (siehe ci.yml).
+# Erst laufen alle Tests, dann wird die App auf GitHub Pages und die Edge Function zu Supabase deployt.
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      grund:
+        description: Grund für das Deployment
+        required: false
+        default: manuell
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  pages:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev
+      - name: config.js aus den Repository-Variablen schreiben
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          OAUTH_PROVIDERS: ${{ vars.OAUTH_PROVIDERS }}
+          VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+        run: |
+          node -e '
+            const e = process.env;
+            if (!e.SUPABASE_URL || !e.SUPABASE_ANON_KEY) { console.error("Variablen SUPABASE_URL / SUPABASE_ANON_KEY fehlen"); process.exit(1); }
+            const c = { url: e.SUPABASE_URL, key: e.SUPABASE_ANON_KEY,
+              providers: (e.OAUTH_PROVIDERS || "").split(",").map(s => s.trim()).filter(Boolean),
+              vapidPublicKey: e.VAPID_PUBLIC_KEY || "" };
+            require("fs").writeFileSync("app/config.js", "window.IM_CONFIG = " + JSON.stringify(c, null, 2) + ";\n");'
+      - name: Neue Cache-Version, damit Handys das Update laden
+        run: sed -i "s/var V = \"ic-v1\"/var V = \"ic-${GITHUB_SHA::8}\"/" app/sw.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  edge-function:
+    needs: test
+    if: vars.SUPABASE_PROJECT_REF != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: |
+          supabase functions deploy notify --no-verify-jwt --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+          supabase functions deploy feedback --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

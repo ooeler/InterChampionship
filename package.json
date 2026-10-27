@@ -1,0 +1,19 @@
+{
+  "name": "interchampionship",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InterChampionship – PWA der UHC Flying Penguins für Spieltage, Anwesenheit, Skorer und Rangliste",
+  "scripts": {
+    "postinstall": "node scripts/vendor.js",
+    "start": "http-server app -p 4173 -c-1",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.45.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "http-server": "14.1.1"
+  }
+}

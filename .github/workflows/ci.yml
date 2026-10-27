@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14
+
+  # Dependabot, sobald alle Tests grün sind:
+  #  - npm-Pakete (nur Sicherheitsupdates, siehe dependabot.yml) → mergen und SOFORT live deployen
+  #  - GitHub-Actions-Updates → mergen (ausser Major), kein Deploy (betrifft nur die Pipeline)
+  # Alle anderen Änderungen gehen nur über ein Release live.
+  automerge:
+    needs: test
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v2
+      - name: Sicherheitspatch mergen und deployen
+        if: steps.meta.outputs.package-ecosystem == 'npm_and_yarn'
+        run: |
+          gh pr merge --squash --delete-branch "$PR"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f grund="Sicherheitspatch: $TITLE"
+        env:
+          PR: ${{ github.event.pull_request.html_url }}
+          TITLE: ${{ github.event.pull_request.title }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Actions-Update mergen
+        if: steps.meta.outputs.package-ecosystem == 'github_actions' && steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --squash --delete-branch "$PR"
+        env:
+          PR: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
