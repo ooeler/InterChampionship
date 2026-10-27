@@ -3,7 +3,7 @@
 //   { type: "result", month: 0-7 } – aus der App, nur für eingeloggte Mitglieder
 // Jede Nachricht wird nur einmal verschickt (Tabelle push_log).
 import webpush from "npm:web-push@3.6.7";
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { matchdayMessages, resultMessage, zurichDate } from "./logic.mjs";
 
 const cors = {

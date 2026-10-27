@@ -1,7 +1,7 @@
 // Supabase Edge Function "feedback": legt einen Verbesserungsvorschlag aus der App als GitHub-Issue an.
 // Nur für eingeloggte Mitglieder, max. DAILY_LIMIT pro Person und Tag.
 // Secrets: GITHUB_ISSUES_TOKEN (fine-grained Token, nur "Issues: Read and write" auf dieses Repo), GITHUB_REPO ("besitzer/InterChampionship")
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { buildIssue, DAILY_LIMIT } from "./logic.mjs";
 
 const cors = {
