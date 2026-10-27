@@ -8,7 +8,7 @@ Alles läuft **kostenlos**: GitHub (Code, Tests, Hosting über GitHub Pages) + S
 
 | Bereich | Wer | Inhalt |
 |---|---|---|
-| ⚡ Spieltag | alle | Resultat, Pre-Game, Startvorsprung, Anwesenheit (nächstes Training ist automatisch offen), Tore/Assists, Ablauf Matchtag |
+| ⚡ Spieltag | alle | „Meine Trainings“: selbst ab- und wieder anmelden; Resultat, Pre-Game, Startvorsprung, Anwesenheit (nächstes Training ist automatisch offen, Abmeldungen markiert), Tore/Assists, Ablauf Matchtag mit „x von y dabei“ |
 | 🏆 Rangliste | alle | Spielstand der laufenden Serie (bis Ende Dezember Winter-, danach Sommermeisterschaft), Spieltage, Anwesenheit, Skorer, Torschützen |
 | 👥 Teams | Spielleitung & Captains | Teams, Spieler, Captain, Logos, Sponsor, Backup |
 | ℹ️ Infos | alle | Verbesserungsvorschlag (→ GitHub-Issue) und das Inter-Herren-Konzept |
