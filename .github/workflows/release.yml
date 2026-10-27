@@ -35,8 +35,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: npm ci --omit=dev
@@ -56,20 +56,20 @@ jobs:
             require("fs").writeFileSync("app/config.js", "window.IM_CONFIG = " + JSON.stringify(c, null, 2) + ";\n");'
       - name: Neue Cache-Version, damit Handys das Update laden
         run: sed -i "s/var V = \"ic-v1\"/var V = \"ic-${GITHUB_SHA::8}\"/" app/sw.js
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: app
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   edge-function:
     needs: test
     if: vars.SUPABASE_PROJECT_REF != ''
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
       - run: |
