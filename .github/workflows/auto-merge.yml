@@ -14,7 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: auto-merge-${{ github.event.pull_request.number }}
+  # Entwürfe in eigener Gruppe: ein übersprungener Entwurfs-Lauf darf den echten Lauf nicht abbrechen
+  group: auto-merge-${{ github.event.pull_request.number }}-${{ github.event.pull_request.draft }}
   cancel-in-progress: true
 
 jobs:
