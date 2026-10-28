@@ -65,10 +65,9 @@ Die Schlüssel liegen in `.secrets/push.env` (nicht im Git!). Den Wert `VAPID_SU
 
 ### 3. Verbesserungsvorschläge → GitHub-Issues
 
-Im Tab **Infos** können alle Mitglieder Ideen und Fehler melden. Die Edge Function `feedback` legt daraus ein Issue an (Labels `verbesserung` bzw. `fehler` + `aus-der-app`, max. 5 pro Person und Tag, keine Mail-Adressen).
+Im Tab **Infos** können alle Mitglieder Ideen und Fehler melden. Die Edge Function `feedback` speichert den Vorschlag in Supabase; der GitHub-Ablauf **„Vorschläge → Issues“** legt daraus alle 10 Minuten ein Issue an (Labels `verbesserung` bzw. `fehler` + `aus-der-app`, max. 5 pro Person und Tag, keine Mail-Adressen). In der App erscheint unter „Meine Vorschläge“ der Status mit Link zum Issue.
 
-1. GitHub → *Settings → Developer settings → Fine-grained tokens → Generate*: nur Repository `InterChampionship`, Berechtigung **Issues: Read and write**, Ablauf z. B. 1 Jahr.
-2. Supabase → **Edge Functions → Secrets**: `GITHUB_ISSUES_TOKEN` = dieser Token, `GITHUB_REPO` = `besitzer/InterChampionship`.
+Es wird **kein persönliches GitHub-Token** benötigt – der Ablauf nutzt den eingebauten Token von GitHub Actions. Voraussetzung ist nur das Secret `SUPABASE_CRON_SECRET` (siehe unten).
 
 ### 4. GitHub
 
