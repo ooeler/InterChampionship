@@ -41,6 +41,8 @@ jobs:
           [ -n "$CRON_SECRET" ] || miss="$miss SUPABASE_CRON_SECRET"
           [ -n "$REF" ] || miss="$miss SUPABASE_PROJECT_REF(Variable)"
           if [ -n "$miss" ]; then echo "::error::Fehlt in GitHub → Settings → Secrets and variables → Actions:$miss"; exit 1; fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects)
+          if [ "$code" != "200" ]; then echo "::error::SUPABASE_ACCESS_TOKEN wird abgelehnt (HTTP $code) – vermutlich abgelaufen. Neues Token erstellen und in GitHub ersetzen (siehe README)."; exit 1; fi
       - uses: actions/checkout@v7
       - uses: supabase/setup-cli@v3
         with:
