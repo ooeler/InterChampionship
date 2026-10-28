@@ -32,6 +32,32 @@ export function matchdayMessages(state, today, daysBefore = 3) {
   return out;
 }
 
+const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const wd = (d) => WD[new Date(d + "T12:00:00Z").getUTCDay()] + ", " + fd(d);
+
+// Trainingsleitung: Erinnerung an den eingeteilten Spieler (nicht am Match Day).
+// `player` sagt der Edge Function, dass nur dessen Geräte die Nachricht bekommen.
+export function trainingLeadMessages(state, today, daysBefore = 2) {
+  const target = addDays(today, daysBefore);
+  const out = [];
+  state.m.forEach((m) => {
+    m.tr.forEach((x, ti) => {
+      if (ti === m.tr.length - 1 || !x.lead || x.d !== target) return;
+      const off = (x.ab || []).includes(x.lead);
+      out.push({
+        key: `training:${x.d}:${x.lead}`,
+        tag: `training-${x.d}`,
+        player: x.lead,
+        title: off ? "⚠ Du leitest ein Training – bist aber abgemeldet" : "Du leitest das Training",
+        body: off
+          ? `${wd(x.d)}: Bitte Ersatz für die Trainingsleitung suchen und in der App eintragen.`
+          : `${wd(x.d)}: Denk an Einlaufen, Passübungen und deine 3 Übungen.`,
+      });
+    });
+  });
+  return out;
+}
+
 export function resultMessage(state, i) {
   const m = state.m[i];
   if (!m || m.res[0] == null || m.res[1] == null) return null;

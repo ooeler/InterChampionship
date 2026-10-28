@@ -1,10 +1,11 @@
 // Supabase Edge Function "notify": verschickt Web-Push an alle abonnierten Geräte.
-//   { type: "matchday" }           – täglich per Cron (Header: Authorization: Bearer <CRON_SECRET>)
+//   { type: "matchday" }           – täglich per Cron (Header: Authorization: Bearer <CRON_SECRET>):
+//                                    Match Day in 3 Tagen (an alle) + Trainingsleitung in 2 Tagen (nur an den Leiter)
 //   { type: "result", month: 0-7 } – aus der App, nur für eingeloggte Mitglieder
 // Jede Nachricht wird nur einmal verschickt (Tabelle push_log).
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
-import { matchdayMessages, resultMessage, zurichDate } from "./logic.mjs";
+import { matchdayMessages, resultMessage, trainingLeadMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -28,10 +29,11 @@ Deno.serve(async (req) => {
   const { data: row } = await db.from("league_state").select("data").eq("id", "main").maybeSingle();
   if (!row) return json({ sent: 0 });
 
-  let msgs: { key: string; tag: string; title: string; body: string }[] = [];
+  let msgs: { key: string; tag: string; title: string; body: string; player?: string }[] = [];
   if (body.type === "matchday") {
     if (!token || token !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
-    msgs = matchdayMessages(row.data, zurichDate(new Date()));
+    const today = zurichDate(new Date());
+    msgs = [...matchdayMessages(row.data, today), ...trainingLeadMessages(row.data, today)];
   } else if (body.type === "result") {
     const { data: { user } } = await db.auth.getUser(token);
     if (!user) return json({ error: "unauthorized" }, 401);
@@ -47,10 +49,16 @@ Deno.serve(async (req) => {
   for (const msg of msgs) {
     const { error } = await db.from("push_log").insert({ key: msg.key });
     if (error) continue; // bereits verschickt
-    const { data: subs } = await db.from("push_subscriptions").select("endpoint, sub");
+    let q = db.from("push_subscriptions").select("endpoint, sub");
+    if (msg.player) { // nur an die Geräte der Konten, die diesem Spieler zugeordnet sind
+      const { data: owners } = await db.from("members").select("user_id").eq("player", msg.player);
+      q = q.in("user_id", (owners ?? []).map((o) => o.user_id));
+    }
+    const { data: subs } = await q;
+    const { player: _p, ...payload } = msg;
     for (const s of subs ?? []) {
       try {
-        await webpush.sendNotification(s.sub, JSON.stringify({ ...msg, url: "./" }));
+        await webpush.sendNotification(s.sub, JSON.stringify({ ...payload, url: "./" }));
         sent++;
       } catch (e) {
         const code = (e as { statusCode?: number }).statusCode;
