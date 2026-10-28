@@ -122,9 +122,10 @@
       if (!s) return fail("JWT expired");
       if (fn == "me") {
         var me = USERS[s.user.email] || {};
-        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen") });
+        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1" });
       }
       log({ op: "rpc", fn: fn, args: a });
+      if (fn == "set_notify") { localStorage.setItem("__mock_notify", a.on_changes ? "1" : "0"); return ok(null) }
       if (fn == "snapshot_league") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Backups anlegen");
         return ok(hist(get(DB).data, a.reason));
