@@ -33,3 +33,31 @@ test("Tests als Unterablauf brauchen keine Schreibrechte", () => {
   // v1.0.0 scheiterte, weil ein Job in ci.yml Schreibrechte verlangte
   expect(wf("ci.yml")).not.toMatch(/:\s*write/);
 });
+
+test("Release: Backup per SQL, ohne Abhängigkeit von Edge Functions", () => {
+  const y = wf("release.yml");
+  // v1.1.1 scheiterte, weil das Backup über eine Funktion lief, die selbst einen Fehler hatte
+  expect(y).not.toContain("functions/v1/ops");
+  expect(y).toContain("insert into public.league_state_history");
+  // in Bash muss $$ escaped sein, sonst wird es zur Prozessnummer
+  expect(y).not.toMatch(/"do \$\$/);
+  expect(y).toContain(String.raw`"do \$\$`);
+});
+
+test("Release: Funktionstest der Datenbank nach den Migrationen", () => {
+  const y = wf("release.yml");
+  expect(y.indexOf("name: Funktionstest Datenbank")).toBeGreaterThan(y.indexOf("name: Datenbank-Migrationen"));
+  expect(y).toContain("perform public.snapshot_league('Funktionstest')");
+});
+
+test("SQL: Parameter, die wie Spalten heissen, sind eindeutig aufgelöst", () => {
+  const dir = path.join(__dirname, "..", "supabase", "migrations");
+  const last = {};
+  for (const f of fs.readdirSync(dir).sort()) {
+    const sql = fs.readFileSync(path.join(dir, f), "utf8");
+    for (const m of sql.matchAll(/create or replace function public\.(\w+)\(([^)]*)\)[\s\S]*?\$\$([\s\S]*?)end \$\$/g)) last[m[1]] = { params: m[2], body: m[3], f };
+  }
+  // snapshot_league hat den Parameter "reason" wie die Spalte league_state_history.reason
+  expect(last.snapshot_league.f).toBe("20261029_04_fix_snapshot.sql");
+  expect(last.snapshot_league.body).toContain("#variable_conflict use_column");
+});
