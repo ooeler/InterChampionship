@@ -8,7 +8,7 @@
     "admin@flyingpenguins.test": { pw: "admin123", role: "admin" },
     "spieler@flyingpenguins.test": { pw: "spieler123", role: "player", name: "Silvan Frey" },
   };
-  var DB = "__mock_db", SESS = "__mock_session", LOG = "__mock_log";
+  var DB = "__mock_db", SESS = "__mock_session", LOG = "__mock_log", HIST = "__mock_hist";
   function get(k) { try { return JSON.parse(localStorage.getItem(k)) } catch (e) { return null } }
   function set(k, v) { localStorage.setItem(k, JSON.stringify(v)) }
   function log(x) { var l = get(LOG) || []; l.push(x); set(LOG, l) }
@@ -86,9 +86,12 @@
             eq: function (col, val) {
               return { maybeSingle: function () { var r = get(DB); return ok(r && r[col] == val ? { data: r.data } : null) } };
             },
-            order: function () { // members (RLS: nur Admins sehen alle)
-              if (role() != "admin") return ok([]);
-              return ok(Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null } }));
+            order: function () {
+              var res;
+              if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
+              else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
+              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null } });
+              var p = ok(res); p.limit = function (n) { return ok(res.slice(0, n)) }; return p;
             }
           };
         },
@@ -99,6 +102,7 @@
             // Spiegelt den Trigger guard_league_state aus supabase/setup.sql
             if (role() == "player" && (!old || ["t", "sn", "logo", "sp"].some(function (k) { return JSON.stringify(old.data[k]) != JSON.stringify(row.data[k]) })))
               return fail("Nur Admins und Captains dürfen Teams und Einstellungen ändern");
+            if (old) hist(old.data, "Änderung"); // spiegelt den Trigger keep_league_history
             set(DB, JSON.parse(JSON.stringify(row)));
           }
           log({ op: "upsert", table: table, row: table == "league_state" ? undefined : row });
@@ -106,6 +110,10 @@
         },
         delete: function () { return { eq: function (c, v) { log({ op: "delete", table: table, value: v }); return ok() } } }
       };
+    }
+
+    function hist(data, reason) {
+      var h = get(HIST) || []; h.push({ id: h.length + 1, data: data, reason: reason, saved_at: new Date().toISOString() }); set(HIST, h); return h.length;
     }
 
     function rpc(fn, a) {
@@ -116,6 +124,17 @@
         return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen") });
       }
       log({ op: "rpc", fn: fn, args: a });
+      if (fn == "snapshot_league") {
+        if (role() != "admin") return fail("Nur die Spielleitung darf Backups anlegen");
+        return ok(hist(get(DB).data, a.reason));
+      }
+      if (fn == "restore_league_state") {
+        if (role() != "admin") return fail("Nur die Spielleitung darf Daten wiederherstellen");
+        var e = (get(HIST) || []).filter(function (h) { return h.id == a.hid })[0];
+        if (!e) return fail("Version nicht gefunden");
+        var cur = get(DB); hist(cur.data, "vor Wiederherstellung");
+        cur.data = e.data; cur.client = "restore"; set(DB, cur); return ok(null);
+      }
       if (fn == "set_member") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Benutzer verwalten");
         if (a.uid == "u-" + s.user.email && a.new_role != "admin") return fail("Du kannst dir die Admin-Rolle nicht selbst entziehen");
