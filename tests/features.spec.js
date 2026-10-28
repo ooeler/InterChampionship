@@ -303,6 +303,81 @@ test.describe("Abmeldungen", () => {
   });
 });
 
+test.describe("Trainingsleitung", () => {
+  async function seed(page, player = "Silvan Frey") {
+    await page.goto("/");
+    await page.evaluate((p) => {
+      localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: fix(def()) }));
+      if (p) localStorage.setItem("__mock_player", p);
+    }, player);
+  }
+  const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")).data);
+
+  test("Jede Person kann die Leitung eines Trainings wählen", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=spiel]"); // November, offen: Training 28.10.
+    await page.locator("select[data-lead='2,1']").selectOption("Beat Rentsch");
+    await expect(page.locator(".tr").nth(1)).toContainText("Leitung: Beat Rentsch");
+    await expect.poll(async () => (await db(page)).m[2].tr[1].lead).toBe("Beat Rentsch");
+    await page.locator("select[data-lead='2,1']").selectOption(""); // wieder offen
+    await expect.poll(async () => (await db(page)).m[2].tr[1].lead).toBeUndefined();
+  });
+
+  test("Am Match Day gibt es keine Trainingsleitung", async ({ page }) => {
+    await seed(page);
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-ot='2']"); // 04.11. = Match Day
+    await expect(page.locator("input[data-dt='2']")).toBeVisible();
+    await expect(page.locator("select[data-lead='2,2']")).toHaveCount(0);
+  });
+
+  test("„Ich leite“ in Meine Trainings, mit Abgeben", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=spiel]");
+    const row = page.locator(".card", { hasText: "Meine Trainings" }).locator(".row").first();
+    await row.locator("[data-leadme]").click();
+    await expect(row).toContainText("Du leitest das Training");
+    await expect(row).toHaveClass(/lme/);
+    await expect.poll(async () => (await db(page)).m[2].tr[1].lead).toBe("Silvan Frey");
+    await row.locator("[data-leadme]").click(); // Abgeben
+    await expect(row.locator("[data-leadme]")).toHaveText("Ich leite");
+    await expect(page.locator(".card", { hasText: "Meine Trainings" }).locator(".row", { hasText: "Match Day" }).first().locator("[data-leadme]")).toHaveCount(0);
+  });
+
+  test("Abgemeldeter Leiter wird gewarnt", async ({ page }) => {
+    await seed(page, null);
+    await page.evaluate(() => {
+      const r = JSON.parse(localStorage.getItem("__mock_db"));
+      r.data.m[2].tr[1].lead = "Beat Rentsch"; r.data.m[2].tr[1].ab = ["Beat Rentsch"];
+      localStorage.setItem("__mock_db", JSON.stringify(r));
+    });
+    await login(page);
+    await page.click("nav [data-tab=spiel]");
+    await expect(page.locator(".tr").nth(1)).toContainText("Leitung: Beat Rentsch ⚠ abgemeldet");
+  });
+
+  test("Umbenennen zieht Leitung und Abmeldung mit", async ({ page }) => {
+    await seed(page, null);
+    await page.evaluate(() => {
+      const r = JSON.parse(localStorage.getItem("__mock_db"));
+      r.data.m[2].tr[1].lead = "Andreas Scherrer"; r.data.m[2].tr[1].ab = ["Andreas Scherrer"];
+      localStorage.setItem("__mock_db", JSON.stringify(r));
+    });
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    const inp = page.locator("input[data-pn='0']").first();
+    await expect(inp).toHaveValue("Andreas Scherrer");
+    await inp.fill("Andi Scherrer");
+    await inp.blur();
+    const tr = await page.evaluate(() => S.m[2].tr[1]);
+    expect(tr.lead).toBe("Andi Scherrer");
+    expect(tr.ab).toEqual(["Andi Scherrer"]);
+  });
+});
+
 test.describe("Push-Nachrichten", () => {
   test("Resultat melden schickt Push über die Edge Function", async ({ page }) => {
     await login(page);
@@ -445,6 +520,26 @@ test.describe("Push-Texte (Edge Function)", () => {
     expect(L.resultMessage(state, 3).body).toBe("Lochball Legenden 3 : 3 SpVgg Nieder – Unentschieden (2 : 2 Punkte)");
     state.m[7].res = [1, 5];
     expect(L.resultMessage(state, 7).body).toContain("Sieger: SpVgg Nieder (2 Punkte)");
+  });
+
+  test("Trainingsleitung: Erinnerung 2 Tage vorher, nur an den Leiter", () => {
+    const s = JSON.parse(JSON.stringify(state));
+    s.m[2].tr[1].lead = "Silvan Frey"; // 28.10.
+    s.m[2].tr[2].lead = "Beat Rentsch"; // 04.11. = Match Day → keine Erinnerung
+    expect(L.trainingLeadMessages(s, "2026-10-26")).toEqual([{
+      key: "training:2026-10-28:Silvan Frey", tag: "training-2026-10-28", player: "Silvan Frey",
+      title: "Du leitest das Training", body: "Mi, 28.10.2026: Denk an Einlaufen, Passübungen und deine 3 Übungen.",
+    }]);
+    expect(L.trainingLeadMessages(s, "2026-10-27")).toEqual([]);
+    expect(L.trainingLeadMessages(s, "2026-11-02")).toEqual([]);
+  });
+
+  test("Trainingsleitung: abgemeldeter Leiter soll Ersatz suchen", () => {
+    const s = JSON.parse(JSON.stringify(state));
+    s.m[2].tr[1].lead = "Silvan Frey"; s.m[2].tr[1].ab = ["Silvan Frey"];
+    const [m] = L.trainingLeadMessages(s, "2026-10-26");
+    expect(m.title).toContain("abgemeldet");
+    expect(m.body).toContain("Ersatz");
   });
 
   test("Datum in Schweizer Zeit", () => {
