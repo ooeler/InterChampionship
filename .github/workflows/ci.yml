@@ -1,9 +1,9 @@
 name: Tests
 
+# Testläufe für main. Pull Requests werden über auto-merge.yml getestet, Releases über release.yml.
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_call:
 
 permissions:
