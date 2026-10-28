@@ -91,7 +91,7 @@
               if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
-              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null } });
+              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null, resto: !!USERS[e].resto } });
               var p = ok(res); p.limit = function (n) { return ok(res.slice(0, n)) }; return p;
             }
           };
@@ -122,9 +122,13 @@
       if (!s) return fail("JWT expired");
       if (fn == "me") {
         var me = USERS[s.user.email] || {};
-        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1" });
+        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1" });
       }
       log({ op: "rpc", fn: fn, args: a });
+      if (fn == "set_resto") {
+        if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
+        USERS[a.uid.slice(2)].resto = a.on_resto; return ok(null);
+      }
       if (fn == "set_notify") { localStorage.setItem("__mock_notify", a.on_changes ? "1" : "0"); return ok(null) }
       if (fn == "snapshot_league") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Backups anlegen");
