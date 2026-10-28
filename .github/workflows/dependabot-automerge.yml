@@ -1,0 +1,43 @@
+# Dependabot, sobald alle Tests grün sind:
+#  - npm-Pakete (nur Sicherheitsupdates, siehe dependabot.yml) → mergen und SOFORT live deployen
+#  - GitHub-Actions-Updates → mergen (ausser Major), kein Deploy (betrifft nur die Pipeline)
+# Alle anderen Änderungen gehen nur über ein Release live.
+# Eigener Workflow, damit ci.yml ohne Schreibrechte als Unterablauf von release.yml laufen kann.
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.actor == 'dependabot[bot]'
+    uses: ./.github/workflows/ci.yml
+
+  automerge:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v3
+      - name: Sicherheitspatch mergen und deployen
+        if: steps.meta.outputs.package-ecosystem == 'npm_and_yarn'
+        run: |
+          gh pr merge --squash --delete-branch "$PR"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f grund="Sicherheitspatch: $TITLE"
+        env:
+          PR: ${{ github.event.pull_request.html_url }}
+          TITLE: ${{ github.event.pull_request.title }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Actions-Update mergen
+        if: steps.meta.outputs.package-ecosystem == 'github_actions' && steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --squash --delete-branch "$PR"
+        env:
+          PR: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

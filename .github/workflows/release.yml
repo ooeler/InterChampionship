@@ -1,5 +1,5 @@
 # Live gehen = auf GitHub ein Release veröffentlichen (Releases → Draft a new release → Publish).
-# Ausnahme: Sicherheitspatches von Dependabot starten diesen Workflow automatisch (siehe ci.yml).
+# Ausnahme: Sicherheitspatches von Dependabot starten diesen Workflow automatisch (siehe dependabot-automerge.yml).
 # Erst laufen alle Tests, dann wird die App auf GitHub Pages und die Edge Function zu Supabase deployt.
 name: Release
 
