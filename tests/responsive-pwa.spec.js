@@ -44,7 +44,7 @@ test.describe("Ladebildschirm", () => {
     await expect(s.locator("img")).toHaveAttribute("src", "logo.png");
     expect(await s.locator("img").evaluate((i) => i.complete && i.naturalWidth > 0)).toBe(true);
     await expect(s).toHaveCount(0, { timeout: 5000 });
-    await expect(page.locator("#auth form")).toBeVisible();
+    await expect(page.locator("main")).toContainText("Meisterschaft"); // öffentliche Rangliste
   });
 
   test("Bewegung reduzieren: keine Animation", async ({ page }) => {
