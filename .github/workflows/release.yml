@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.122.0  # gleiche Version wie lokal getestet
 
       - name: Backup vor dem Deployment
         run: |
@@ -59,11 +59,11 @@ jobs:
 
       - name: Datenbank-Migrationen
         run: |
-          q() { supabase db query --linked --project-ref "$REF" "$@" 2>/dev/null; }
+          q() { supabase db query --agent no --linked --project-ref "$REF" "$@" 2>/dev/null; }
           q "create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz not null default now()); alter table public.schema_migrations enable row level security;" > /dev/null
           for f in $(ls supabase/migrations/*.sql 2>/dev/null | sort); do
             n=$(basename "$f")
-            c=$(q -o json "select count(*)::int as c from public.schema_migrations where name = '$n'" | jq -r '.rows[0].c')
+            c=$(q -o json "select count(*)::int as c from public.schema_migrations where name = '$n'" | jq -r 'if type == "array" then .[0].c else .rows[0].c end')
             if [ "$c" = "1" ]; then echo "✓ $n (bereits angewendet)"; continue; fi
             echo "→ $n"
             supabase db query --linked --project-ref "$REF" -f "$f" > /dev/null
