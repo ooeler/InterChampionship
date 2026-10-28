@@ -1,6 +1,7 @@
-# Live gehen = auf GitHub ein Release veröffentlichen (Releases → Draft a new release → Publish).
-# Ausnahme: Sicherheitspatches von Dependabot starten diesen Workflow automatisch (siehe dependabot-automerge.yml).
-# Erst laufen alle Tests, dann wird die App auf GitHub Pages und die Edge Function zu Supabase deployt.
+# Deployment. Läuft automatisch nach jedem gemergten Pull Request (siehe auto-merge.yml)
+# oder manuell über ein veröffentlichtes Release / "Run workflow".
+# Reihenfolge: Tests → Backup → Datenbank-Migrationen → Edge Functions → App (GitHub Pages).
+# Bricht ein Schritt ab, geht nichts Neues live; das Backup erlaubt jederzeit ein Rollback.
 name: Release
 
 on:
@@ -24,8 +25,69 @@ jobs:
   test:
     uses: ./.github/workflows/ci.yml
 
-  pages:
+  backend:
     needs: test
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      CRON_SECRET: ${{ secrets.SUPABASE_CRON_SECRET }}
+      REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      URL: ${{ vars.SUPABASE_URL }}
+    steps:
+      - name: Secrets vorhanden?
+        run: |
+          miss=""
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || miss="$miss SUPABASE_ACCESS_TOKEN"
+          [ -n "$CRON_SECRET" ] || miss="$miss SUPABASE_CRON_SECRET"
+          [ -n "$REF" ] || miss="$miss SUPABASE_PROJECT_REF(Variable)"
+          if [ -n "$miss" ]; then echo "::error::Fehlt in GitHub → Settings → Secrets and variables → Actions:$miss"; exit 1; fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects)
+          if [ "$code" != "200" ]; then echo "::error::SUPABASE_ACCESS_TOKEN wird abgelehnt (HTTP $code) – vermutlich abgelaufen. Neues Token erstellen und in GitHub ersetzen (siehe README)."; exit 1; fi
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0  # gleiche Version wie lokal getestet
+
+      - name: Backup vor dem Deployment
+        # direkt per SQL – unabhängig von Funktionen, die sich durch dieses Release erst ändern
+        run: |
+          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin if to_regclass('public.league_state_history') is not null then
+               insert into public.league_state_history (state_id, data, updated_by, reason)
+               select id, data, updated_by, 'vor Release ${GITHUB_REF_NAME}' from public.league_state;
+             end if; end \$\$" > /dev/null
+          echo "Backup vor Release ${GITHUB_REF_NAME} erstellt"
+
+      - name: Datenbank-Migrationen
+        run: |
+          q() { supabase db query --agent no --linked --project-ref "$REF" "$@" 2>/dev/null; }
+          q "create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz not null default now()); alter table public.schema_migrations enable row level security;" > /dev/null
+          for f in $(ls supabase/migrations/*.sql 2>/dev/null | sort); do
+            n=$(basename "$f")
+            c=$(q -o json "select count(*)::int as c from public.schema_migrations where name = '$n'" | jq -r 'if type == "array" then .[0].c else .rows[0].c end')
+            if [ "$c" = "1" ]; then echo "✓ $n (bereits angewendet)"; continue; fi
+            echo "→ $n"
+            supabase db query --linked --project-ref "$REF" -f "$f" > /dev/null
+            q "insert into public.schema_migrations (name) values ('$n')" > /dev/null
+          done
+
+      - name: Funktionstest Datenbank (ohne bleibende Änderung)
+        run: |
+          # ruft snapshot_league in der echten DB auf und macht es sofort rückgängig;
+          # jeder andere Fehler (z. B. ein Bug in einer Funktion) stoppt das Release
+          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin begin perform public.snapshot_league('Funktionstest'); raise exception using errcode = 'P0099';
+             exception when sqlstate 'P0099' then null; end; end \$\$" > /dev/null
+          echo "snapshot_league funktioniert"
+
+      - name: Edge Functions
+        run: |
+          for d in supabase/functions/*/; do
+            fn=$(basename "$d")
+            case "$fn" in feedback) flags="" ;; *) flags="--no-verify-jwt" ;; esac  # notify/ops prüfen selbst
+            supabase functions deploy "$fn" $flags --use-api --project-ref "$REF"
+          done
+
+  pages:
+    needs: backend
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -62,28 +124,3 @@ jobs:
           path: app
       - id: deploy
         uses: actions/deploy-pages@v5
-
-  edge-function:
-    needs: test
-    if: vars.SUPABASE_PROJECT_REF != ''
-    runs-on: ubuntu-latest
-    steps:
-      - id: token
-        name: Supabase-Token vorhanden?
-        run: |
-          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
-          else echo "::warning::Secret SUPABASE_ACCESS_TOKEN fehlt – Edge Functions werden nicht neu deployt."; fi
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - if: steps.token.outputs.ok == 'true'
-        uses: actions/checkout@v7
-      - if: steps.token.outputs.ok == 'true'
-        uses: supabase/setup-cli@v3
-        with:
-          version: latest
-      - if: steps.token.outputs.ok == 'true'
-        run: |
-          supabase functions deploy notify --no-verify-jwt --use-api --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
-          supabase functions deploy feedback --use-api --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
