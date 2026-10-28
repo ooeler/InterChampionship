@@ -152,6 +152,14 @@
     var functions = {
       invoke: function (name, o) {
         log({ op: "invoke", name: name, body: o.body });
+        if (name == "invite") { // spiegelt supabase/functions/invite/logic.mjs (vereinfacht)
+          var b = o.body, em = String(b.email || "").toLowerCase(), r = role();
+          var err = function (m) { return Promise.resolve({ data: null, error: { message: "non-2xx", context: { json: function () { return Promise.resolve({ error: m }) } } } }) };
+          if (r != "admin" && r != "captain") return err("Nur Spielleitung und Captains dürfen einladen.");
+          if (b.role != "player" && r != "admin") return err("Nur die Spielleitung darf Captains oder Spielleitung einladen.");
+          if (USERS[em]) return err("Diese Adresse hat bereits ein Konto.");
+          USERS[em] = { pw: null, role: b.role, player: b.player }; return ok({ ok: true, email: em });
+        }
         if (name == "feedback") {
           // wie supabase-js bei HTTP-Fehlern: data = null, Server-Antwort steckt in error.context (Response)
           if (o.body.title == "zu viele") return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code",
