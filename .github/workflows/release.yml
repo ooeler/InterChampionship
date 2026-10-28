@@ -124,9 +124,13 @@ jobs:
             require("fs").writeFileSync("app/config.js", "window.IM_CONFIG = " + JSON.stringify(c, null, 2) + ";\n");'
       - name: Neue Cache-Version, damit Handys das Update laden
         run: sed -i "s/var V = \"ic-v1\"/var V = \"ic-${GITHUB_SHA::8}\"/" app/sw.js
+      - name: App bauen (Content-Security-Policy)
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: node scripts/build.mjs
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: app
+          path: dist
       - id: deploy
         uses: actions/deploy-pages@v5

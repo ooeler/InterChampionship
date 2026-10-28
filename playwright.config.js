@@ -18,7 +18,8 @@ module.exports = defineConfig({
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "npx http-server app -p 4173 -c-1 -s",
+    // Getestet wird die gebaute App (inkl. Content-Security-Policy) – genau das, was ausgeliefert wird
+    command: "node scripts/build.mjs && npx http-server dist -p 4173 -c-1 -s",
     url: "http://localhost:4173",
     reuseExistingServer: !process.env.CI,
   },
