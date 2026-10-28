@@ -56,15 +56,6 @@ test.describe("Spiellogik", () => {
     await expect(tore.locator(".row").first().locator("b")).toHaveText("2");
   });
 
-  test("Training: Anwesenheit abhaken zählt für die Saison", async ({ page }) => {
-    await login(page);
-    await page.click("nav [data-tab=spiel]");
-    await page.click("[data-c='2']");
-    await page.click("[data-ot='0']");
-    await page.click("[data-all='0']");
-    await expect(page.locator(".tr").first()).toContainText("16 anwesend");
-  });
-
   test("Spieler umbenennen übernimmt Statistiken", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");

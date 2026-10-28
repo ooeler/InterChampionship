@@ -49,6 +49,8 @@ input.t,textarea.t{width:100%;border:1px solid var(--ln);background:var(--bg);co
 .bar{height:8px;border-radius:9px;background:var(--bg);flex:1;overflow:hidden;margin:0 8px}.bar div{height:100%;background:var(--ac)}
 .rk{width:22px;color:var(--mu);font-weight:700}
 .sy{font-size:12px;color:var(--mu);text-align:center;padding:6px}.sp{font-size:11px;color:var(--mu)}.fl{color:var(--ac)}.tr{border-top:1px solid var(--ln);padding:6px 0}.pt{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pb{border:0;border-radius:99px;padding:9px 13px;font:600 13px Arial,Helvetica,sans-serif;background:var(--bg);color:var(--mu)}.pb.on{background:var(--ok);color:#fff}.ld{color:var(--mu);font-size:13px}.row.lme{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:8px;padding-left:6px}.card.upd{border-left-color:#d97706}
+.ev{color:#7c3aed}.row.evr{background:color-mix(in srgb,#7c3aed 8%,transparent);border-radius:8px;padding-left:6px}.pb.in{background:var(--card);color:var(--tx);box-shadow:inset 0 0 0 1px var(--ln)}.pb.dis{opacity:.55}
+table.mt{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13px}table.mt th,table.mt td{padding:5px 4px;border-top:1px solid var(--ln);text-align:center}table.mt th:first-child,table.mt td:first-child{text-align:left}
 .pb.off{background:#4b5563;color:#fff;text-decoration:line-through}.lg{width:72px;height:72px;object-fit:contain;margin-bottom:4px}.logo{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--bg);border-radius:8px;overflow:hidden}.logo img{max-width:100%;max-height:100%}.sl{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:6px}header{display:flex;align-items:center;gap:12px}#clogo{width:88px;height:66px;object-fit:contain;background:#fff;padding:4px;align-self:flex-start;margin:-16px 0 0 -16px;box-shadow:0 2px 6px rgba(0,0,0,.3)}.sk{border-top:1px solid var(--ln);padding:10px 0}.big{display:flex;flex-direction:column;align-items:center;gap:2px}.big .st{gap:6px}.big .st button{width:46px;height:46px;font-size:24px}.big .st span{min-width:34px;font-size:20px}.card.cl>:not(h3){display:none}.card h3[data-tg]{cursor:pointer;display:flex;justify-content:space-between}.card h3[data-tg]:after{content:"▾"}.card.cl h3[data-tg]{margin-bottom:0}.card.cl h3[data-tg]:after{content:"▸"}
 
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -143,10 +145,6 @@ function wd(d){return ["So","Mo","Di","Mi","Do","Fr","Sa"][new Date(d+"T12:00:00
 function ablauf(m){var d=m.tr.length?m.tr[m.tr.length-1].d:null;if(!d)return "";return '<div class="card"><h3>Ablauf Matchtag · '+wd(d)+'</h3>'+[["18:45","Einlaufen / Einschiessen"],["18:55","3 × Pre-Game à 10 min, dazwischen 5 min Pause"],["19:40","Hauptmatch à 20 min (letzte 3 min effektiv)"],["20:30","Matchtag im Restaurant ausklingen lassen"]].map(function(x){return '<div class="kv"><b style="min-width:52px">'+x[0]+'</b><span style="flex:1">'+x[1]+'</span></div>'}).join("")+(d>=TD?avail(m.tr[m.tr.length-1]):'')+'</div>'}
 // Wer ist am Matchtag dabei? (Abmeldungen der Spieler)
 function avail(x){var ab=x.ab||[];return '<div class="sk">'+[0,1].map(function(t){var P=S.t[t].p,o=P.filter(function(p){return ab.indexOf(p)>=0});return '<div class="kv"><span class="'+(t?"tb":"ta")+'">'+esc(S.t[t].n)+'</span><b>'+(P.length-o.length)+' von '+P.length+' dabei</b></div>'+(o.length?'<div class="sp" style="text-align:right">abgemeldet: '+o.map(esc).join(", ")+'</div>':'')}).join("")+'</div>'}
-// Spieler melden sich für kommende Trainings selbst ab
-function myAbs(){if(!PLAYER){return ROLE=="player"?'<div class="card"><h3>Meine Trainings</h3><div class="sp">Dein Konto ist noch keinem Spieler zugeordnet. Bitte die Spielleitung, das unter Teams → Benutzer &amp; Rollen zu erledigen – dann kannst du dich hier abmelden.</div></div>':""}
-var L=[];S.m.forEach(function(m,mi){m.tr.forEach(function(x,ti){if(x.d>=TD)L.push({x:x,mi:mi,ti:ti,md:ti==m.tr.length-1})})});L.sort(function(a,b){return a.x.d<b.x.d?-1:1});L=L.slice(0,8);if(!L.length)return "";
-return '<div class="card"><h3>Meine Trainings</h3><div class="sp" style="margin-bottom:4px">Kannst du nicht? Melde dich ab – deine Captains sehen es sofort.</div>'+L.map(function(r){var o=(r.x.ab||[]).indexOf(PLAYER)>=0;var me=!r.md&&r.x.lead==PLAYER;return '<div class="row'+(me?' lme':'')+'"><span class="nm">'+wd(r.x.d)+(r.md?' · <b class="fl">Match Day ⚑</b>':me?' · <b class="fl">Du leitest das Training</b>':leadTxt(r.x))+'</span>'+(r.md?'':'<button class="x" style="font-size:12px" data-leadme="'+r.mi+','+r.ti+'">'+(me?'Abgeben':r.x.lead?'Übernehmen':'Ich leite')+'</button>')+'<button class="pb'+(o?" off":" on")+'" data-abw="'+r.mi+','+r.ti+'" data-p="'+esc(PLAYER)+'">'+(o?"✗ abgemeldet":"✓ dabei")+'</button></div>'}).join("")+'</div>'}
 // ── Verbesserungsvorschläge → GitHub-Issue (über die Edge Function "feedback") ──
 var FBD={kind:"idee",title:"",text:""},FBM=null;
 function fbCard(){return '<div class="card"><h3>Verbesserungsvorschlag</h3><div class="sp">Idee oder Fehler? Dein Vorschlag wird als GitHub-Issue erfasst, und wir lösen ihn gemeinsam.</div><form id="fb"><div class="pt">'+[["idee","💡 Idee"],["fehler","🐞 Fehler"]].map(function(k){return '<button type="button" class="pb'+(FBD.kind==k[0]?" on":"")+'" data-fbk="'+k[0]+'">'+k[1]+'</button>'}).join("")+'</div><input class="t" name="title" aria-label="Titel" placeholder="Kurzer Titel" maxlength="100" minlength="3" required value="'+esc(FBD.title)+'"><textarea class="t" name="text" aria-label="Beschreibung" placeholder="Was soll besser werden? (optional)" maxlength="4000" style="margin-top:8px">'+esc(FBD.text)+'</textarea><button class="add">Vorschlag senden</button>'+(FBM?'<div class="sp fbm" style="margin-top:8px">'+FBM+'</div>':'')+'</form></div>'}
@@ -175,14 +173,69 @@ function skor(t,m){return '<div class="card"><h3 class="'+(t?"tb":"ta")+'">'+esc
 function allP(){return S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.localeCompare(b,"de")})}
 function leadTxt(x){if(!x.lead)return '';var o=(x.ab||[]).indexOf(x.lead)>=0;return ' · <span class="ld">Leitung: '+esc(x.lead)+(o?' <b class="fl">⚠ abgemeldet</b>':'')+'</span>'}
 function leadSel(mi,ti,x){return '<div class="sp" style="margin:8px 0 4px">Training leitet</div><select class="t" data-lead="'+mi+','+ti+'" aria-label="Training leitet"><option value="">– Leitung offen –</option>'+allP().map(function(p){return '<option'+(x.lead==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select>'}
-function trn(m){var h='<div class="card"><h3>Trainings &amp; Anwesenheit</h3>';
-if(Object.keys(m.base).length)h+='<div class="sp">Übernommene Summen aktiv <button class="x" style="font-size:12px" data-clrb="1">löschen</button></div>';
-m.tr.forEach(function(x,i){var n=x.p.length;h+='<div class="tr"><div class="row" style="border:0" data-ot="'+i+'"><span class="nm">'+fd(x.d)+(i==m.tr.length-1?' · <b class="fl">Spieltag ⚑</b>':leadTxt(x))+'</span><span class="sp">'+(x.d>TD?"geplant"+((x.ab||[]).length?" · "+x.ab.length+" abgemeldet":""):n+" anwesend")+'</span></div>';
-if(ot===i){h+=(i<m.tr.length-1?leadSel(cur,i,x):'')+'<input class="t" type="date" data-dt="'+i+'" value="'+x.d+'"'+(i<m.tr.length-1?' style="margin-top:8px"':'')+'><div class="pt">'+[0,1].map(function(t){return S.t[t].p.map(function(p){var a=x.p.indexOf(p)>=0,o=!a&&(x.ab||[]).indexOf(p)>=0;return '<button class="pb'+(a?" on":o?" off":"")+'" data-ab="'+i+'" data-p="'+esc(p)+'"'+(o?' title="abgemeldet"':'')+'>'+(a?"✓ ":o?"✗ ":"")+esc(p)+'</button>'}).join("")}).join("")+'</div><button class="x" style="font-size:13px" data-all="'+i+'">Alle anwesend</button><button class="x" style="font-size:13px" data-dtr="'+i+'">Training löschen</button>'}
-h+='</div>'});
-return h+'<button class="add" data-atr="1">+ Training hinzufügen</button></div>'}
+// ── Training: An-/Abmeldung, Bestätigung der Anwesenheit, Übersichten ──
+// Alle sind automatisch angemeldet. Selbst abmelden bis 23 h vor Trainingsbeginn (Spielleitung/Captains jederzeit).
+// Ab Trainingsbeginn kann jede Person die Anwesenheit bestätigen – erst dann zählt sie für die Statistik.
+var TSTART="18:45",TALL=false,TSEL=null,TMON=null,NOTIFY=false;
+function tstart(x){return x.t||TSTART}
+function tms(x){return new Date(x.d+"T"+tstart(x)+":00").getTime()}
+function started(x){return Date.now()>=tms(x)}
+function canOff(x){return Date.now()<tms(x)-23*36e5}
+function allTr(){var L=[];S.m.forEach(function(m,mi){m.tr.forEach(function(x,ti){L.push({x:x,mi:mi,ti:ti,md:ti==m.tr.length-1})})});return L.sort(function(a,b){return a.x.d<b.x.d?-1:a.x.d>b.x.d?1:0})}
+function evts(){var Y=sy();return [{d:nthWd(Y,11,3,2),n:"Weihnachts-Apéro"},{d:nthWd(Y+1,4,5,1),n:"Jahresabschluss"}]}
+function evOn(d){return evts().filter(function(e){return e.d==d})[0]}
+function marks(r){var e=evOn(r.x.d);return (r.md?' · <b class="fl">Match Day ⚑</b>':'')+(e?' · <b class="ev">🎉 '+e.n+'</b>':'')}
+function trKey(r){return r.mi+","+r.ti}
+function trAt(k){var a=String(k).split(",");return {mi:+a[0],ti:+a[1],x:S.m[+a[0]].tr[+a[1]],md:+a[1]==S.m[+a[0]].tr.length-1}}
+function isOff(x,p){return (x.ab||[]).indexOf(p)>=0}
+// An-/Abmelden mit Frist; meldet die Änderung an alle, die das abonniert haben
+function setOff(k,p,off){var r=trAt(k),x=r.x;if(started(x)){alert("Das Training hat schon begonnen.");return false}
+if(off&&!canTeam()&&!canOff(x)){alert("Abmelden ist nur bis 23 Stunden vor Trainingsbeginn möglich. Bitte melde dich direkt bei deinem Captain.");return false}
+x.ab=x.ab||[];var q=x.ab.indexOf(p);if(off&&q<0)x.ab.push(p);if(!off&&q>=0)x.ab.splice(q,1);save();
+if(sb&&me)sb.functions.invoke("notify",{body:{type:"signup",d:x.d,t:tstart(x),player:p,off:off}}).catch(function(){});return true}
+function myTr(){if(!PLAYER)return ROLE=="player"?'<div class="card"><h3>Meine Trainings</h3><div class="sp">Dein Konto ist noch keinem Spieler zugeordnet. Bitte die Spielleitung, das unter Teams → Benutzer &amp; Rollen zu erledigen – dann kannst du dich hier abmelden.</div></div>':"";
+var L=allTr().filter(function(r){return r.x.d>=TD&&!started(r.x)});
+evts().forEach(function(e){if(e.d>=TD&&!L.some(function(r){return r.x.d==e.d}))L.push({ev:e,x:{d:e.d}})});
+L.sort(function(a,b){return a.x.d<b.x.d?-1:1});if(!L.length)return "";var shown=TALL?L:L.slice(0,5);
+return '<div class="card"><h3>Meine Trainings</h3><div class="sp" style="margin-bottom:4px">Du bist automatisch angemeldet. Abmelden geht bis 23 Stunden vor Trainingsbeginn.</div>'+shown.map(function(r){
+if(r.ev)return '<div class="row evr"><span class="nm">'+wd(r.x.d)+' · <b class="ev">🎉 '+r.ev.n+'</b></span></div>';
+var x=r.x,o=isOff(x,PLAYER),me=!r.md&&x.lead==PLAYER,k=trKey(r),late=!o&&!canOff(x);
+return '<div class="row'+(me?' lme':'')+'"><span class="nm">'+wd(x.d)+' <span class="sp">'+tstart(x)+'</span>'+marks(r)+(r.md?'':me?' · <b class="fl">Du leitest das Training</b>':leadTxt(x))+(late?'<br><span class="sp">Abmelden nicht mehr möglich (23 h vorher)</span>':'')+'</span>'
++(r.md?'':'<button class="x" style="font-size:12px" data-leadme="'+k+'">'+(me?'Abgeben':x.lead?'Übernehmen':'Ich leite')+'</button>')
++'<button class="pb'+(o?" off":" on")+(late?" dis":"")+'" data-abw="'+k+'" data-p="'+esc(PLAYER)+'"'+(late?' aria-disabled="true"':'')+'>'+(o?"✗ abgemeldet":"✓ angemeldet")+'</button></div>'}).join("")
++(L.length>5?'<button class="add" data-tall="1">'+(TALL?'Weniger zeigen':'Alle Trainings zeigen ('+L.length+')')+'</button>':'')+'</div>'}
+// Übersicht pro Training: angemeldet / abgemeldet / bestätigt, nach Mannschaft
+function trOverview(){var L=allTr();if(!L.length)return "";if(TSEL==null){var n=L.filter(function(r){return r.x.d>=TD})[0]||L[L.length-1];TSEL=trKey(n)}
+var r=trAt(TSEL);if(!r.x){TSEL=null;return trOverview()}var x=r.x,go=started(x),k=TSEL,edit=canTeam();
+var h='<div class="card"><h3>Übersicht pro Training</h3><select class="t" data-tsel="1" aria-label="Training wählen">'+L.map(function(q){var e=evOn(q.x.d);return '<option value="'+trKey(q)+'"'+(trKey(q)==k?" selected":"")+'>'+wd(q.x.d)+' '+tstart(q.x)+(q.md?' · Match Day':'')+(e?' · '+e.n:'')+'</option>'}).join("")+'</select>';
+h+='<div class="sp" style="margin-top:6px">'+wd(x.d)+' · Beginn '+tstart(x)+marks(r)+'</div>';
+if(!r.md)h+=leadSel(r.mi,r.ti,x);
+h+=[0,1].map(function(t){var P=S.t[t].p,on=P.filter(function(p){return !isOff(x,p)}),off=P.filter(function(p){return isOff(x,p)}),ok=P.filter(function(p){return x.p.indexOf(p)>=0});
+var chip=function(p){var c=x.p.indexOf(p)>=0,o=isOff(x,p);return '<button class="pb'+(go?(c?" on":""):(o?" off":" in"))+'" data-tp="'+esc(p)+'">'+(go?(c?"✓ ":""):(o?"✗ ":""))+esc(p)+'</button>'};
+return '<div class="sk"><div class="kv"><b class="'+(t?"tb":"ta")+'">'+esc(S.t[t].n)+'</b><span class="sp">'+(go?ok.length+' bestätigt · ':'')+on.length+' angemeldet · '+off.length+' abgemeldet</span></div>'
++'<div class="sp">Angemeldet</div><div class="pt">'+(on.map(chip).join("")||'<span class="sp">–</span>')+'</div>'
++(off.length?'<div class="sp">Abgemeldet</div><div class="pt">'+off.map(chip).join("")+'</div>':'')+'</div>'}).join("");
+h+=go?'<div class="sp" style="margin-top:6px">Tippe auf einen Namen, um die Anwesenheit zu bestätigen. Nur bestätigte Anwesenheit zählt.</div><button class="add" data-allc="1">Alle Angemeldeten bestätigen</button>'
+:'<div class="sp" style="margin-top:6px">Anwesenheit bestätigen ist ab Trainingsbeginn ('+wd(x.d)+', '+tstart(x)+') möglich.'+(edit?' Als '+(ROLE=="admin"?"Spielleitung":"Captain")+' kannst du Spieler hier an- und abmelden.':'')+'</div>';
+if(edit)h+='<div class="sk"><div class="sp" style="margin-bottom:4px">Datum &amp; Beginn'+(r.md?' (Match Day)':'')+'</div><div class="two"><input class="t" type="date" data-tdt="1" value="'+x.d+'" aria-label="Datum"><input class="t" type="time" data-ttm="1" value="'+tstart(x)+'" aria-label="Beginn"></div>'+(r.md?'':'<button class="x" style="font-size:13px" data-tdel="1">Training löschen</button>')+'</div><button class="add" data-tadd="1">+ Training hinzufügen</button>';
+return h+'</div>'}
+// Monatsübersicht der An- und Abwesenheiten
+function trMonth(){if(TMON==null)TMON=cur;var m=S.m[TMON],T=m.tr,past=T.filter(function(x){return started(x)});
+var cnt=function(p){var a=0,o=0,f=0;T.forEach(function(x){var c=x.p.indexOf(p)>=0,ab=isOff(x,p);if(c)a++;if(ab)o++;if(started(x)&&!c&&!ab)f++});return [a+(m.base[p]||0),o,f]};
+return '<div class="card"><h3>Monatsübersicht</h3><div class="chips" style="padding:0 0 6px">'+MON.map(function(n,i){return '<button class="chip'+(i==TMON?" on":"")+'" data-tmon="'+i+'">'+n.slice(0,3)+'</button>'}).join("")+'</div>'
++'<div class="sp">'+T.length+' Trainings, davon '+past.length+' vorbei'+(Object.keys(m.base).length?' · inkl. übernommene Anwesenheit':'')+'</div>'
++[0,1].map(function(t){return '<table class="mt"><tr><th class="'+(t?"tb":"ta")+'">'+esc(S.t[t].n)+'</th><th title="anwesend (bestätigt)">✓</th><th title="abgemeldet">✗</th><th title="gefehlt ohne Abmeldung">–</th></tr>'
++S.t[t].p.map(function(p){var c=cnt(p);return '<tr><td>'+esc(p)+'</td><td>'+c[0]+'</td><td>'+c[1]+'</td><td'+(c[2]?' class="fl"':'')+'>'+c[2]+'</td></tr>'}).join("")+'</table>'}).join("")
++'<div class="sp">✓ anwesend (bestätigt) · ✗ abgemeldet · – gefehlt ohne Abmeldung</div></div>'}
+function notifyCard(){if(!me)return "";return '<div class="card"><h3>Benachrichtigungen</h3><label class="row" style="border:0"><span class="nm">Bei An- und Abmeldungen informieren</span><input type="checkbox" data-ntf="1"'+(NOTIFY?" checked":"")+'></label>'
++(PUSH===true?'':'<div class="sp">Dafür müssen Push-Nachrichten aktiviert sein (Rangliste → Benachrichtigungen).</div>')+'</div>'}
+function training(){return myTr()+trOverview()+trMonth()+notifyCard()}
+// Neues Training dem Block des nächsten Match Days zuordnen (Match Day bleibt das letzte Training eines Monats)
+function sortBlock(T){var md=T.pop();T.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});if(md)T.push(md)}
+function placeTr(x){var mi=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>x.d});if(mi<0)mi=S.m.length-1;var T=S.m[mi].tr;if(!T.length)T.push(x);else{var md=T.pop();T.push(x);T.push(md);sortBlock(T)}return mi+","+T.indexOf(x)}
+
 function spiel(){var m=S.m[cur],b=bonus(m),ld=lead(m),w=win(m),h="";
-h+='<div class="chips">'+MON.map(function(n,i){return '<button class="chip'+(i==cur?" on":"")+'" data-c="'+i+'">'+n.slice(0,3)+(DBL.indexOf(i)>=0?" ×2":"")+'</button>'}).join("")+'</div>'+myAbs();
+h+='<div class="chips">'+MON.map(function(n,i){return '<button class="chip'+(i==cur?" on":"")+'" data-c="'+i+'">'+n.slice(0,3)+(DBL.indexOf(i)>=0?" ×2":"")+'</button>'}).join("")+'</div>';
 h+='<div class="card"><div class="score"><div class="tn ta">'+lg(0)+esc(S.t[0].n)+'</div><div class="vs">'+MON[cur]+'</div><div class="tn tb">'+lg(1)+esc(S.t[1].n)+'</div>'
 +'<b class="ta">'+(m.res[0]==null?"–":m.res[0])+'</b><span class="vs">Endstand</span><b class="tb">'+(m.res[1]==null?"–":m.res[1])+'</b></div>'
 +(w>=0?'<div style="text-align:center;margin-top:8px"><span class="pill win">Sieger: '+esc(S.t[w].n)+(DBL.indexOf(cur)>=0?" (2 Punkte)":"")+'</span></div>':(m.res[0]!=null&&m.res[1]!=null?'<div style="text-align:center;margin-top:8px"><span class="pill">Unentschieden · '+(DBL.indexOf(cur)>=0?"2 : 2":"1 : 1")+'</span></div>':""))+'</div>';
@@ -190,7 +243,7 @@ var SV='<div class="card"><h3>Start-Vorsprung</h3><div class="two"><div><div cla
 +'<div><div class="kv"><span>Ø Anwesenheit</span><b>'+avg(m,1).toFixed(2)+'</b></div><div class="kv"><span>Bonus Anwesenheit</span><b>'+b[1]+'</b></div><div class="kv"><span>Pre-Game-Siege</span><b>'+m.pre[1]+'</b></div><div class="kv"><span>Vorsprung</span><b class="tb">'+ld[1]+'</b></div></div></div></div>';
 var g0=gsum(m,0),g1=gsum(m,1),BG=function(k,t,v){return '<div class="big"><span class="sp">'+esc(S.t[t].n)+'</span>'+stp(k,t,"",v)+'</div>'},EC='<div class="card"><h3>Spielbericht</h3><div class="sp">Schiedsrichter</div><input class="t" list="pl" data-ref="1" placeholder="Name eintragen" value="'+esc(m.ref||"")+'"><datalist id="pl">'+S.t[0].p.concat(S.t[1].p).map(function(p){return '<option value="'+esc(p)+'">'}).join("")+'</datalist><div class="sk"><div class="sp" style="margin-bottom:6px">Pre-Game-Siege (max. 3)</div><div class="two">'+BG("pre",0,m.pre[0])+BG("pre",1,m.pre[1])+'</div></div><div class="sk"><div class="sp" style="margin-bottom:6px">Endresultat (inkl. Vorsprung)</div><div class="two">'+BG("res",0,m.res[0]==null?0:m.res[0])+BG("res",1,m.res[1]==null?0:m.res[1])+'</div><div class="sp" style="margin-top:8px;text-align:center">Tore aus Skorerliste: '+g0+' : '+g1+' · plus Vorsprung: '+(ld[0]+g0)+' : '+(ld[1]+g1)+'</div><button class="add" data-rs="1">Resultat aus Skorerliste übernehmen</button>'+(canTeam()?'<div class="two"><button class="add" data-ff="0">Forfait '+esc(S.t[0].n)+'</button><button class="add" data-ff="1">Forfait '+esc(S.t[1].n)+'</button></div>':'')+(m.res[0]!=null&&m.res[1]!=null?'<button class="add" data-notify="1">📣 Resultat melden (Push an alle)</button>':'')+'</div></div>';
 h+=EC+smCard(m)+SV+ablauf(m);
-h+=trn(m)+skor(0,m)+skor(1,m);return h}
+h+=skor(0,m)+skor(1,m);return h}
 function board(title,fn,gst){var all=[];S.t.forEach(function(t,k){t.p.forEach(function(p){all.push({p:p,k:k,v:fn(p)})})});if(gst)S.m.forEach(function(m){m.gs.forEach(function(g){if(!all.some(function(z){return z.p==g.k}))all.push({p:g.k,n:g.n+" (Gast)",k:g.t,v:fn(g.k)})})});all.sort(function(x,y){return y.v-x.v||(x.p<y.p?-1:1)});var mx=Math.max(1,all[0]?all[0].v:1);
 return '<div class="card"><h3>'+title+'</h3>'+all.map(function(r,i){return '<div class="row"><span class="rk">'+(i&&all[i-1].v==r.v?"":1+all.filter(function(z){return z.v>r.v}).length)+'</span><span class="nm '+(r.k?"tb":"ta")+'">'+(S.t[r.k].img?'<img class="sl" src="'+S.t[r.k].img+'">':'')+esc(r.n||r.p)+'</span><div class="bar"><div style="width:'+r.v/mx*100+'%"></div></div><b>'+r.v+'</b></div>'}).join("")+'</div>'}
 function tot(k,p){return S.m.reduce(function(a,m){return a+(k=="att"?an(m,p):((m[k]||{})[p]||0))},0)}
@@ -223,17 +276,22 @@ function users(){if(ROLE!="admin")return "";if(MEM==null){setTimeout(loadMem,0);
 return '<div class="card"><h3>Benutzer &amp; Rollen</h3><div class="sp">Neue Benutzer lädst du in Supabase per Mail ein; sie erscheinen nach der Einladung hier.</div>'+MEM.map(function(u){return '<div class="sk"><b class="nm" style="display:block">'+esc(u.email)+'</b><div class="two" style="margin-top:6px"><select class="t" data-mrole="'+u.user_id+'">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(u.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select><select class="t" data-mpl="'+u.user_id+'"><option value="">– kein Spieler –</option>'+all.map(function(p){return '<option'+(u.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div></div>'}).join("")+'</div>'}
 function setMem(uid,k,v){var u=MEM.filter(function(x){return x.user_id==uid})[0],o=u[k];u[k]=v;sb.rpc("set_member",{uid:uid,new_role:u.role,new_player:u.player||null}).then(function(r){if(r.error){u[k]=o;alert(r.error.message)}else if(uid==me.id){ROLE=u.role;PLAYER=u.player}render()})}
 function canTeam(){return ROLE=="admin"||ROLE=="captain"}
-function render(){if(tab=="team"&&!canTeam())tab="rang";var h=(NEWER?'<div class="card upd"><h3>Neue Version verfügbar</h3><div class="sp">Die Daten wurden mit einer neueren App-Version gespeichert. Bitte neu laden, damit nichts verloren geht. Bis dahin werden keine Änderungen gespeichert.</div><button class="add" data-reload="1">Jetzt neu laden</button></div>':'')+(tab=="spiel"?spiel():tab=="rang"?rang():tab=="info"?info():teams());
+function render(){if(tab=="team"&&!canTeam())tab="rang";var h=(NEWER?'<div class="card upd"><h3>Neue Version verfügbar</h3><div class="sp">Die Daten wurden mit einer neueren App-Version gespeichert. Bitte neu laden, damit nichts verloren geht. Bis dahin werden keine Änderungen gespeichert.</div><button class="add" data-reload="1">Jetzt neu laden</button></div>':'')+(tab=="spiel"?spiel():tab=="rang"?rang():tab=="info"?info():tab=="train"?training():teams());
 document.getElementById("app").innerHTML=h;var smc=document.getElementById("smc");if(smc)drawSM(smc,S.m[cur]);if(tab=="rang")document.querySelectorAll("#app .card").forEach(function(c,i){c.querySelector("h3").dataset.tg=i;if(cl[i])c.classList.add("cl")});
 document.getElementById("hi").textContent=hello();document.getElementById("lo").title=me&&me.email?"Angemeldet als "+me.email:"";
-document.getElementById("nav").innerHTML=[["spiel","⚡","Spieltag"],["rang","🏆","Rangliste"],["team","👥","Teams"],["info","ℹ️","Infos"]].filter(function(x){return x[0]!="team"||canTeam()}).map(function(x){return '<button class="'+(tab==x[0]?"on":"")+'" data-tab="'+x[0]+'"><i>'+x[1]+'</i>'+x[2]+'</button>'}).join("");
+document.getElementById("nav").innerHTML=[["spiel","⚡","Spieltag"],["train","🏒","Training"],["rang","🏆","Rangliste"],["team","👥","Teams"],["info","ℹ️","Infos"]].filter(function(x){return x[0]!="team"||canTeam()}).map(function(x){return '<button class="'+(tab==x[0]?"on":"")+'" data-tab="'+x[0]+'"><i>'+x[1]+'</i>'+x[2]+'</button>'}).join("");
 document.getElementById("sub").textContent=S.t[0].n+" vs "+S.t[1].n;document.getElementById("h1").innerHTML='InterChampionship <span>'+esc(S.sn)+'</span>';var cg=document.getElementById("clogo");cg.hidden=!S.logo;if(S.logo)cg.src=S.logo;document.title="InterChampionship "+S.sn}
-document.addEventListener("click",function(e){var d=e.target.closest("[data-tab],[data-c],[data-k],[data-add],[data-rm],[data-ot],[data-ab],[data-dtr],[data-atr],[data-clrb],[data-cap],[data-tg],[data-all],[data-gs],[data-rg],[data-rmimg],[data-rs],[data-exp],[data-lo],[data-push],[data-notify],[data-sm],[data-smdl],[data-ff],[data-fbk],[data-abw],[data-snap],[data-restore],[data-reload],[data-leadme]");if(!d)return;var D=d.dataset;
+document.addEventListener("click",function(e){var d=e.target.closest("[data-tab],[data-c],[data-k],[data-add],[data-rm],[data-ot],[data-ab],[data-dtr],[data-atr],[data-clrb],[data-cap],[data-tg],[data-all],[data-gs],[data-rg],[data-rmimg],[data-rs],[data-exp],[data-lo],[data-push],[data-notify],[data-sm],[data-smdl],[data-ff],[data-fbk],[data-abw],[data-snap],[data-restore],[data-reload],[data-leadme],[data-tall],[data-tp],[data-allc],[data-tadd],[data-tdel],[data-tmon]");if(!d)return;var D=d.dataset;
+if(D.tall){TALL=!TALL}else if(D.tmon!=null){TMON=+D.tmon}else
+if(D.tp!=null){var tr=trAt(TSEL),tx=tr.x;if(started(tx)){var ci=tx.p.indexOf(D.tp);ci<0?tx.p.push(D.tp):tx.p.splice(ci,1);save()}else if(canTeam()||D.tp==PLAYER){setOff(TSEL,D.tp,!isOff(tx,D.tp))}else{alert("An- und abmelden können nur die Spieler selbst sowie Spielleitung und Captains.");return}}else
+if(D.allc){var ax=trAt(TSEL).x;S.t[0].p.concat(S.t[1].p).forEach(function(p){if(!isOff(ax,p)&&ax.p.indexOf(p)<0)ax.p.push(p)});save()}else
+if(D.tadd){if(!canTeam())return;var base=TSEL?trAt(TSEL).x.d:TD,nd=new Date(base+"T12:00:00"),ds;do{nd.setDate(nd.getDate()+1);ds=nd.toISOString().slice(0,10)}while(allTr().some(function(r){return r.x.d==ds}));var nx={d:ds,p:[]};TSEL=placeTr(nx);save()}else
+if(D.tdel){if(!canTeam()||!confirm("Training löschen?"))return;var dl=trAt(TSEL);S.m[dl.mi].tr.splice(dl.ti,1);TSEL=null;save()}else
 if(D.reload){location.reload();return}
 if(D.snap){sb.rpc("snapshot_league",{reason:"manuell"}).then(function(r){if(r.error)alert(r.error.message);HIST=null;render()});return}
 if(D.restore){if(!confirm("Diese Version wiederherstellen? Der aktuelle Stand wird vorher gesichert."))return;clearTimeout(tm);sb.rpc("restore_league_state",{hid:+D.restore}).then(function(r){if(r.error){alert(r.error.message);return}reloadState().then(function(){alert("Version wiederhergestellt.")})});return}
 if(D.leadme){var li=D.leadme.split(","),lx=S.m[+li[0]].tr[+li[1]];if(lx.lead==PLAYER)delete lx.lead;else if(!lx.lead||confirm(lx.lead+" leitet dieses Training. Selbst übernehmen?"))lx.lead=PLAYER;save()}else
-if(D.abw){var ai=D.abw.split(","),tx=S.m[+ai[0]].tr[+ai[1]];tx.ab=tx.ab||[];var aq=tx.ab.indexOf(D.p);aq<0?tx.ab.push(D.p):tx.ab.splice(aq,1);save()}else
+if(D.abw){setOff(D.abw,D.p,!isOff(trAt(D.abw).x,D.p))}else
 if(D.fbk){FBD.kind=D.fbk;FBM=null}else
 if(D.ff!=null){if(!confirm(S.t[+D.ff].n+" tritt nicht an – Forfait 0 : 5?"))return;var fr=[5,5];fr[+D.ff]=0;S.m[cur].res=fr;save()}else
 if(D.smdl){smDl();return}
@@ -291,6 +349,9 @@ x.fillStyle="#2b2b2b";x.font="700 74px "+F;x.fillText(SMT.toUpperCase(),815,1052
 function smDl(){document.getElementById("smc").toBlob(function(b){var f=new File([b],"interchampionship-"+MON[cur].toLowerCase().replace("ä","ae")+".png",{type:"image/png"});
 if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f]}).catch(function(){});return}give(f)},"image/png")}
 document.addEventListener("change",function(e){var D=e.target.dataset,v=e.target.value.trim();
+if(D.tsel!=null){TSEL=e.target.value;render();return}
+if(D.ntf!=null){var on=e.target.checked;sb.rpc("set_notify",{on_changes:on}).then(function(r){if(r.error){alert(r.error.message);e.target.checked=!on}else NOTIFY=on});return}
+if(D.tdt!=null||D.ttm!=null){if(!canTeam()||!v)return;var er=trAt(TSEL),ex=er.x;if(D.ttm!=null){ex.t=v}else if(er.md){ex.d=v;sortBlock(S.m[er.mi].tr);TSEL=er.mi+","+S.m[er.mi].tr.indexOf(ex)}else{S.m[er.mi].tr.splice(er.ti,1);ex.d=v;TSEL=placeTr(ex)}save();render();return}
 if(D.lead!=null){var ld=D.lead.split(","),lt=S.m[+ld[0]].tr[+ld[1]];if(v)lt.lead=v;else delete lt.lead;save();render();return}
 if(D.mrole!=null){setMem(D.mrole,"role",e.target.value);return}
 if(D.mpl!=null){setMem(D.mpl,"player",e.target.value);return}
@@ -317,7 +378,7 @@ else if(f.dataset.f=="forgot")sb.auth.resetPasswordForEmail(F.email.value.trim()
 else if(f.dataset.f=="setpw"){if(F.p1.value!=F.p2.value){B.disabled=false;E.textContent="Die Passwörter stimmen nicht überein.";return}
 sb.auth.updateUser({password:F.p1.value}).then(function(r){done(r);if(r.error)return;INV=false;history.replaceState(null,"",location.pathname);start()})}});
 function start(){hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();goNow();render();
-setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};ROLE=d.role||"player";PLAYER=d.player||null;PREV=d.prev_seen||null;render()});pushState();
+setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};ROLE=d.role||"player";PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;render()});pushState();
 sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){S=fix(r.data.data);store();goNow();render()}else push()});
 stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;S=fix(n.data);store();if(!document.activeElement||!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))render()}).subscribe()},0)}
 function stop(){if(live){sb.removeChannel(live);live=null}}

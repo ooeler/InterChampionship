@@ -73,3 +73,45 @@ export function resultMessage(state, i) {
     body: `${state.t[0].n} ${a} : ${b} ${state.t[1].n} – ${verdict}`,
   };
 }
+
+// Zeitpunkt "Datum + Uhrzeit in Zürich" als UTC-Millisekunden (Sommer-/Winterzeit korrekt)
+export function zurichToUtc(day, time = "18:45") {
+  const guess = Date.parse(`${day}T${time}:00Z`);
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  }).formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+  const asZurich = Date.parse(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:00Z`);
+  return guess - (asZurich - guess);
+}
+
+// Erinnerung an alle: 26 h vor jedem Training (läuft alle 15 Min.; push_log verhindert Doppelte)
+export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
+  const out = [];
+  state.m.forEach((m) => {
+    m.tr.forEach((x, ti) => {
+      const t = x.t || "18:45";
+      const start = zurichToUtc(x.d, t);
+      const from = start - hoursBefore * 36e5;
+      if (nowMs < from || nowMs >= from + 36e5) return; // Fenster von einer Stunde ab 26 h vorher
+      const md = ti === m.tr.length - 1;
+      out.push({
+        key: `training-soon:${x.d}`,
+        tag: `training-soon-${x.d}`,
+        title: md ? "⚑ Morgen ist Match Day" : "🏒 Morgen ist Training",
+        body: `${wd(x.d)}, ${t} Uhr. Kannst du nicht? Abmelden bis 23 h vorher in der App.`,
+      });
+    });
+  });
+  return out;
+}
+
+// Nachricht, wenn sich jemand an- oder abmeldet
+export function signupMessage({ player, d, t, off }) {
+  if (!player || !/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return null;
+  return {
+    key: null,
+    tag: `signup-${d}`,
+    title: off ? `✗ ${player} hat sich abgemeldet` : `✓ ${player} ist wieder angemeldet`,
+    body: `Training ${wd(d)}, ${t || "18:45"} Uhr`,
+  };
+}

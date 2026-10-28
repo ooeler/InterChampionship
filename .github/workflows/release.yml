@@ -57,6 +57,12 @@ jobs:
              end if; end \$\$" > /dev/null
           echo "Backup vor Release ${GITHUB_REF_NAME} erstellt"
 
+      - name: Cron-Secret im Supabase Vault
+        # für die Cron-Jobs (Match Day, Training) – so steht das Secret nirgends im Klartext
+        run: |
+          supabase db query --agent no --linked --project-ref "$REF" "do \$\$ declare i uuid; begin select id into i from vault.secrets where name = 'cron_secret'; if i is null then perform vault.create_secret('$CRON_SECRET', 'cron_secret'); else perform vault.update_secret(i, '$CRON_SECRET'); end if; end \$\$" > /dev/null
+          echo "Vault-Secret cron_secret aktuell"
+
       - name: Datenbank-Migrationen
         run: |
           q() { supabase db query --agent no --linked --project-ref "$REF" "$@" 2>/dev/null; }
