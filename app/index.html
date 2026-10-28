@@ -68,7 +68,8 @@ input[type=date].t{display:block;min-height:42px;line-height:1.2}
 #auth .oa{background:var(--card);color:var(--tx);border:1px solid var(--ln)}#auth .or{text-align:center;color:var(--mu);font-size:12px;margin:16px 0 -4px}
 #auth .err:empty{display:none}
 .hi{color:#fff;font-weight:700;font-size:15px;margin-top:8px}
-#lo{margin-left:auto;align-self:flex-start;flex:none;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:6px 12px;font:600 12px Arial,Helvetica,sans-serif}
+.mv{width:14px;font-size:11px;text-align:center}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
+#li,#lo{margin-left:auto;align-self:flex-start;flex:none;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:6px 12px;font:600 12px Arial,Helvetica,sans-serif}
 body.lo header,body.lo main,body.lo nav{display:none}
 /* Responsive: Tablet = eine zentrierte Spalte, Desktop = zwei Spalten */
 header>div{min-width:0}h1{font-size:clamp(20px,6.4vw,30px);overflow-wrap:break-word}h1 span{white-space:nowrap}
@@ -93,7 +94,7 @@ main{max-width:1180px;display:grid;grid-template-columns:1fr 1fr;align-items:sta
 </style></head><body class="lo">
 <div id="splash" role="status" aria-label="InterChampionship lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
 <div id="auth" hidden></div>
-<header><img id="clogo" hidden><div><h1 id="h1">InterChampionship</h1><div class="tag">Let’s Fly</div><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><button id="lo" data-lo="1">Abmelden</button></header>
+<header><img id="clogo" hidden><div><h1 id="h1">InterChampionship</h1><div class="tag">Let’s Fly</div><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <script src="config.js"></script>
@@ -125,7 +126,9 @@ function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.t
 function isMD(d){return S.m.some(function(m){return m.tr.length&&m.tr[m.tr.length-1].d==d})}
 function hello(){var u=me&&me.user_metadata||{},n=(PLAYER||u.full_name||u.name||"").split(" ")[0]||(me&&me.email||"").split("@")[0].split(/[._+-]/)[0],h=new Date().getHours();n=n?n.charAt(0).toUpperCase()+n.slice(1):"";var w=n?"Hallo "+n:"Hallo";
 if(isMD(TD))return w+", heute ist Match Day! ⚑";if(PREV&&Date.now()-new Date(PREV).getTime()>30*864e5)return w+", willkommen zurück!";if(h>=4&&h<7)return "Hallo Frühaufsteher"+(n?" "+n:"")+"! ☀️";return w+"!"}
-function an(m,p){return (m.base[p]||0)+m.tr.filter(function(x){return x.d<=TD&&x.p.indexOf(p)>=0}).length}
+var CUT=null; // gesetzt: Stand vor diesem Datum (für ▲/▼ in der Rangliste)
+function an(m,p){return (m.base[p]||0)+m.tr.filter(function(x){return x.d<=TD&&(!CUT||x.d<CUT)&&x.p.indexOf(p)>=0}).length}
+function lastEv(){var l="";S.m.forEach(function(m){m.tr.forEach(function(x){if(x.d<=TD&&x.d>l)l=x.d})});return l}
 function sum(m,t){return S.t[t].p.reduce(function(a,p){return a+an(m,p)},0)}
 function avg(m,t){var n=S.t[t].p.length;return n?sum(m,t)/n:0}
 function bonus(m){var a=avg(m,0),b=avg(m,1);return a>b?[1,0]:b>a?[0,1]:[0,0]}
@@ -254,8 +257,12 @@ var g0=gsum(m,0),g1=gsum(m,1),BG=function(k,t,v){return '<div class="big"><span 
 h+=EC+smCard(m)+SV+ablauf(m);
 h+=skor(0,m)+skor(1,m);return h}
 function board(title,fn,gst){var all=[];S.t.forEach(function(t,k){t.p.forEach(function(p){all.push({p:p,k:k,v:fn(p)})})});if(gst)S.m.forEach(function(m){m.gs.forEach(function(g){if(!all.some(function(z){return z.p==g.k}))all.push({p:g.k,n:g.n+" (Gast)",k:g.t,v:fn(g.k)})})});all.sort(function(x,y){return y.v-x.v||(x.p<y.p?-1:1)});var mx=Math.max(1,all[0]?all[0].v:1);
-return '<div class="card"><h3>'+title+'</h3>'+all.map(function(r,i){return '<div class="row"><span class="rk">'+(i&&all[i-1].v==r.v?"":1+all.filter(function(z){return z.v>r.v}).length)+'</span><span class="nm '+(r.k?"tb":"ta")+'">'+(S.t[r.k].img?'<img class="sl" src="'+S.t[r.k].img+'">':'')+esc(r.n||r.p)+'</span><div class="bar"><div style="width:'+r.v/mx*100+'%"></div></div><b>'+r.v+'</b></div>'}).join("")+'</div>'}
-function tot(k,p){return S.m.reduce(function(a,m){return a+(k=="att"?an(m,p):((m[k]||{})[p]||0))},0)}
+var rk=function(L,v){return 1+L.filter(function(z){return z.v>v}).length},ev=lastEv(),prev=null;
+if(ev){CUT=ev;prev={};var pv=all.map(function(r){return{p:r.p,v:fn(r.p)}});CUT=null;pv.forEach(function(r){prev[r.p]=rk(pv,r.v)})}
+var open=MORE[title],shown=open?all:all.slice(0,5);
+return '<div class="card"><h3>'+title+'</h3>'+shown.map(function(r,i){var c=rk(all,r.v),d=prev&&prev[r.p]?prev[r.p]-c:0;return '<div class="row"><span class="rk">'+(i&&all[i-1].v==r.v?"":c)+'</span><span class="mv'+(d>0?' up" title="'+d+' Plätze gewonnen">▲':d<0?' dn" title="'+(-d)+' Plätze verloren">▼':'">')+'</span><span class="nm '+(r.k?"tb":"ta")+'">'+(S.t[r.k].img?'<img class="sl" src="'+S.t[r.k].img+'">':'')+esc(r.n||r.p)+'</span><div class="bar"><div style="width:'+r.v/mx*100+'%"></div></div><b>'+r.v+'</b></div>'}).join("")+(all.length>5?'<button class="add" data-more="'+esc(title)+'">'+(open?'Weniger zeigen':'Zeige mehr ('+all.length+')')+'</button>':'')+'</div>'}
+var MORE={};
+function tot(k,p){return S.m.reduce(function(a,m){return a+(k=="att"?an(m,p):CUT&&m.tr.length&&m.tr[m.tr.length-1].d>=CUT?0:((m[k]||{})[p]||0))},0)}
 function pushOK(){return "serviceWorker"in navigator&&"PushManager"in window&&"Notification"in window&&!!(window.IM_CONFIG||{}).vapidPublicKey}
 function pushState(){if(!pushOK()){PUSH=/iPhone|iPad|iPod/.test(navigator.userAgent)&&!navigator.standalone&&(window.IM_CONFIG||{}).vapidPublicKey?"ios":null;return}
 navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription()}).then(function(s){PUSH=!!s&&Notification.permission=="granted";if(PUSH)saveSub(s);render()}).catch(function(){})}
@@ -285,12 +292,15 @@ function users(){if(ROLE!="admin")return "";if(MEM==null){setTimeout(loadMem,0);
 return '<div class="card"><h3>Benutzer &amp; Rollen</h3><div class="sp">Neue Benutzer lädst du in Supabase per Mail ein; sie erscheinen nach der Einladung hier.</div>'+MEM.map(function(u){return '<div class="sk"><b class="nm" style="display:block">'+esc(u.email)+'</b><div class="two" style="margin-top:6px"><select class="t" data-mrole="'+u.user_id+'">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(u.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select><select class="t" data-mpl="'+u.user_id+'"><option value="">– kein Spieler –</option>'+all.map(function(p){return '<option'+(u.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">🍽️ Restaurant-Chef</span><input type="checkbox" data-mresto="'+u.user_id+'"'+(u.resto?" checked":"")+'></label></div>'}).join("")+'</div>'}
 function setMem(uid,k,v){var u=MEM.filter(function(x){return x.user_id==uid})[0],o=u[k];u[k]=v;sb.rpc("set_member",{uid:uid,new_role:u.role,new_player:u.player||null}).then(function(r){if(r.error){u[k]=o;alert(r.error.message)}else if(uid==me.id){ROLE=u.role;PLAYER=u.player}render()})}
 function canTeam(){return ROLE=="admin"||ROLE=="captain"}
-function render(){if(tab=="team"&&!canTeam())tab="rang";var h=(NEWER?'<div class="card upd"><h3>Neue Version verfügbar</h3><div class="sp">Die Daten wurden mit einer neueren App-Version gespeichert. Bitte neu laden, damit nichts verloren geht. Bis dahin werden keine Änderungen gespeichert.</div><button class="add" data-reload="1">Jetzt neu laden</button></div>':'')+(tab=="spiel"?spiel():tab=="rang"?rang():tab=="info"?info():tab=="train"?training():teams());
+function render(){if(PUB)tab="rang";if(tab=="team"&&!canTeam())tab="rang";var h=(NEWER?'<div class="card upd"><h3>Neue Version verfügbar</h3><div class="sp">Die Daten wurden mit einer neueren App-Version gespeichert. Bitte neu laden, damit nichts verloren geht. Bis dahin werden keine Änderungen gespeichert.</div><button class="add" data-reload="1">Jetzt neu laden</button></div>':'')+(tab=="spiel"?spiel():tab=="rang"?rang():tab=="info"?info():tab=="train"?training():teams());
 document.getElementById("app").innerHTML=h;var smc=document.getElementById("smc");if(smc)drawSM(smc,S.m[cur]);if(tab=="rang")document.querySelectorAll("#app .card").forEach(function(c,i){c.querySelector("h3").dataset.tg=i;if(cl[i])c.classList.add("cl")});
 document.getElementById("hi").textContent=hello();document.getElementById("lo").title=me&&me.email?"Angemeldet als "+me.email:"";
-document.getElementById("nav").innerHTML=[["spiel","⚡","Spieltag"],["train","🏒","Training"],["rang","🏆","Rangliste"],["team","👥","Teams"],["info","ℹ️","Infos"]].filter(function(x){return x[0]!="team"||canTeam()}).map(function(x){return '<button class="'+(tab==x[0]?"on":"")+'" data-tab="'+x[0]+'"><i>'+x[1]+'</i>'+x[2]+'</button>'}).join("");
+document.getElementById("lo").hidden=PUB;document.getElementById("li").hidden=!PUB;document.getElementById("hi").hidden=PUB;
+document.getElementById("nav").innerHTML=[["spiel","⚡","Spieltag"],["train","🏒","Training"],["rang","🏆","Rangliste"],["team","👥","Teams"],["info","ℹ️","Infos"]].filter(function(x){return PUB?x[0]=="rang":x[0]!="team"||canTeam()}).map(function(x){return '<button class="'+(tab==x[0]?"on":"")+'" data-tab="'+x[0]+'"><i>'+x[1]+'</i>'+x[2]+'</button>'}).join("");
 document.getElementById("sub").textContent=S.t[0].n+" vs "+S.t[1].n;document.getElementById("h1").innerHTML='InterChampionship <span>'+esc(S.sn)+'</span>';var cg=document.getElementById("clogo");cg.hidden=!S.logo;if(S.logo)cg.src=S.logo;document.title="InterChampionship "+S.sn}
-document.addEventListener("click",function(e){var d=e.target.closest("[data-tab],[data-c],[data-k],[data-add],[data-rm],[data-ot],[data-ab],[data-dtr],[data-atr],[data-clrb],[data-cap],[data-tg],[data-all],[data-gs],[data-rg],[data-rmimg],[data-rs],[data-exp],[data-lo],[data-push],[data-notify],[data-sm],[data-smdl],[data-ff],[data-fbk],[data-abw],[data-snap],[data-restore],[data-reload],[data-leadme],[data-tall],[data-tp],[data-allc],[data-tadd],[data-tdel],[data-tmon]");if(!d)return;var D=d.dataset;
+document.addEventListener("click",function(e){var d=e.target.closest("[data-tab],[data-c],[data-k],[data-add],[data-rm],[data-ot],[data-ab],[data-dtr],[data-atr],[data-clrb],[data-cap],[data-tg],[data-all],[data-gs],[data-rg],[data-rmimg],[data-rs],[data-exp],[data-lo],[data-push],[data-notify],[data-sm],[data-smdl],[data-ff],[data-fbk],[data-abw],[data-snap],[data-restore],[data-reload],[data-leadme],[data-tall],[data-tp],[data-allc],[data-tadd],[data-tdel],[data-tmon],[data-more],[data-login]");if(!d)return;var D=d.dataset;
+if(D.login){ascr("login");return}
+if(D.more!=null){MORE[D.more]=!MORE[D.more]}else
 if(D.tall){TALL=!TALL}else if(D.tmon!=null){TMON=+D.tmon}else
 if(D.tp!=null){var tr=trAt(TSEL),tx=tr.x;if(started(tx)){var ci=tx.p.indexOf(D.tp);ci<0?tx.p.push(D.tp):tx.p.splice(ci,1);save()}else if(canTeam()||D.tp==PLAYER){setOff(TSEL,D.tp,!isOff(tx,D.tp))}else{alert("An- und abmelden können nur die Spieler selbst sowie Spielleitung und Captains.");return}}else
 if(D.allc){var ax=trAt(TSEL).x;S.t[0].p.concat(S.t[1].p).forEach(function(p){if(!isOff(ax,p)&&ax.p.indexOf(p)<0)ax.p.push(p)});save()}else
@@ -378,9 +388,9 @@ function ascr(k,msg){var a=document.getElementById("auth"),h;hideSplash();docume
 if(k=="cfg")h='<h1>Einrichtung fehlt</h1><div class="sp">In <b>config.js</b> sind die Supabase-Adresse und der Schlüssel noch nicht eingetragen (oder die Verbindung zum Internet fehlt).</div>';
 else if(k=="setpw")h='<h1>Passwort festlegen</h1><div class="sp">Willkommen'+(me&&me.email?', '+esc(me.email):'')+'! Lege dein Passwort für die App fest.</div><form data-f="setpw"><label>Neues Passwort (mind. 8 Zeichen)</label><input class="t" aria-label="Neues Passwort (mind. 8 Zeichen)" type="password" name="p1" autocomplete="new-password" minlength="8" required><label>Passwort wiederholen</label><input class="t" aria-label="Passwort wiederholen" type="password" name="p2" autocomplete="new-password" required><button class="btn">Speichern &amp; los</button><div class="err"></div></form>';
 else if(k=="forgot")h='<h1>Passwort vergessen</h1><div class="sp">Du erhältst eine Mail mit einem Link, um ein neues Passwort festzulegen.</div><form data-f="forgot"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="email" required><button class="btn">Link senden</button><div class="err"></div></form><button class="lnk" data-af="login">Zurück zur Anmeldung</button>';
-else h='<h1>InterChampionship</h1><div class="sp">Nur für eingeladene Mitglieder.</div>'+((window.IM_CONFIG||{}).providers||[]).filter(function(p){return OA[p]}).map(function(p){return '<button class="btn oa" data-oa="'+p+'">Mit '+OA[p]+' anmelden</button>'}).join("")+(((window.IM_CONFIG||{}).providers||[]).length?'<div class="or">oder mit E-Mail</div>':'')+'<form data-f="login"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="username" required><label>Passwort</label><input class="t" aria-label="Passwort" type="password" name="pw" autocomplete="current-password" required><button class="btn">Anmelden</button><div class="err"></div></form><button class="lnk" data-af="forgot">Passwort vergessen?</button>';
+else h='<h1>InterChampionship</h1><div class="sp">Nur für eingeladene Mitglieder.</div>'+((window.IM_CONFIG||{}).providers||[]).filter(function(p){return OA[p]}).map(function(p){return '<button class="btn oa" data-oa="'+p+'">Mit '+OA[p]+' anmelden</button>'}).join("")+(((window.IM_CONFIG||{}).providers||[]).length?'<div class="or">oder mit E-Mail</div>':'')+'<form data-f="login"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="username" required><label>Passwort</label><input class="t" aria-label="Passwort" type="password" name="pw" autocomplete="current-password" required><button class="btn">Anmelden</button><div class="err"></div></form><button class="lnk" data-af="forgot">Passwort vergessen?</button><button class="lnk" data-af="public">Zurück zur Rangliste</button>';
 a.innerHTML='<div class="card">'+h+'</div>';if(msg){var E=a.querySelector(".err");if(E)E.textContent=msg}}
-document.getElementById("auth").addEventListener("click",function(e){var b=e.target.closest("[data-af],[data-oa]");if(!b)return;if(b.dataset.af){ascr(b.dataset.af);return}
+document.getElementById("auth").addEventListener("click",function(e){var b=e.target.closest("[data-af],[data-oa]");if(!b)return;if(b.dataset.af){if(b.dataset.af=="public")showPublic();else ascr(b.dataset.af);return}
 b.disabled=true;sb.auth.signInWithOAuth({provider:b.dataset.oa,options:{redirectTo:location.origin+location.pathname}}).then(function(r){b.disabled=false;if(r.error)document.querySelector("#auth .err").textContent=aerr(r.error.message)})});
 document.getElementById("auth").addEventListener("submit",function(e){e.preventDefault();var f=e.target,F=f.elements,E=f.querySelector(".err"),B=f.querySelector("button");E.textContent="";B.disabled=true;
 function done(r,ok){B.disabled=false;if(r.error)E.textContent=ok?r.error.message:ok===false?"Anmeldung fehlgeschlagen: E-Mail oder Passwort falsch.":r.error.message}
@@ -388,7 +398,11 @@ if(f.dataset.f=="login")sb.auth.signInWithPassword({email:F.email.value.trim(),p
 else if(f.dataset.f=="forgot")sb.auth.resetPasswordForEmail(F.email.value.trim(),{redirectTo:location.origin+location.pathname}).then(function(r){done(r);if(!r.error)E.textContent="Falls diese Adresse eingeladen ist, kommt gleich eine Mail mit einem Link."});
 else if(f.dataset.f=="setpw"){if(F.p1.value!=F.p2.value){B.disabled=false;E.textContent="Die Passwörter stimmen nicht überein.";return}
 sb.auth.updateUser({password:F.p1.value}).then(function(r){done(r);if(r.error)return;INV=false;history.replaceState(null,"",location.pathname);start()})}});
-function start(){hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();goNow();render();
+// Ohne Login: nur die Rangliste, nur lesen (Daten sind öffentlich lesbar, siehe Migration 03)
+var PUB=false;
+function showPublic(){PUB=true;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();render();
+sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.data&&r.data.data){S=fix(r.data.data);render()}})}
+function start(){PUB=false;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();goNow();render();
 setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};ROLE=d.role||"player";PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;RESTO=!!d.resto;render()});pushState();
 sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){S=fix(r.data.data);store();goNow();render()}else push()});
 stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;S=fix(n.data);store();if(!document.activeElement||!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))render()}).subscribe()},0)}
@@ -397,7 +411,7 @@ addEventListener("online",function(){if(isDirty())push()});
 (function(){var C=window.IM_CONFIG||{};if(!C.url||!C.key||!window.supabase){ascr("cfg");return}
 sb=supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 sb.auth.onAuthStateChange(function(ev,s){var u=s&&s.user;if(ev=="PASSWORD_RECOVERY")INV=true;if(ev=="USER_UPDATED")return;
-setTimeout(function(){if(!u){me=null;stop();ascr("login",HERR&&aerr(decodeURIComponent(HERR.replace(/\+/g," "))));HERR=null;if(/error/.test(location.hash))history.replaceState(null,"",location.pathname);return}
+setTimeout(function(){if(!u){me=null;stop();if(!HERR){showPublic();return}ascr("login",HERR&&aerr(decodeURIComponent(HERR.replace(/\+/g," "))));HERR=null;if(/error/.test(location.hash))history.replaceState(null,"",location.pathname);return}
 var nw=!me||me.id!=u.id;me=u;if(INV)ascr("setpw");else if(nw)start()},0)})})();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});

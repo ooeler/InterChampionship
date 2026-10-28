@@ -16,8 +16,15 @@ async function setup(page, { mock = true } = {}) {
   page.on("dialog", (d) => d.accept());
 }
 
-async function login(page, user = USER) {
+// Ohne Login zeigt die App die öffentliche Rangliste; der Login öffnet sich über "Anmelden".
+async function openLogin(page) {
   await page.goto("/");
+  await page.click("#li");
+  await base.expect(page.locator("#auth form")).toBeVisible();
+}
+
+async function login(page, user = USER) {
+  await openLogin(page);
   await page.fill("#auth input[name=email]", user.email);
   await page.fill("#auth input[name=pw]", user.password);
   await page.click("#auth form .btn");
@@ -31,4 +38,4 @@ const test = base.test.extend({
   },
 });
 
-module.exports = { test, expect: base.expect, setup, login, USER };
+module.exports = { test, expect: base.expect, setup, login, openLogin, USER };

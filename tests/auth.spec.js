@@ -1,17 +1,31 @@
-const { test, expect, setup, login, USER } = require("./fixtures");
+const { test, expect, setup, login, openLogin, USER } = require("./fixtures");
 
 test.describe("Login", () => {
-  test("App ist ohne Login nicht sichtbar", async ({ page }) => {
+  test("Ohne Login nur die öffentliche Rangliste", async ({ page }) => {
     await page.goto("/");
+    await expect(page.locator("main")).toContainText("Meisterschaft");
+    await expect(page.locator("nav button")).toHaveCount(1);
+    await expect(page.locator("nav [data-tab=rang]")).toBeVisible();
+    await expect(page.locator("#lo")).toBeHidden();
+    await expect(page.locator("#hi")).toBeHidden();
+    await page.evaluate(() => { tab = "team"; render() });
+    await expect(page.locator("main")).not.toContainText("Team 1 ·");
+  });
+
+  test("Anmelden öffnet den Login, 'Zurück' führt zur Rangliste", async ({ page }) => {
+    await openLogin(page);
     await expect(page.locator("#auth h1")).toHaveText("InterChampionship");
     await expect(page.locator("#auth")).toContainText("Nur für eingeladene Mitglieder");
     await expect(page.locator("header")).toBeHidden();
     await expect(page.locator("main")).toBeHidden();
     await expect(page.locator("nav")).toBeHidden();
+    await page.click("text=Zurück zur Rangliste");
+    await expect(page.locator("main")).toContainText("Meisterschaft");
+    await expect(page.locator("#li")).toBeVisible();
   });
 
   test("Falsches Passwort zeigt Fehler", async ({ page }) => {
-    await page.goto("/");
+    await openLogin(page);
     await page.fill("#auth input[name=email]", USER.email);
     await page.fill("#auth input[name=pw]", "falsch");
     await page.click("#auth form .btn");
@@ -20,7 +34,7 @@ test.describe("Login", () => {
   });
 
   test("Nicht eingeladene Adresse kommt nicht rein", async ({ page }) => {
-    await page.goto("/");
+    await openLogin(page);
     await page.fill("#auth input[name=email]", "fremd@example.com");
     await page.fill("#auth input[name=pw]", "irgendwas");
     await page.click("#auth form .btn");
@@ -62,7 +76,7 @@ test.describe("Login", () => {
   });
 
   test("Passwort vergessen sendet Mail mit Link zurück zur App", async ({ page }) => {
-    await page.goto("/");
+    await openLogin(page);
     await page.click("text=Passwort vergessen?");
     await page.fill("#auth input[name=email]", USER.email);
     await page.click("#auth form .btn");
@@ -73,13 +87,13 @@ test.describe("Login", () => {
   });
 
   test("OAuth: Google und Microsoft werden angeboten", async ({ page }) => {
-    await page.goto("/");
+    await openLogin(page);
     await expect(page.locator("#auth [data-oa=google]")).toHaveText("Mit Google anmelden");
     await expect(page.locator("#auth [data-oa=azure]")).toHaveText("Mit Microsoft anmelden");
   });
 
   test("OAuth: eingeladene Person kommt rein", async ({ page }) => {
-    await page.goto("/");
+    await openLogin(page);
     await page.click("#auth [data-oa=google]");
     await expect(page.locator("header")).toBeVisible();
     expect(new URL(page.url()).hash).toBe("");
@@ -88,7 +102,7 @@ test.describe("Login", () => {
   });
 
   test("OAuth: nicht eingeladene Person wird abgewiesen", async ({ page }) => {
-    await page.goto("/");
+    await openLogin(page);
     await page.evaluate(() => localStorage.setItem("__mock_oauth_email", "fremd@gmail.com"));
     await page.click("#auth [data-oa=azure]");
     await expect(page.locator("#auth .err")).toHaveText("Diese Adresse ist nicht eingeladen. Bitte beim Captain melden.");
@@ -99,6 +113,7 @@ test.describe("Login", () => {
     await page.goto("/");
     await page.evaluate(() => localStorage.setItem("__mock_providers", "[]"));
     await page.reload();
+    await page.click("#li");
     await expect(page.locator("#auth form")).toBeVisible();
     await expect(page.locator("#auth [data-oa]")).toHaveCount(0);
     await expect(page.locator("#auth .or")).toHaveCount(0);
@@ -107,7 +122,8 @@ test.describe("Login", () => {
   test("Abmelden löscht lokale Daten", async ({ page }) => {
     await login(page);
     await page.click("#lo");
-    await expect(page.locator("#auth h1")).toHaveText("InterChampionship");
+    await expect(page.locator("#li")).toBeVisible(); // zurück in der öffentlichen Rangliste
+    await expect(page.locator("nav button")).toHaveCount(1);
     expect(await page.evaluate(() => localStorage.getItem("ic_state"))).toBeNull();
   });
 
