@@ -49,13 +49,13 @@ jobs:
           version: 2.122.0  # gleiche Version wie lokal getestet
 
       - name: Backup vor dem Deployment
+        # direkt per SQL – unabhängig von Funktionen, die sich durch dieses Release erst ändern
         run: |
-          res=$(curl -sS -m 60 -X POST "$URL/functions/v1/ops" -H "Authorization: Bearer $CRON_SECRET" \
-                -H "Content-Type: application/json" -d "{\"action\":\"snapshot\",\"reason\":\"vor Release ${GITHUB_REF_NAME}\"}" -w "\n%{http_code}")
-          code=$(echo "$res" | tail -1); echo "$res" | head -1
-          # 404: Funktion "ops" existiert beim allerersten Ausrollen noch nicht → wird unten deployt, danach gesichert
-          if [ "$code" = "404" ]; then echo "::warning::ops noch nicht deployt – Backup folgt nach dem Function-Deploy"; echo "LATE_BACKUP=1" >> "$GITHUB_ENV";
-          elif [ "$code" != "200" ]; then echo "::error::Backup fehlgeschlagen (HTTP $code) – Deployment abgebrochen"; exit 1; fi
+          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin if to_regclass('public.league_state_history') is not null then
+               insert into public.league_state_history (state_id, data, updated_by, reason)
+               select id, data, updated_by, 'vor Release ${GITHUB_REF_NAME}' from public.league_state;
+             end if; end \$\$" > /dev/null
+          echo "Backup vor Release ${GITHUB_REF_NAME} erstellt"
 
       - name: Datenbank-Migrationen
         run: |
@@ -70,6 +70,14 @@ jobs:
             q "insert into public.schema_migrations (name) values ('$n')" > /dev/null
           done
 
+      - name: Funktionstest Datenbank (ohne bleibende Änderung)
+        run: |
+          # ruft snapshot_league in der echten DB auf und macht es sofort rückgängig;
+          # jeder andere Fehler (z. B. ein Bug in einer Funktion) stoppt das Release
+          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin begin perform public.snapshot_league('Funktionstest'); raise exception using errcode = 'P0099';
+             exception when sqlstate 'P0099' then null; end; end \$\$" > /dev/null
+          echo "snapshot_league funktioniert"
+
       - name: Edge Functions
         run: |
           for d in supabase/functions/*/; do
@@ -77,13 +85,6 @@ jobs:
             case "$fn" in feedback) flags="" ;; *) flags="--no-verify-jwt" ;; esac  # notify/ops prüfen selbst
             supabase functions deploy "$fn" $flags --use-api --project-ref "$REF"
           done
-
-      - name: Backup nachholen (erstes Ausrollen von ops)
-        if: env.LATE_BACKUP == '1'
-        run: |
-          code=$(curl -sS -m 60 -o /dev/null -w "%{http_code}" -X POST "$URL/functions/v1/ops" -H "Authorization: Bearer $CRON_SECRET" \
-                 -H "Content-Type: application/json" -d "{\"action\":\"snapshot\",\"reason\":\"vor Release ${GITHUB_REF_NAME}\"}")
-          [ "$code" = "200" ] || { echo "::error::Backup fehlgeschlagen (HTTP $code)"; exit 1; }
 
   pages:
     needs: backend
