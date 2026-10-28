@@ -90,7 +90,19 @@ main{max-width:1180px;display:grid;grid-template-columns:1fr 1fr;align-items:sta
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-14px) rotate(1.5deg)}}
 @keyframes streak{0%{opacity:0;transform:translateX(30px) scaleX(.3)}30%{opacity:.85}100%{opacity:0;transform:translateX(-60px) scaleX(1)}}
 @keyframes pulse{0%,100%{opacity:.65}50%{opacity:1}}
-@media(prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+/* Feine Animationen beim Bedienen */
+#app.fx{animation:tabin .22s ease-out}
+@keyframes tabin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card.op>:not(h3),.row.nw{animation:fold .24s ease-out}
+@keyframes fold{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.card h3[data-tg]:after{transition:transform .2s}
+button,.chip,.pb,nav button{transition:background-color .2s,color .2s,box-shadow .2s,transform .12s}
+button:active,.chip:active,.pb:active{transform:scale(.96)}
+nav button.on i{animation:pop .3s ease-out}
+@keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+/* Match Day: fliegende Unihockey-Bälle */
+.ball{position:fixed;left:0;top:0;width:34px;height:34px;z-index:25;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+@media(prefers-reduced-motion:reduce){#splash *,#app.fx,.card.op>*,.row.nw,nav button.on i{animation:none!important}button,.chip,.pb{transition:none!important}.ball{display:none!important}}
 </style></head><body class="lo">
 <div id="splash" role="status" aria-label="InterChampionship lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
 <div id="auth" hidden></div>
@@ -292,15 +304,28 @@ function users(){if(ROLE!="admin")return "";if(MEM==null){setTimeout(loadMem,0);
 return '<div class="card"><h3>Benutzer &amp; Rollen</h3><div class="sp">Neue Benutzer lädst du in Supabase per Mail ein; sie erscheinen nach der Einladung hier.</div>'+MEM.map(function(u){return '<div class="sk"><b class="nm" style="display:block">'+esc(u.email)+'</b><div class="two" style="margin-top:6px"><select class="t" data-mrole="'+u.user_id+'">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(u.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select><select class="t" data-mpl="'+u.user_id+'"><option value="">– kein Spieler –</option>'+all.map(function(p){return '<option'+(u.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">🍽️ Restaurant-Chef</span><input type="checkbox" data-mresto="'+u.user_id+'"'+(u.resto?" checked":"")+'></label></div>'}).join("")+'</div>'}
 function setMem(uid,k,v){var u=MEM.filter(function(x){return x.user_id==uid})[0],o=u[k];u[k]=v;sb.rpc("set_member",{uid:uid,new_role:u.role,new_player:u.player||null}).then(function(r){if(r.error){u[k]=o;alert(r.error.message)}else if(uid==me.id){ROLE=u.role;PLAYER=u.player}render()})}
 function canTeam(){return ROLE=="admin"||ROLE=="captain"}
+// ── Animationen ──
+var LTAB=null,OPEN=null,MOREN=null,BALLT=null;
+var BALL='<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#fff" stroke="#d4d4d4" stroke-width="1.5"/>'+[[20,8],[10,14],[30,14],[20,20],[8,26],[32,26],[14,32],[26,32],[20,30],[13,22],[27,22]].map(function(p){return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.6" fill="#c9c9c9"/>'}).join("")+'</svg>';
+function calm(){return window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches}
+// Am Match Day fliegt ab und zu ein Unihockey-Ball über den Bildschirm
+function balls(){var on=!PUB&&me&&isMD(TD)&&!calm();if(!on){clearTimeout(BALLT);BALLT=null;return}if(BALLT)return;BALLT=setTimeout(function fly(){
+if(document.hidden||document.querySelector(".ball")){BALLT=setTimeout(fly,4000);return}
+var b=document.createElement("div"),W=innerWidth,H=innerHeight,ltr=Math.random()<.5,y0=H*(.25+Math.random()*.5),peak=H*(.08+Math.random()*.2);b.className="ball";b.innerHTML=BALL;document.body.appendChild(b);
+var x0=ltr?-50:W+10,x1=ltr?W+10:-50,mid=(x0+x1)/2,rot=ltr?900:-900;
+var a=b.animate([{transform:"translate("+x0+"px,"+y0+"px) rotate(0)"},{transform:"translate("+mid+"px,"+peak+"px) rotate("+rot/2+"deg)"},{transform:"translate("+x1+"px,"+(y0+H*.15)+"px) rotate("+rot+"deg)"}],{duration:2200,easing:"cubic-bezier(.3,.1,.6,1)"});
+a.onfinish=function(){b.remove()};BALLT=setTimeout(fly,9000+Math.random()*9000)},BALLT===null?2500:0)}
 function render(){if(PUB)tab="rang";if(tab=="team"&&!canTeam())tab="rang";var h=(NEWER?'<div class="card upd"><h3>Neue Version verfügbar</h3><div class="sp">Die Daten wurden mit einer neueren App-Version gespeichert. Bitte neu laden, damit nichts verloren geht. Bis dahin werden keine Änderungen gespeichert.</div><button class="add" data-reload="1">Jetzt neu laden</button></div>':'')+(tab=="spiel"?spiel():tab=="rang"?rang():tab=="info"?info():tab=="train"?training():teams());
-document.getElementById("app").innerHTML=h;var smc=document.getElementById("smc");if(smc)drawSM(smc,S.m[cur]);if(tab=="rang")document.querySelectorAll("#app .card").forEach(function(c,i){c.querySelector("h3").dataset.tg=i;if(cl[i])c.classList.add("cl")});
+var app=document.getElementById("app");app.innerHTML=h;if(tab!=LTAB){app.classList.remove("fx");void app.offsetWidth;app.classList.add("fx");LTAB=tab}
+if(OPEN!=null){var oc=app.querySelectorAll(".card")[OPEN];if(oc)oc.classList.add("op");OPEN=null}if(MOREN!=null){app.querySelectorAll(".card").forEach(function(c){var h3=c.querySelector("h3");if(h3&&h3.textContent==MOREN)c.querySelectorAll(".row").forEach(function(r,i){if(i>=5)r.classList.add("nw")})});MOREN=null}
+balls();var smc=document.getElementById("smc");if(smc)drawSM(smc,S.m[cur]);if(tab=="rang")document.querySelectorAll("#app .card").forEach(function(c,i){c.querySelector("h3").dataset.tg=i;if(cl[i])c.classList.add("cl")});
 document.getElementById("hi").textContent=hello();document.getElementById("lo").title=me&&me.email?"Angemeldet als "+me.email:"";
 document.getElementById("lo").hidden=PUB;document.getElementById("li").hidden=!PUB;document.getElementById("hi").hidden=PUB;
 document.getElementById("nav").innerHTML=[["spiel","⚡","Spieltag"],["train","🏒","Training"],["rang","🏆","Rangliste"],["team","👥","Teams"],["info","ℹ️","Infos"]].filter(function(x){return PUB?x[0]=="rang":x[0]!="team"||canTeam()}).map(function(x){return '<button class="'+(tab==x[0]?"on":"")+'" data-tab="'+x[0]+'"><i>'+x[1]+'</i>'+x[2]+'</button>'}).join("");
 document.getElementById("sub").textContent=S.t[0].n+" vs "+S.t[1].n;document.getElementById("h1").innerHTML='InterChampionship <span>'+esc(S.sn)+'</span>';var cg=document.getElementById("clogo");cg.hidden=!S.logo;if(S.logo)cg.src=S.logo;document.title="InterChampionship "+S.sn}
 document.addEventListener("click",function(e){var d=e.target.closest("[data-tab],[data-c],[data-k],[data-add],[data-rm],[data-ot],[data-ab],[data-dtr],[data-atr],[data-clrb],[data-cap],[data-tg],[data-all],[data-gs],[data-rg],[data-rmimg],[data-rs],[data-exp],[data-lo],[data-push],[data-notify],[data-sm],[data-smdl],[data-ff],[data-fbk],[data-abw],[data-snap],[data-restore],[data-reload],[data-leadme],[data-tall],[data-tp],[data-allc],[data-tadd],[data-tdel],[data-tmon],[data-more],[data-login]");if(!d)return;var D=d.dataset;
 if(D.login){ascr("login");return}
-if(D.more!=null){MORE[D.more]=!MORE[D.more]}else
+if(D.more!=null){MORE[D.more]=!MORE[D.more];if(MORE[D.more])MOREN=D.more}else
 if(D.tall){TALL=!TALL}else if(D.tmon!=null){TMON=+D.tmon}else
 if(D.tp!=null){var tr=trAt(TSEL),tx=tr.x;if(started(tx)){var ci=tx.p.indexOf(D.tp);ci<0?tx.p.push(D.tp):tx.p.splice(ci,1);save()}else if(canTeam()||D.tp==PLAYER){setOff(TSEL,D.tp,!isOff(tx,D.tp))}else{alert("An- und abmelden können nur die Spieler selbst sowie Spielleitung und Captains.");return}}else
 if(D.allc){var ax=trAt(TSEL).x;S.t[0].p.concat(S.t[1].p).forEach(function(p){if(!isOff(ax,p)&&ax.p.indexOf(p)<0)ax.p.push(p)});save()}else
@@ -326,7 +351,7 @@ else if(D.ab!=null){var ab=S.m[cur].tr[+D.ab].p,q=ab.indexOf(D.p);q<0?ab.push(D.
 else if(D.dtr!=null){if(confirm("Training löschen?")){S.m[cur].tr.splice(+D.dtr,1);ot=-1;save()}}
 else if(D.atr){var T=S.m[cur].tr,l=T.length?new Date(T[T.length-1].d):new Date();l.setDate(l.getDate()+7);T.push({d:l.toISOString().slice(0,10),p:[]});ot=T.length-1;save()}
 else if(D.clrb){S.m[cur].base={};save()}
-else if(D.tg!=null){cl[D.tg]=!cl[D.tg]}
+else if(D.tg!=null){cl[D.tg]=!cl[D.tg];if(!cl[D.tg])OPEN=+D.tg}
 else if(D.rmimg!=null){var rk=D.rmimg;if(rk=="club")delete S.logo;else if(rk=="sp")delete S.sp;else delete S.t[+rk].img;save()}
 else if(D.rs!=null){var l2=lead(S.m[cur]);S.m[cur].res=[l2[0]+gsum(S.m[cur],0),l2[1]+gsum(S.m[cur],1)];save()}
 else if(D.all!=null){S.m[cur].tr[+D.all].p=S.t[0].p.concat(S.t[1].p);save()}
