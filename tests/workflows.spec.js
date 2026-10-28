@@ -18,7 +18,7 @@ test("Release: Migrations-Abfrage versteht beide JSON-Formate der CLI", () => {
 
 test("Release: Reihenfolge Backup → Migrationen → Functions → App", () => {
   const y = wf("release.yml");
-  const i = ["Backup vor dem Deployment", "Datenbank-Migrationen", "Edge Functions", "needs: backend"].map((s) => y.indexOf(s));
+  const i = ["name: Backup vor dem Deployment", "name: Datenbank-Migrationen", "name: Edge Functions", "needs: backend"].map((s) => y.indexOf(s));
   expect(i.every((x) => x > 0)).toBe(true);
   expect([...i].sort((a, b) => a - b)).toEqual(i);
 });
