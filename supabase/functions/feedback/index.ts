@@ -1,6 +1,7 @@
-// Supabase Edge Function "feedback": legt einen Verbesserungsvorschlag aus der App als GitHub-Issue an.
+// Supabase Edge Function "feedback": nimmt einen Verbesserungsvorschlag aus der App entgegen.
 // Nur für eingeloggte Mitglieder, max. DAILY_LIMIT pro Person und Tag.
-// Secrets: GITHUB_ISSUES_TOKEN (fine-grained Token, nur "Issues: Read and write" auf dieses Repo), GITHUB_REPO ("besitzer/InterChampionship")
+// Der Vorschlag wird in der Tabelle "feedback" gespeichert; GitHub Actions (feedback-issues.yml)
+// legt daraus alle 10 Minuten das GitHub-Issue an – ohne persönliches GitHub-Token.
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { buildIssue, DAILY_LIMIT } from "./logic.mjs";
 
@@ -21,7 +22,7 @@ Deno.serve(async (req) => {
   if (!member) return json({ error: "Kein Mitglied" }, 403);
 
   const since = new Date(Date.now() - 864e5).toISOString();
-  const { count } = await db.from("feedback_log").select("*", { count: "exact", head: true })
+  const { count } = await db.from("feedback").select("id", { count: "exact", head: true })
     .eq("user_id", user.id).gte("created_at", since);
   if ((count ?? 0) >= DAILY_LIMIT) return json({ error: `Maximal ${DAILY_LIMIT} Vorschläge pro Tag.` }, 429);
 
@@ -32,18 +33,9 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 400);
   }
 
-  const res = await fetch(`https://api.github.com/repos/${Deno.env.get("GITHUB_REPO")}/issues`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${Deno.env.get("GITHUB_ISSUES_TOKEN")}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "InterChampionship",
-    },
-    body: JSON.stringify(issue),
-  });
-  if (!res.ok) return json({ error: "GitHub hat den Vorschlag nicht angenommen." }, 502);
-  const gh = await res.json();
-  await db.from("feedback_log").insert({ user_id: user.id, issue_number: gh.number });
-  return json({ number: gh.number, url: gh.html_url });
+  const { data, error } = await db.from("feedback")
+    .insert({ user_id: user.id, title: issue.title, body: issue.body, labels: issue.labels })
+    .select("id").single();
+  if (error) return json({ error: "Vorschlag konnte nicht gespeichert werden." }, 500);
+  return json({ queued: true, id: data.id });
 });

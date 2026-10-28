@@ -283,11 +283,24 @@ test.describe("Verbesserungsvorschläge", () => {
     await card.locator("input[name=title]").fill("Tore lassen sich nicht löschen");
     await card.locator("textarea[name=text]").fill("Beim Minus-Knopf passiert nichts.");
     await card.locator("button.add").click();
-    await expect(card.locator(".fbm")).toContainText("Danke! Erfasst als Issue #42");
-    await expect(card.locator(".fbm a")).toHaveAttribute("href", "https://github.com/flyingpenguins/InterChampionship/issues/42");
+    await expect(card.locator(".fbm")).toHaveText("Danke! Dein Vorschlag wird in wenigen Minuten als GitHub-Issue erfasst.");
     await expect(card.locator("input[name=title]")).toHaveValue("");
+    // Status in "Meine Vorschläge"
+    await expect(card.locator(".row", { hasText: "Tore lassen sich nicht löschen" })).toContainText("wird erfasst");
     const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")).filter((l) => l.name == "feedback"));
     expect(log[0].body).toEqual({ kind: "fehler", title: "Tore lassen sich nicht löschen", text: "Beim Minus-Knopf passiert nichts." });
+  });
+
+  test("Erfasste Vorschläge verlinken das Issue", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("__mock_feedback", JSON.stringify([
+      { title: "💡 Dark Mode", status: "erfasst", issue_number: 7, issue_url: "https://github.com/ooeler/InterChampionship/issues/7" },
+      { title: "🐞 Absturz", status: "fehler" }])));
+    await login(page);
+    await page.click("nav [data-tab=info]");
+    const card = page.locator(".card", { hasText: "Verbesserungsvorschlag" });
+    await expect(card.locator(".row", { hasText: "Dark Mode" }).locator("a")).toHaveAttribute("href", "https://github.com/ooeler/InterChampionship/issues/7");
+    await expect(card.locator(".row", { hasText: "Absturz" })).toContainText("Fehler beim Erfassen");
   });
 
   test("Titel ist Pflicht", async ({ page }) => {

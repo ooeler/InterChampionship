@@ -88,7 +88,8 @@
             },
             order: function () {
               var res;
-              if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
+              if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
+              else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
               else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null } });
               var p = ok(res); p.limit = function (n) { return ok(res.slice(0, n)) }; return p;
@@ -151,7 +152,8 @@
           // wie supabase-js bei HTTP-Fehlern: data = null, Server-Antwort steckt in error.context (Response)
           if (o.body.title == "zu viele") return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code",
             context: { json: function () { return Promise.resolve({ error: "Maximal 5 Vorschläge pro Tag." }) } } } });
-          return ok({ number: 42, url: "https://github.com/flyingpenguins/InterChampionship/issues/42" });
+          var fb = get("__mock_feedback") || []; fb.push({ title: o.body.title, status: "neu", created_at: new Date().toISOString() }); set("__mock_feedback", fb);
+          return ok({ queued: true, id: fb.length });
         }
         return ok({ sent: 1 });
       }
