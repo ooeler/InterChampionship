@@ -5,3 +5,4 @@ test-results/
 .secrets/
 supabase/.temp/
 dist/
+playwright-report-e2e/
