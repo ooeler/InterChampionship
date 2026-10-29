@@ -49,6 +49,7 @@ test.describe("Datensicherung & Rollback", () => {
     await seedOld(page);
     await login(page, ADMIN);
     await page.click("nav [data-tab=team]");
+    await page.click("h3[data-acc=ds]"); // standardmässig zugeklappt
     const card = page.locator(".card", { hasText: "Datensicherung" });
     await card.locator("[data-snap]").click();
     await expect(card.locator(".row").first()).toContainText("manuell");

@@ -93,14 +93,14 @@ test.describe("Training-Tab", () => {
   test("Übersicht pro Training ist nach Mannschaft gruppiert", async ({ page }) => {
     await seed(page, { patch: `d.m[2].tr[1].ab = ["Beat Rentsch", "Othmar Oeler"]` });
     await openTraining(page, SPIELER);
-    await expect(overview(page).locator("select[data-tsel]")).toHaveValue("2,1");
+    await expect(overview(page).locator(".tch [data-tgo='2,1']")).toHaveClass(/ on/);
     const a = team(page, "Lochball Legenden"), b = team(page, "SpVgg Nieder");
     await expect(a).toContainText("7 angemeldet · 1 abgemeldet");
     await expect(b).toContainText("7 angemeldet · 1 abgemeldet");
     await expect(a.locator("button.pb.off")).toHaveText("✗ Othmar Oeler");
     await expect(b.locator("button.pb.off")).toHaveText("✗ Beat Rentsch");
     // anderes Training wählen
-    await overview(page).locator("select[data-tsel]").selectOption("2,2");
+    await overview(page).locator(".tch [data-tgo='2,2']").click();
     await expect(overview(page)).toContainText("Match Day ⚑");
     await expect(a).toContainText("8 angemeldet · 0 abgemeldet");
   });
@@ -142,7 +142,7 @@ test.describe("Training-Tab", () => {
     await openTraining(page);
     await overview(page).locator("[data-tadd]").click();
     await expect.poll(async () => (await db(page)).m[2].tr.map((x) => x.d)).toEqual(["2026-10-21", "2026-10-28", "2026-10-29", "2026-11-04"]);
-    await expect(overview(page).locator("select[data-tsel]")).toHaveValue("2,2");
+    await expect(overview(page).locator(".tch [data-tgo='2,2']")).toHaveClass(/ on/);
     await overview(page).locator("[data-tdel]").click();
     await expect.poll(async () => (await db(page)).m[2].tr.map((x) => x.d)).toEqual(["2026-10-21", "2026-10-28", "2026-11-04"]);
   });
@@ -249,7 +249,7 @@ test.describe("Usability Training", () => {
     const ov = page.locator(".card", { has: page.locator("h3", { hasText: "Übersicht pro Training" }) });
     await expect(ov.locator(".uc")).toContainText("1 Training ist noch nicht bestätigt");
     await ov.locator("[data-tgo]").first().click();
-    await expect(ov.locator("select[data-tsel] option:checked")).toContainText("21.10.2026");
+    await expect(ov.locator(".tch .pb.on")).toHaveText("21.10.");
     const card = page.locator(".card", { hasText: "Monatsübersicht" });
     await card.locator("[data-tmon='2']").click();
     await expect(card).toContainText("1 noch nicht bestätigt");
@@ -276,5 +276,28 @@ test.describe("Statistik Trainingsleitung", () => {
     await expect(card.locator(".row[data-lst='Othmar Oeler'] .lf")).toHaveText("+1 geplant");
     await expect(card.locator(".row")).toHaveCount(16); // alle Spieler, auch wer noch nie geleitet hat
     await expect(card.locator(".uc")).toHaveText("⚠️ 1 Training in den nächsten 4 Wochen noch ohne Leitung");
+  });
+});
+
+test.describe("Übersicht pro Training nach Spieltag", () => {
+  test("Spieltag wählen, dann das Training", async ({ page }) => {
+    await seed(page);
+    await openTraining(page);
+    const ov = overview(page);
+    await expect(ov.locator(".tsm .chip.on")).toHaveText("Nov");
+    await expect(ov.locator(".tch [data-tgo]")).toHaveText(["21.10.", "28.10.", "04.11. ⚑"]);
+    await ov.locator(".tsm [data-tsm='4']").click(); // Januar-Spieltag
+    await expect(ov.locator(".tch [data-tgo]")).toHaveCount(4);
+    await expect(ov.locator(".tch .pb.on")).toContainText("09.12.");
+    await expect(ov).toContainText("Mi, 09.12.2026 · Beginn 18:45");
+    await ov.locator(".tch [data-tgo]").nth(1).click();
+    await expect(ov).toContainText("Mi, 16.12.2026 · Beginn 18:45");
+  });
+
+  test("Team-Logos vor den Teamnamen (Übersicht und Monatsübersicht)", async ({ page }) => {
+    await seed(page, { patch: `d.t[0].img = d.t[1].img = "data:image/png;base64,iVBORw0KGgo=";` });
+    await openTraining(page);
+    await expect(overview(page).locator(".kv b img.sl")).toHaveCount(2);
+    await expect(page.locator(".card", { hasText: "Monatsübersicht" }).locator("th img.sl")).toHaveCount(2);
   });
 });

@@ -41,9 +41,7 @@ test.describe("Strafen", () => {
     await page.click("nav [data-tab=train]");
     await expect(overview(page).locator(".pnr")).toHaveCount(1);
     await expect(overview(page).locator(".pnr")).toContainText("Silvan Frey");
-    const sel = overview(page).locator("select[data-tsel]");
-    const v = await sel.locator("option", { hasText: "04.11.2026" }).getAttribute("value");
-    await sel.selectOption(v);
+    await overview(page).locator(".tch [data-tgo]", { hasText: "04.11." }).click();
     await expect(overview(page).locator(".pnr")).toHaveCount(1);
     await expect(overview(page).locator(".pnr")).toContainText("Tobias Keller");
   });
