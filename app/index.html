@@ -146,8 +146,18 @@ function isDirty(){try{return!!localStorage.getItem("ic_dirty")}catch(e){return 
 var TD=(function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})(new Date());
 function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.tr.length-1:i}
 function isMD(d){return S.m.some(function(m){return m.tr.length&&m.tr[m.tr.length-1].d==d})}
-function hello(){var u=me&&me.user_metadata||{},n=(PLAYER||u.full_name||u.name||"").split(" ")[0]||(me&&me.email||"").split("@")[0].split(/[._+-]/)[0],h=new Date().getHours();n=n?n.charAt(0).toUpperCase()+n.slice(1):"";var w=n?"Hallo "+n:"Hallo";
-if(isMD(TD))return w+", heute ist Match Day! ⚑";if(PREV&&Date.now()-new Date(PREV).getTime()>30*864e5)return w+", willkommen zurück!";if(h>=4&&h<7)return "Hallo Frühaufsteher"+(n?" "+n:"")+"! ☀️";return w+"!"}
+// Begrüssung je nach Tageszeit und Anlass; Varianten wechseln täglich (pro Person stabil, kein Flackern)
+var GR={morgen:["Guten Morgen","Hallo","Hoi"],tag:["Hallo","Hoi","Salü"],abend:["Guten Abend","Hallo","Hoi"],bier:["Viel Spass beim Bier","Prost","Zum Wohl"]};
+function pick(a,k){var x=0;for(var i=0;i<k.length;i++)x=(x*31+k.charCodeAt(i))%9973;return a[x%a.length]}
+function hello(){var u=me&&me.user_metadata||{},n=(PLAYER||u.full_name||u.name||"").split(" ")[0]||(me&&me.email||"").split("@")[0].split(/[._+-]/)[0],d=new Date(),h=d.getHours(),mi=h*60+d.getMinutes();n=n?n.charAt(0).toUpperCase()+n.slice(1):"";
+var w=n?"Hallo "+n:"Hallo",sp=n?" "+n:"",k=TD+n,T=allTr().filter(function(r){return r.x.d==TD})[0],st=T?(function(t){return +t.slice(0,2)*60+ +t.slice(3,5)})(tstart(T.x)):0;
+if(PREV&&Date.now()-new Date(PREV).getTime()>30*864e5)return w+", willkommen zurück!";
+if(T&&mi>=st+105&&mi<24*60)return pick(GR.bier,k)+sp+"! 🍺";
+if(T&&mi>=st-30)return T.md?"Guter Match"+sp+"! ⚑":"Gutes Training"+sp+"! 🏒";
+if(h>=23||h<4)return "Hallo Nachtschwärmer"+sp+"! 🌙";
+if(T)return T.md?w+", heute ist Match Day! ⚑":w+", heute ist Training! 🏒";
+if(h<7)return "Hallo Frühaufsteher"+sp+"! ☀️";
+return pick(h<11?GR.morgen:h<18?GR.tag:GR.abend,k)+sp+"!"}
 var CUT=null; // gesetzt: Stand vor diesem Datum (für ▲/▼ in der Rangliste)
 // 100% im abgeschlossenen Monat: alle Termine besucht, auch die vor der App übernommenen (base)
 function full(m,p){var T=m.tr,pre=Math.max.apply(null,[0].concat(Object.values(m.base)));return T.length>0&&T.every(function(x){return x.d<TD&&x.p.indexOf(p)>=0})&&(m.base[p]||0)>=pre}
