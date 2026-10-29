@@ -73,6 +73,10 @@ input[type=date].t{display:block;min-height:42px;line-height:1.2}
 body.lo header,body.lo main,body.lo nav{display:none}
 /* Responsive: Tablet = eine zentrierte Spalte, Desktop = zwei Spalten */
 header>div{min-width:0}h1{font-size:clamp(20px,6.4vw,30px);overflow-wrap:break-word}h1 span{white-space:nowrap}
+/* Header: Logo + Titel oben, darunter Mannschaften und Begrüssung über die ganze Breite; rechts Abmelden und Let’s Fly */
+header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"logo title btn" "info info tag";gap:6px 0;align-items:center}
+#clogo{grid-area:logo;align-self:start;margin-right:12px}#h1{grid-area:title}#li,#lo{grid-area:btn;margin-left:12px}
+header .hd{grid-area:info;min-width:0}header .sub{margin-top:0}header .hi{margin-top:2px}header .tag{grid-area:tag;justify-self:end;align-self:end;margin-left:12px;white-space:nowrap}
 @media(min-width:720px){header{padding-left:max(16px,calc(50% - 380px));padding-right:max(16px,calc(50% - 380px))}#clogo{margin-left:0}
 main{max-width:760px;margin:0 auto}nav{justify-content:center}nav button{flex:0 1 180px}h1{font-size:38px}}
 @media(min-width:1100px){header{padding-left:max(16px,calc(50% - 590px));padding-right:max(16px,calc(50% - 590px))}
@@ -106,7 +110,7 @@ nav button.on i{animation:pop .3s ease-out}
 </style></head><body class="lo">
 <div id="splash" role="status" aria-label="Herren Inter lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
 <div id="auth" hidden></div>
-<header><img id="clogo" hidden><div><h1 id="h1">Herren Inter</h1><div class="tag">Let’s Fly</div><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button></header>
+<header><img id="clogo" hidden><h1 id="h1">Herren Inter</h1><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button><div class="hd"><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><div class="tag">Let’s Fly</div></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <script src="config.js"></script>
