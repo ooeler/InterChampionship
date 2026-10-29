@@ -138,6 +138,17 @@ test("Spielleitung macht den Spieler zum Strafenchef – danach darf er Strafen 
   await expect.poll(async () => (await rest("/rest/v1/penalties?select=player,reason,amount")).data).toEqual([{ player: "Tobias Keller", reason: "zu spät", amount: 5 }]);
 });
 
+test("Strafenchef pflegt den Strafenkatalog im Teams-Tab, Spieler ohne Rolle nicht", async () => {
+  await player.click("nav [data-tab=team]");
+  const f = player.locator("form#catf");
+  await f.locator("input[name=g]").fill("Handy im Training");
+  await f.locator("input[name=b]").fill("10");
+  await f.locator("button.add").click();
+  await expect.poll(async () => (await rest("/rest/v1/penalty_catalog?select=reason,amount")).data).toEqual([{ reason: "Handy im Training", amount: 10 }]);
+  // ohne Login: nicht lesbar
+  expect((await rest("/rest/v1/penalty_catalog?select=id", { key: ANON })).status).not.toBe(200);
+});
+
 test("Resultat der Spielleitung erscheint sofort in der öffentlichen Rangliste", async ({ page }) => {
   await admin.click("nav [data-tab=spiel]");
   await admin.click("[data-c='2']"); // November

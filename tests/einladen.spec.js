@@ -27,10 +27,13 @@ test.describe("Mitglieder per Einladungslink einladen", () => {
     const c = card(page);
     await expect(c.locator(".invk")).toContainText("Tobias Keller · Captain");
     await expect(c.locator("[data-invcp]")).toBeVisible();
-    // erscheint in den offenen Einladungen und lässt sich zurückziehen
-    await expect(c.locator(".row", { hasText: "Tobias Keller" })).toBeVisible();
-    await c.locator("[data-invdel]").click();
+    // erscheint bei der Spielleitung unter Benutzer & Rollen und lässt sich dort löschen
+    const u = page.locator(".card", { has: page.locator("h3", { hasText: "Benutzer & Rollen" }) });
+    await expect(u.locator(".row", { hasText: "Tobias Keller" })).toBeVisible();
     await expect(c.locator(".row", { hasText: "Tobias Keller" })).toHaveCount(0);
+    await u.locator(".row", { hasText: "Tobias Keller" }).locator("[data-invdel]").click();
+    await expect(u.locator(".row", { hasText: "Tobias Keller" })).toHaveCount(0);
+    expect((await calls(page)).find((b) => b.action == "revoke")).toBeTruthy();
     await expect(c.locator(".invk")).toHaveCount(0);
   });
 
