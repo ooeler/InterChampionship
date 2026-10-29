@@ -80,3 +80,42 @@ test.describe("Strafenkatalog", () => {
     expect(r.error.message).toContain("row-level security");
   });
 });
+
+test.describe("Sachstrafen (z. B. Kiste Bier)", () => {
+  test("im Katalog erfassen und beim Eintragen auswählen; zählt nicht ins CHF-Total", async ({ page }) => {
+    await seed(page, [{ reason: "zu spät", amount: 5 }]);
+    await login(page, ADMIN);
+    await page.click("nav [data-tab=team]");
+    const f = katalog(page).locator("form#catf");
+    await f.locator("input[name=g]").fill("Shutout vom Goali (Hauptmatch)");
+    await f.locator("input[name=i]").fill("Kiste Bier");
+    await f.locator("button.add").click();
+    await expect(katalog(page).locator(".catr", { hasText: "Shutout" })).toContainText("Kiste Bier");
+    expect((await cat(page)).find((c) => c.item)).toMatchObject({ reason: "Shutout vom Goali (Hauptmatch)", amount: 0, item: "Kiste Bier" });
+
+    await page.click("nav [data-tab=train]");
+    const p = overview(page).locator("form#pen");
+    await p.locator("select[name=p]").selectOption("Tobias Keller");
+    await p.locator("select[name=k]").selectOption({ label: "Shutout vom Goali (Hauptmatch) · Kiste Bier" });
+    await expect(p.locator(".pitem")).toHaveText("Kiste Bier");
+    await p.locator("button.add").click();
+    await expect.poll(async () => (await pens(page)).map((x) => [x.player, x.reason, x.amount, x.item])).toEqual([["Tobias Keller", "Shutout vom Goali (Hauptmatch)", 0, "Kiste Bier"]]);
+    await expect(overview(page).locator(".pnr")).toContainText("Kiste Bier");
+    const board = page.locator(".card", { has: page.locator("h3", { hasText: /^Strafen$/ }) });
+    await expect(board).toContainText("Total CHF 0.00 · offen CHF 0.00 + 1× Kiste Bier");
+    await expect(board.locator(".row", { hasText: "Tobias Keller" })).toContainText("1× Kiste Bier");
+  });
+
+  test("Katalog der Herren Inter wird per Migration übernommen", () => {
+    const sql = require("fs").readFileSync(require("path").join(__dirname, "..", "supabase", "migrations", "20261029_14_sachstrafen_katalog.sql"), "utf8");
+    const rows = [...sql.matchAll(/\('([^']+)', (\d+), (null|'([^']+)')\)/g)].map((m) => [m[1], +m[2], m[4] || null]);
+    expect(rows).toEqual([
+      ["Training nicht vorbereitet", 20, null],
+      ["Shutout vom Goali (Hauptmatch)", 0, "Kiste Bier"],
+      ["10tes Goal (Total)", 0, "Kiste Bier"],
+      ["2min Strafe", 2, null],
+      ["Nicht abgemeldet", 20, null],
+      ["Nach 18:40 Uhr in Halle", 5, null],
+    ]);
+  });
+});
