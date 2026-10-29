@@ -67,16 +67,12 @@ input[type=date].t{display:block;min-height:42px;line-height:1.2}
 #auth .err{color:var(--ac);font-size:13px;margin-top:10px}
 #auth .oa{background:var(--card);color:var(--tx);border:1px solid var(--ln)}#auth .or{text-align:center;color:var(--mu);font-size:12px;margin:16px 0 -4px}
 #auth .err:empty{display:none}
-.hi{color:#fff;font-weight:700;font-size:15px;margin-top:8px}
+.invk{display:grid;gap:6px;margin-top:8px}.invk input{font-size:12px}.hi{color:#fff;font-weight:700;font-size:15px;margin-top:8px}
 .mv{width:14px;font-size:11px;text-align:center}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
 #li,#lo{margin-left:auto;align-self:flex-start;flex:none;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:6px 12px;font:600 12px Arial,Helvetica,sans-serif}
 body.lo header,body.lo main,body.lo nav{display:none}
 /* Responsive: Tablet = eine zentrierte Spalte, Desktop = zwei Spalten */
 header>div{min-width:0}h1{font-size:clamp(20px,6.4vw,30px);overflow-wrap:break-word}h1 span{white-space:nowrap}
-/* Header: Logo + Titel oben, darunter Mannschaften und Begrüssung über die ganze Breite; rechts Abmelden und Let’s Fly */
-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"logo title btn" "info info tag";gap:6px 0;align-items:center}
-#clogo{grid-area:logo;align-self:start;margin-right:12px}#h1{grid-area:title}#li,#lo{grid-area:btn;margin-left:12px}
-header .hd{grid-area:info;min-width:0}header .sub{margin-top:0}header .hi{margin-top:2px}header .tag{grid-area:tag;justify-self:end;align-self:end;margin-left:12px;white-space:nowrap}
 @media(min-width:720px){header{padding-left:max(16px,calc(50% - 380px));padding-right:max(16px,calc(50% - 380px))}#clogo{margin-left:0}
 main{max-width:760px;margin:0 auto}nav{justify-content:center}nav button{flex:0 1 180px}h1{font-size:38px}}
 @media(min-width:1100px){header{padding-left:max(16px,calc(50% - 590px));padding-right:max(16px,calc(50% - 590px))}
@@ -110,7 +106,7 @@ nav button.on i{animation:pop .3s ease-out}
 </style></head><body class="lo">
 <div id="splash" role="status" aria-label="Herren Inter lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
 <div id="auth" hidden></div>
-<header><img id="clogo" hidden><h1 id="h1">Herren Inter</h1><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button><div class="hd"><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><div class="tag">Let’s Fly</div></header>
+<header><img id="clogo" hidden><div><h1 id="h1">Herren Inter</h1><div class="tag">Let’s Fly</div><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <script src="config.js"></script>
@@ -135,7 +131,9 @@ s.v=v;return s}
 function load(){try{var j=localStorage.getItem("ic_state");if(j)S=fix(JSON.parse(j))}catch(e){}}
 function store(){try{localStorage.setItem("ic_state",JSON.stringify(S))}catch(e){}}
 function save(){store();sq++;try{localStorage.setItem("ic_dirty","1")}catch(e){}clearTimeout(tm);tm=setTimeout(push,400)}
-function push(){tm=null;if(!sb||!me||NEWER)return Promise.resolve({});var s=sq;return sb.from("league_state").upsert({id:"main",data:S,client:CID,updated_by:me.id,updated_at:new Date().toISOString()}).then(function(r){if(!r.error&&s==sq)try{localStorage.removeItem("ic_dirty")}catch(e){}return r})}
+function push(){tm=null;if(!sb||!me||NEWER)return Promise.resolve({});var s=sq;return sb.from("league_state").upsert({id:"main",data:S,client:CID,updated_by:me.id,updated_at:new Date().toISOString()}).then(function(r){if(!r.error&&s==sq)try{localStorage.removeItem("ic_dirty")}catch(e){}
+// Vom Server abgelehnt (fehlende Rechte): nicht endlos neu versuchen, sondern den gültigen Stand laden
+if(r.error&&/Nur Admins/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return r})}
 function isDirty(){try{return!!localStorage.getItem("ic_dirty")}catch(e){return false}}
 var TD=(function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})(new Date());
 function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.tr.length-1:i}
@@ -299,18 +297,26 @@ return h+(S.sp?'<div class="card"><h3>Teamsponsor</h3><div style="text-align:cen
 function teams(){return gen()+S.t.map(function(t,k){return '<div class="card"><h3 class="'+(k?"tb":"ta")+'">Team '+(k+1)+' · '+t.p.length+' Spieler</h3><input class="t" data-tn="'+k+'" value="'+esc(t.n)+'">'+'<div class="row" style="border:0"><span class="logo">'+(t.img?'<img src="'+img(t.img)+'">':'')+'</span><label class="add" style="margin:0;flex:1;text-align:center">Bild wählen<input type="file" accept="image/*" data-img="'+k+'" hidden></label>'+(t.img?'<button class="x" data-rmimg="'+k+'">✕</button>':'')+'</div>'
 +t.p.map(function(p,j){return '<div class="row"><input class="t" data-pn="'+k+'" data-j="'+j+'" value="'+esc(p)+'"><button class="x" data-cap="'+k+'" data-p="'+esc(p)+'" style="font-weight:700;color:'+(t.c==p?"var(--ac)":"var(--mu)")+'">C</button><button class="x" data-rm="'+k+'" data-j="'+j+'">✕</button></div>'}).join("")
 +'<button class="add" data-add="'+k+'">+ Spieler hinzufügen</button></div>'}).join("")+inviteCard()+users()+backups()}
-// Mitglieder direkt aus der App einladen (Spielleitung & Captains) – über die Edge Function "invite"
-var INVM=null,INVD={email:"",player:"",role:"player"};
-function inviteCard(){if(!canTeam())return "";return '<div class="card"><h3>Mitglied einladen</h3><div class="sp">Die Person bekommt eine Mail mit einem Link, legt ihr Passwort fest und ist danach dabei.</div><form id="inv">'
-+'<input class="t" type="email" name="email" aria-label="Mail-Adresse" placeholder="Mail-Adresse" required value="'+esc(INVD.email)+'" style="margin-top:8px">'
+// Mitglieder per Einladungslink einladen (Spielleitung & Captains) – über die Edge Function "invite", ohne Mailversand
+var INVD={player:"",role:"player"},INVL=null,INVK=null,INVM="";
+function fnCall(name,body){return sb.functions.invoke(name,{body:body}).then(function(r){var c=r.error&&r.error.context;return c&&c.json?c.json().then(function(d){return{error:r.error,data:d}},function(){return r}):r})}
+function invLink(t){return location.origin+location.pathname+"#einladung="+t}
+function inviteCard(){if(!canTeam())return "";if(INVL==null){INVL=[];fnCall("invite",{action:"list"}).then(function(r){INVL=r.data&&r.data.items||[];render()})}
+return '<div class="card"><h3>Mitglied einladen</h3><div class="sp">Erstelle einen Einladungslink und schicke ihn persönlich (z. B. per WhatsApp). Der Link ist 7 Tage gültig und nur einmal verwendbar.</div><form id="inv">'
 +'<div class="two" style="margin-top:8px"><select class="t" name="player" aria-label="Spieler"><option value="">– Spieler später zuordnen –</option>'+allP().map(function(p){return '<option'+(INVD.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select>'
 +(ROLE=="admin"?'<select class="t" name="role" aria-label="Rolle">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(INVD.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select>':'<span class="sp" style="align-self:center">Rolle: Spieler</span>')+'</div>'
-+'<button class="add">Einladung senden</button>'+(INVM?'<div class="sp invm" style="margin-top:8px">'+INVM+'</div>':'')+'</form></div>'}
++'<button class="add">Einladungslink erstellen</button></form>'
++(INVK?'<div class="invk"><input class="t" readonly aria-label="Einladungslink" value="'+esc(invLink(INVK.t))+'"><div class="two"><button class="add" data-invcp="1">Kopieren</button>'+(navigator.share?'<button class="add" data-invsh="1">Teilen</button>':'')+'</div><div class="sp">'+esc(INVK.who)+' · gültig bis '+wd(INVK.exp.slice(0,10))+'. Wer den Link hat, kann ein Konto erstellen – nur persönlich weitergeben.</div></div>':'')
++(INVM?'<div class="sp invm" style="margin-top:8px">'+esc(INVM)+'</div>':'')
++(INVL.length?'<div class="sk"><div class="sp" style="margin-bottom:4px">Offene Einladungen</div>'+INVL.map(function(x){return '<div class="row"><span class="nm">'+esc(x.player||"ohne Spieler")+' <span class="sp">'+RL[x.role]+' · bis '+wd(x.expires_at.slice(0,10))+'</span></span>'+(x.mine||ROLE=="admin"?'<button class="x" style="font-size:12px" data-invdel="'+x.id+'">Zurückziehen</button>':'')+'</div>'}).join("")+'</div>':'')+'</div>'}
 document.addEventListener("input",function(e){var f=e.target.form;if(f&&f.id=="inv")INVD[e.target.name]=e.target.value});
 document.addEventListener("change",function(e){var f=e.target.form;if(f&&f.id=="inv")INVD[e.target.name]=e.target.value});
-document.addEventListener("submit",function(e){if(e.target.id!="inv")return;e.preventDefault();var B=e.target.querySelector("button.add");B.disabled=true;
-sb.functions.invoke("invite",{body:{email:INVD.email,player:INVD.player||null,role:ROLE=="admin"?INVD.role:"player"}}).then(function(r){var c=r.error&&r.error.context;return c&&c.json?c.json().then(function(d){return{error:r.error,data:d}},function(){return r}):r}).then(function(r){
-if(r.error||!r.data||!r.data.ok){INVM="✗ "+esc(r.data&&r.data.error||"Einladung fehlgeschlagen.")}else{INVM="✓ Einladung an "+esc(r.data.email)+" verschickt.";INVD={email:"",player:"",role:"player"};MEM=null}render()})});
+document.addEventListener("submit",function(e){if(e.target.id!="inv")return;e.preventDefault();var B=e.target.querySelector("button.add");B.disabled=true;var b={action:"create",player:INVD.player||null,role:ROLE=="admin"?INVD.role:"player"};
+fnCall("invite",b).then(function(r){if(r.error||!r.data||!r.data.ok){INVM="✗ "+(r.data&&r.data.error||"Einladung fehlgeschlagen.");INVK=null}else{INVM="";INVK={t:r.data.token,exp:r.data.expires_at,who:(b.player||"Ohne Spieler")+" · "+RL[b.role]};INVD={player:"",role:"player"};INVL=null}render()})});
+document.addEventListener("click",function(e){var b=e.target.closest("[data-invcp],[data-invsh],[data-invdel]");if(!b)return;
+if(b.dataset.invcp){var I=document.querySelector(".invk input");(navigator.clipboard?navigator.clipboard.writeText(I.value):Promise.reject()).then(function(){b.textContent="✓ Kopiert"},function(){I.select()});return}
+if(b.dataset.invsh){navigator.share({title:"Einladung",text:"Du bist eingeladen! Hier kannst du dein Konto erstellen:",url:invLink(INVK.t)}).catch(function(){});return}
+if(!confirm("Einladung zurückziehen? Der Link funktioniert danach nicht mehr."))return;fnCall("invite",{action:"revoke",id:+b.dataset.invdel}).then(function(){INVL=null;INVK=null;render()})});
 var MEM=null,RL={admin:"Spielleitung (Admin)",captain:"Captain",player:"Spieler"};
 var HIST=null;
 function backups(){if(ROLE!="admin")return "";if(HIST==null){HIST=[];sb.from("league_state_history").select("id,saved_at,reason").order("saved_at",{ascending:false}).limit(15).then(function(r){HIST=r.data||[];render()})}
@@ -423,22 +429,31 @@ if(D.smimg!=null){var sf=e.target.files[0],si=+D.smimg;if(!sf)return;var im=new 
 if(D.smt!=null){SMT=e.target.value;render();return}
 if(D.imp!=null){var f=e.target.files[0];e.target.value="";if(!f)return;f.text().then(function(t){var x=JSON.parse(t);if(!x||!x.t||!x.m)throw 0;if(!confirm("Backup laden? Die aktuellen Daten auf diesem Gerät werden ersetzt."))return;S=fix(x);save();goNow();render();alert("Backup geladen.")}).catch(function(){alert("Diese Datei ist kein gültiges Backup.")});return}if(D.img!=null){var f=e.target.files[0],k=D.img;if(f)rs(f,function(u){if(k=="club")S.logo=u;else if(k=="sp")S.sp=u;else S.t[+k].img=u;save();render()},k=="sp"?360:160,k=="sp");return}if(D.sn!=null){S.sn=v;save();render();return}if(D.ref!=null){S.m[cur].ref=v;save();return}if(!v)return;if(D.dt!=null){var T=S.m[cur].tr;T[+D.dt].d=v;T.sort(function(a,b){return a.d<b.d?-1:1});ot=-1;save();render();return}
 if(D.tn!=null){S.t[+D.tn].n=v}else if(D.pn!=null){var P=S.t[+D.pn].p,o=P[+D.j];P[+D.j]=v;S.m.forEach(function(m){["base","g","a"].forEach(function(k){if(o in m[k]){m[k][v]=m[k][o];delete m[k][o]}});m.tr.forEach(function(x){var q=x.p.indexOf(o);if(q>=0)x.p[q]=v;q=(x.ab||[]).indexOf(o);if(q>=0)x.ab[q]=v;if(x.lead==o)x.lead=v})});if(S.t[+D.pn].c==o)S.t[+D.pn].c=v;fix(S);if(sb)sb.rpc("rename_player",{old_name:o,new_name:v});if(PLAYER==o)PLAYER=v;if(MEM)MEM.forEach(function(u){if(u.player==o)u.player=v})}else return;save();render()});
-var H=location.hash,INV=/type=(invite|recovery)/.test(H),HERR=(H.match(/error_description=([^&]+)/)||[])[1],OA={google:"Google",azure:"Microsoft",github:"GitHub"};
+var H=location.hash,INV=/type=(invite|recovery)/.test(H),HERR=(H.match(/error_description=([^&]+)/)||[])[1],OA={google:"Google",azure:"Microsoft",github:"GitHub"},JOIN=(H.match(/einladung=([A-Za-z0-9_-]+)/)||[])[1]||null;
 function aerr(m){return /signups? not allowed|not allowed for this instance/i.test(m)?"Diese Adresse ist nicht eingeladen. Bitte beim Captain melden.":m}
 var T0=Date.now();
 function hideSplash(){var s=document.getElementById("splash");if(!s||s.dataset.h)return;s.dataset.h=1;setTimeout(function(){s.classList.add("out");setTimeout(function(){s.remove()},400)},Math.max(0,900-(Date.now()-T0)))}
 function ascr(k,msg){var a=document.getElementById("auth"),h;hideSplash();document.body.classList.add("lo");a.hidden=false;
 if(k=="cfg")h='<h1>Einrichtung fehlt</h1><div class="sp">In <b>config.js</b> sind die Supabase-Adresse und der Schlüssel noch nicht eingetragen (oder die Verbindung zum Internet fehlt).</div>';
 else if(k=="setpw")h='<h1>Passwort festlegen</h1><div class="sp">Willkommen'+(me&&me.email?', '+esc(me.email):'')+'! Lege dein Passwort für die App fest.</div><form data-f="setpw"><label>Neues Passwort (mind. 8 Zeichen)</label><input class="t" aria-label="Neues Passwort (mind. 8 Zeichen)" type="password" name="p1" autocomplete="new-password" minlength="8" required><label>Passwort wiederholen</label><input class="t" aria-label="Passwort wiederholen" type="password" name="p2" autocomplete="new-password" required><button class="btn">Speichern &amp; los</button><div class="err"></div></form>';
+else if(k=="join")h='<h1>Willkommen!</h1><div class="sp jw">Einladungslink wird geprüft …</div><form data-f="join" hidden><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="username" required><label>Passwort (mind. 8 Zeichen)</label><input class="t" aria-label="Passwort (mind. 8 Zeichen)" type="password" name="p1" autocomplete="new-password" minlength="8" required><label>Passwort wiederholen</label><input class="t" aria-label="Passwort wiederholen" type="password" name="p2" autocomplete="new-password" required><button class="btn">Konto erstellen &amp; los</button><div class="err"></div></form><button class="lnk" data-af="login">Ich habe schon ein Konto</button>';
 else if(k=="forgot")h='<h1>Passwort vergessen</h1><div class="sp">Du erhältst eine Mail mit einem Link, um ein neues Passwort festzulegen.</div><form data-f="forgot"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="email" required><button class="btn">Link senden</button><div class="err"></div></form><button class="lnk" data-af="login">Zurück zur Anmeldung</button>';
 else h='<h1>Herren Inter</h1><div class="sp">Nur für eingeladene Mitglieder.</div>'+((window.IM_CONFIG||{}).providers||[]).filter(function(p){return OA[p]}).map(function(p){return '<button class="btn oa" data-oa="'+p+'">Mit '+OA[p]+' anmelden</button>'}).join("")+(((window.IM_CONFIG||{}).providers||[]).length?'<div class="or">oder mit E-Mail</div>':'')+'<form data-f="login"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="username" required><label>Passwort</label><input class="t" aria-label="Passwort" type="password" name="pw" autocomplete="current-password" required><button class="btn">Anmelden</button><div class="err"></div></form><button class="lnk" data-af="forgot">Passwort vergessen?</button><button class="lnk" data-af="public">Zurück zur Rangliste</button>';
-a.innerHTML='<div class="card">'+h+'</div>';if(msg){var E=a.querySelector(".err");if(E)E.textContent=msg}}
+a.innerHTML='<div class="card">'+h+'</div>';if(msg){var E=a.querySelector(".err");if(E)E.textContent=msg}if(k=="join")joinCheck()}
+// Einladungslink: Token prüfen, dann Konto mit Mail und Passwort erstellen (kein Mailversand nötig)
+function endJoin(){JOIN=null;history.replaceState(null,"",location.pathname+location.search)}
+function joinCheck(){fnCall("invite",{action:"check",token:JOIN}).then(function(r){var W=document.querySelector("#auth .jw");if(!W)return;var d=r.data||{};
+if(r.error||!d.ok){W.textContent=d.error||"Der Einladungslink konnte nicht geprüft werden. Bitte später nochmals versuchen.";return}
+W.textContent="Du bist eingeladen"+(d.player?" als "+d.player:"")+(d.role&&d.role!="player"?" ("+RL[d.role]+")":"")+". Erstelle jetzt dein Konto – mit deiner Mail-Adresse und einem Passwort.";document.querySelector("#auth form[data-f=join]").hidden=false})}
 document.getElementById("auth").addEventListener("click",function(e){var b=e.target.closest("[data-af],[data-oa]");if(!b)return;if(b.dataset.af){if(b.dataset.af=="public")showPublic();else ascr(b.dataset.af);return}
 b.disabled=true;sb.auth.signInWithOAuth({provider:b.dataset.oa,options:{redirectTo:location.origin+location.pathname}}).then(function(r){b.disabled=false;if(r.error)document.querySelector("#auth .err").textContent=aerr(r.error.message)})});
 document.getElementById("auth").addEventListener("submit",function(e){e.preventDefault();var f=e.target,F=f.elements,E=f.querySelector(".err"),B=f.querySelector("button");E.textContent="";B.disabled=true;
 function done(r,ok){B.disabled=false;if(r.error)E.textContent=ok?r.error.message:ok===false?"Anmeldung fehlgeschlagen: E-Mail oder Passwort falsch.":r.error.message}
 if(f.dataset.f=="login")sb.auth.signInWithPassword({email:F.email.value.trim(),password:F.pw.value}).then(function(r){done(r,false)});
 else if(f.dataset.f=="forgot")sb.auth.resetPasswordForEmail(F.email.value.trim(),{redirectTo:location.origin+location.pathname}).then(function(r){done(r);if(!r.error)E.textContent="Falls diese Adresse eingeladen ist, kommt gleich eine Mail mit einem Link."});
+else if(f.dataset.f=="join"){if(F.p1.value!=F.p2.value){B.disabled=false;E.textContent="Die Passwörter stimmen nicht überein.";return}var em=F.email.value.trim(),pw=F.p1.value;
+fnCall("invite",{action:"join",token:JOIN,email:em,password:pw}).then(function(r){if(r.error||!r.data||!r.data.ok){B.disabled=false;E.textContent=r.data&&r.data.error||"Registrierung fehlgeschlagen.";return}
+endJoin();sb.auth.signInWithPassword({email:r.data.email||em,password:pw}).then(function(x){done(x,false)})})}
 else if(f.dataset.f=="setpw"){if(F.p1.value!=F.p2.value){B.disabled=false;E.textContent="Die Passwörter stimmen nicht überein.";return}
 sb.auth.updateUser({password:F.p1.value}).then(function(r){done(r);if(r.error)return;INV=false;history.replaceState(null,"",location.pathname);start()})}});
 // Ohne Login: nur die Rangliste, nur lesen (Daten sind öffentlich lesbar, siehe Migration 03)
@@ -454,8 +469,8 @@ addEventListener("online",function(){if(isDirty())push()});
 (function(){var C=window.IM_CONFIG||{};if(!C.url||!C.key||!window.supabase){ascr("cfg");return}
 sb=supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 sb.auth.onAuthStateChange(function(ev,s){var u=s&&s.user;if(ev=="PASSWORD_RECOVERY")INV=true;if(ev=="USER_UPDATED")return;
-setTimeout(function(){if(!u){me=null;stop();if(!HERR){showPublic();return}ascr("login",HERR&&aerr(decodeURIComponent(HERR.replace(/\+/g," "))));HERR=null;if(/error/.test(location.hash))history.replaceState(null,"",location.pathname);return}
-var nw=!me||me.id!=u.id;me=u;if(INV)ascr("setpw");else if(nw)start()},0)})})();
+setTimeout(function(){if(!u){me=null;stop();if(JOIN){ascr("join");return}if(!HERR){showPublic();return}ascr("login",HERR&&aerr(decodeURIComponent(HERR.replace(/\+/g," "))));HERR=null;if(/error/.test(location.hash))history.replaceState(null,"",location.pathname);return}
+if(JOIN)endJoin();var nw=!me||me.id!=u.id;me=u;if(INV)ascr("setpw");else if(nw)start()},0)})})();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
 </script></body></html>

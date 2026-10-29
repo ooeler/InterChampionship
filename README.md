@@ -47,8 +47,8 @@ tests/                    Playwright-E2E-Tests (Android, iPhone, Desktop)
    - Email: aktiv lassen.
    - Optional **Google** und/oder **Azure (Microsoft)** aktivieren (Client-ID/Secret aus Google Cloud Console bzw. Microsoft Entra; Anleitung direkt bei Supabase verlinkt).
 4. **Authentication → URL Configuration**: *Site URL* und *Redirect URLs* = deine App-Adresse, z. B. `https://<github-name>.github.io/InterChampionship/`.
-5. **E-Mail-Versand**: Supabase verschickt ohne eigenen Mailserver nur sehr wenige Mails. Gratis-SMTP z. B. bei [Brevo](https://www.brevo.com) (300 Mails/Tag) einrichten und unter **Authentication → Emails → SMTP Settings** eintragen.
-6. **Benutzer einladen**: **Authentication → Users → Invite user** → Mail-Adresse. Die Person bekommt einen Link, legt ein Passwort fest (oder nutzt danach Google/Microsoft mit derselben Adresse).
+5. **Benutzer einladen**: in der App unter **Teams → Mitglied einladen** einen **Einladungslink** erstellen (optional mit Spieler und Rolle) und persönlich schicken, z. B. per WhatsApp. Der Link ist 7 Tage gültig und nur einmal verwendbar; die Person erstellt damit ihr Konto mit Mail und Passwort. Es braucht **keinen Mailversand**. Mit Google/Microsoft/GitHub kann sie sich danach mit derselben Mail-Adresse anmelden.
+6. **E-Mail-Versand (optional)**: nur für „Passwort vergessen“ nötig. Supabase verschickt ohne eigenen Mailserver nur sehr wenige Mails; Gratis-SMTP z. B. bei [Brevo](https://www.brevo.com) unter **Authentication → Emails → SMTP Settings** eintragen.
 7. Dich selbst einladen, anmelden, dann im SQL Editor:
    ```sql
    update public.members set role = 'admin' where email = 'deine@adresse.ch';
