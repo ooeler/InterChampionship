@@ -67,7 +67,7 @@ input[type=date].t{display:block;min-height:42px;line-height:1.2}
 #auth .err{color:var(--ac);font-size:13px;margin-top:10px}
 #auth .oa{background:var(--card);color:var(--tx);border:1px solid var(--ln)}#auth .or{text-align:center;color:var(--mu);font-size:12px;margin:16px 0 -4px}
 #auth .err:empty{display:none}
-.invk{display:grid;gap:6px;margin-top:8px}.invk input{font-size:12px}.hi{color:#fff;font-weight:700;font-size:15px;margin-top:8px}
+.pen{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.pen input[name=g],.pen select{grid-column:1/-1}.pen select{width:100%;min-height:40px}.pen .add{margin:0}.pnr b{white-space:nowrap}.invk{display:grid;gap:6px;margin-top:8px}.invk input{font-size:12px}.hi{color:#fff;font-weight:700;font-size:15px;margin-top:8px}
 .mv{width:14px;font-size:11px;text-align:center}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
 #li,#lo{margin-left:auto;align-self:flex-start;flex:none;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:6px 12px;font:600 12px Arial,Helvetica,sans-serif}
 body.lo header,body.lo main,body.lo nav{display:none}
@@ -235,7 +235,7 @@ function trOverview(){var L=allTr();if(!L.length)return "";if(TSEL==null){var n=
 var r=trAt(TSEL);if(!r.x){TSEL=null;return trOverview()}var x=r.x,go=started(x),k=TSEL,edit=canTeam();
 var h='<div class="card"><h3>Übersicht pro Training</h3><select class="t" data-tsel="1" aria-label="Training wählen">'+L.map(function(q){var e=evOn(q.x.d);return '<option value="'+trKey(q)+'"'+(trKey(q)==k?" selected":"")+'>'+wd(q.x.d)+' '+tstart(q.x)+(q.md?' · Match Day':'')+(e?' · '+e.n:'')+'</option>'}).join("")+'</select>';
 h+='<div class="sp" style="margin-top:6px">'+wd(x.d)+' · Beginn '+tstart(x)+marks(r)+'</div>';
-if(!r.md)h+=leadSel(r.mi,r.ti,x);h+=restoField(x);
+if(!r.md)h+=leadSel(r.mi,r.ti,x);h+=restoField(x)+penField(x);
 h+=[0,1].map(function(t){var P=S.t[t].p,on=P.filter(function(p){return !isOff(x,p)}),off=P.filter(function(p){return isOff(x,p)}),ok=P.filter(function(p){return x.p.indexOf(p)>=0});
 var chip=function(p){var c=x.p.indexOf(p)>=0,o=isOff(x,p);return '<button class="pb'+(go?(c?" on":""):(o?" off":" in"))+'" data-tp="'+esc(p)+'">'+(go?(c?"✓ ":""):(o?"✗ ":""))+esc(p)+'</button>'};
 return '<div class="sk"><div class="kv"><b class="'+(t?"tb":"ta")+'">'+esc(S.t[t].n)+'</b><span class="sp">'+(go?ok.length+' bestätigt · ':'')+on.length+' angemeldet · '+off.length+' abgemeldet</span></div>'
@@ -261,7 +261,36 @@ function restoField(x){var can=RESTO||ROLE=="admin";if(!can)return x.r?'<div cla
 return '<div class="sp" style="margin:8px 0 4px">🍽️ Restaurant nach dem Training</div><input class="t" list="restos" data-resto="1" placeholder="Restaurant eintragen" value="'+esc(x.r||"")+'"><datalist id="restos">'+Object.keys(restos()).sort(function(a,b){return a.localeCompare(b,"de")}).map(function(n){return '<option value="'+esc(n)+'">'}).join("")+'</datalist>'}
 function restoBoard(){var c=restos(),L=Object.keys(c).map(function(n){return{n:n,v:c[n]}}).sort(function(a,b){return b.v-a.v||a.n.localeCompare(b.n,"de")});if(!L.length)return "";var t="Restaurants",open=MORE[t],shown=open?L:L.slice(0,5),mx=L[0].v;
 return '<div class="card"><h3>'+t+'</h3>'+shown.map(function(r){return '<div class="row"><span class="rk">'+(1+L.filter(function(z){return z.v>r.v}).length)+'</span><span class="nm">🍽️ '+esc(r.n)+'</span><div class="bar"><div style="width:'+r.v/mx*100+'%"></div></div><b>'+r.v+'×</b></div>'}).join("")+(L.length>5?'<button class="add" data-more="'+t+'">'+(open?'Weniger zeigen':'Zeige mehr ('+L.length+')')+'</button>':'')+'</div>'}
-function training(){return myTr()+trOverview()+trMonth()+notifyCard()}
+// ── Strafen: pro Training / Match Day einem Spieler zugeordnet (Tabelle penalties, nicht öffentlich) ──
+// Eintragen, als bezahlt markieren, löschen: Strafenchef, Captains, Spielleitung (serverseitig per RLS). Lesen: alle Mitglieder.
+var STRAF=false,PEN=null,PND={p:"",g:"",b:""};
+function canFine(){return STRAF||canTeam()}
+function chf(v){return "CHF "+(+v).toFixed(2)}
+function pens(){if(PEN==null&&sb&&me){PEN=[];sb.from("penalties").select("id,d,player,reason,amount,paid").order("created_at").then(function(r){PEN=r.data||[];render()})}return PEN||[]}
+function reasons(){var c={};pens().forEach(function(p){c[p.reason]=(c[p.reason]||0)+1});return Object.keys(c).sort(function(a,b){return c[b]-c[a]||a.localeCompare(b,"de")})}
+function lastAmt(g){var L=pens().filter(function(x){return x.reason==g});return L.length?String(+L[L.length-1].amount):""}
+function penField(x){if(!me)return "";var L=pens().filter(function(p){return p.d==x.d}),can=canFine();if(!L.length&&!can)return "";
+return '<div class="sk"><div class="sp" style="margin-bottom:4px">⚖️ Strafen</div>'+L.map(function(p){return '<div class="row pnr"><span class="nm">'+esc(p.player)+' <span class="sp">'+esc(p.reason)+'</span></span><b class="'+(p.paid?"sp":"fl")+'">'+chf(p.amount)+'</b>'
++(can?'<button class="x" style="font-size:12px" data-pnpay="'+p.id+'">'+(p.paid?"✓ bezahlt":"offen")+'</button><button class="x" data-pndel="'+p.id+'" aria-label="Strafe löschen">✕</button>':(p.paid?' <span class="sp">✓ bezahlt</span>':''))+'</div>'}).join("")
++(can?'<form id="pen" class="pen"><select class="t" name="p" aria-label="Spieler" required><option value="">– Spieler –</option>'+allP().map(function(p){return '<option'+(PND.p==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select>'
++'<input class="t" name="g" list="pgr" aria-label="Grund" placeholder="Grund, z. B. zu spät" maxlength="120" required value="'+esc(PND.g)+'"><datalist id="pgr">'+reasons().map(function(g){return '<option value="'+esc(g)+'">'}).join("")+'</datalist>'
++'<input class="t" name="b" type="number" inputmode="decimal" min="0" max="1000" step="0.5" aria-label="Betrag in CHF" placeholder="CHF" required value="'+esc(PND.b)+'"><button class="add">+ Strafe</button></form>':'')+'</div>'}
+// Übersicht pro Spieler: offen / total, Top 5 + „Zeige mehr“
+function penBoard(){if(!me)return "";var c={};pens().forEach(function(p){var z=c[p.player]=c[p.player]||{o:0,t:0};z.t+=+p.amount;if(!p.paid)z.o+=+p.amount});
+var L=Object.keys(c).map(function(n){return{n:n,o:c[n].o,t:c[n].t}}).sort(function(a,b){return b.o-a.o||b.t-a.t||a.n.localeCompare(b.n,"de")});if(!L.length)return "";
+var t="Strafen",open=MORE[t],shown=open?L:L.slice(0,5),so=0,st=0;L.forEach(function(r){so+=r.o;st+=r.t});var mine=PLAYER&&c[PLAYER];
+return '<div class="card"><h3>'+t+'</h3><div class="sp" style="margin-bottom:4px">Total '+chf(st)+' · offen '+chf(so)+(mine?' · <b>du: '+chf(mine.o)+' offen</b>':'')+'</div>'
++shown.map(function(r){return '<div class="row'+(r.n==PLAYER?' lme':'')+'"><span class="nm">⚖️ '+esc(r.n)+'</span><span class="sp">'+chf(r.t)+' total</span><b class="'+(r.o?"fl":"sp")+'">'+(r.o?chf(r.o)+' offen':'✓ bezahlt')+'</b></div>'}).join("")
++(L.length>5?'<button class="add" data-more="'+t+'">'+(open?'Weniger zeigen':'Zeige mehr ('+L.length+')')+'</button>':'')+'</div>'}
+function penForm(e){var f=e.target.form;if(!f||f.id!="pen")return;var n=e.target.name;PND[n]=e.target.value;if(n=="g"&&!PND.b){PND.b=lastAmt(PND.g.trim());f.elements.b.value=PND.b}}
+document.addEventListener("input",penForm);document.addEventListener("change",penForm);
+document.addEventListener("submit",function(e){if(e.target.id!="pen")return;e.preventDefault();var B=e.target.querySelector("button.add"),a=parseFloat(String(PND.b).replace(",","."));
+if(!PND.p||!PND.g.trim()||!(a>=0)){alert("Bitte Spieler, Grund und Betrag angeben.");return}B.disabled=true;
+sb.from("penalties").insert({d:trAt(TSEL).x.d,player:PND.p,reason:PND.g.trim(),amount:a}).then(function(r){B.disabled=false;if(r.error){alert("Strafe konnte nicht gespeichert werden: "+r.error.message);return}PND={p:"",g:"",b:""};PEN=null;render()})});
+document.addEventListener("click",function(e){var b=e.target.closest("[data-pnpay],[data-pndel]");if(!b)return;
+if(b.dataset.pnpay){var p=pens().filter(function(x){return x.id==b.dataset.pnpay})[0];p.paid=!p.paid;render();sb.from("penalties").update({paid:p.paid}).eq("id",p.id).then(function(r){if(r.error){p.paid=!p.paid;alert(r.error.message);render()}});return}
+if(!confirm("Strafe löschen?"))return;sb.from("penalties").delete().eq("id",+b.dataset.pndel).then(function(r){if(r.error){alert(r.error.message);return}PEN=null;render()})});
+function training(){return myTr()+trOverview()+penBoard()+trMonth()+notifyCard()}
 // Neues Training dem Block des nächsten Match Days zuordnen (Match Day bleibt das letzte Training eines Monats)
 function sortBlock(T){var md=T.pop();T.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});if(md)T.push(md)}
 function placeTr(x){var mi=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>x.d});if(mi<0)mi=S.m.length-1;var T=S.m[mi].tr;if(!T.length)T.push(x);else{var md=T.pop();T.push(x);T.push(md);sortBlock(T)}return mi+","+T.indexOf(x)}
@@ -327,9 +356,9 @@ function backups(){if(ROLE!="admin")return "";if(HIST==null){HIST=[];sb.from("le
 var f=function(t){var d=new Date(t);return d.toLocaleDateString("de-CH")+" "+d.toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})};
 return '<div class="card"><h3>Datensicherung</h3><div class="sp">Jede Änderung, jede Nacht und jedes Release wird automatisch gesichert. Beim Wiederherstellen wird der aktuelle Stand vorher ebenfalls gesichert.</div><button class="add" data-snap="1">Jetzt sichern</button>'+(HIST.length?HIST.map(function(h){return '<div class="row"><span class="nm">'+f(h.saved_at)+' <span class="sp">· '+esc(h.reason)+'</span></span><button class="x" style="font-size:13px" data-restore="'+h.id+'">Wiederherstellen</button></div>'}).join(""):'<div class="sp" style="margin-top:8px">Noch keine Sicherungen.</div>')+'</div>'}
 function reloadState(){return sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.data&&r.data.data){S=fix(r.data.data);store();try{localStorage.removeItem("ic_dirty")}catch(e){}}HIST=null;render()})}
-function loadMem(){MEM=[];sb.from("members").select("user_id,email,role,player,resto").order("email").then(function(r){MEM=r.data||[];render()})}
+function loadMem(){MEM=[];sb.from("members").select("user_id,email,role,player,resto,strafen").order("email").then(function(r){MEM=r.data||[];render()})}
 function users(){if(ROLE!="admin")return "";if(MEM==null){setTimeout(loadMem,0);return ""}var all=S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.localeCompare(b,"de")});
-return '<div class="card"><h3>Benutzer &amp; Rollen</h3><div class="sp">Neue Benutzer lädst du in Supabase per Mail ein; sie erscheinen nach der Einladung hier.</div>'+MEM.map(function(u){return '<div class="sk"><b class="nm" style="display:block">'+esc(u.email)+'</b><div class="two" style="margin-top:6px"><select class="t" data-mrole="'+u.user_id+'">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(u.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select><select class="t" data-mpl="'+u.user_id+'"><option value="">– kein Spieler –</option>'+all.map(function(p){return '<option'+(u.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">🍽️ Restaurant-Chef</span><input type="checkbox" data-mresto="'+u.user_id+'"'+(u.resto?" checked":"")+'></label></div>'}).join("")+'</div>'}
+return '<div class="card"><h3>Benutzer &amp; Rollen</h3><div class="sp">Neue Benutzer lädst du in Supabase per Mail ein; sie erscheinen nach der Einladung hier.</div>'+MEM.map(function(u){return '<div class="sk"><b class="nm" style="display:block">'+esc(u.email)+'</b><div class="two" style="margin-top:6px"><select class="t" data-mrole="'+u.user_id+'">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(u.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select><select class="t" data-mpl="'+u.user_id+'"><option value="">– kein Spieler –</option>'+all.map(function(p){return '<option'+(u.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">🍽️ Restaurant-Chef</span><input type="checkbox" data-mresto="'+u.user_id+'"'+(u.resto?" checked":"")+'></label><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">⚖️ Strafenchef</span><input type="checkbox" data-mstraf="'+u.user_id+'"'+(u.strafen?" checked":"")+'></label></div>'}).join("")+'</div>'}
 function setMem(uid,k,v){var u=MEM.filter(function(x){return x.user_id==uid})[0],o=u[k];u[k]=v;sb.rpc("set_member",{uid:uid,new_role:u.role,new_player:u.player||null}).then(function(r){if(r.error){u[k]=o;alert(r.error.message)}else if(uid==me.id){ROLE=u.role;PLAYER=u.player}render()})}
 function canTeam(){return ROLE=="admin"||ROLE=="captain"}
 // ── Animationen ──
@@ -370,10 +399,10 @@ if(D.smdl){smDl();return}
 if(D.exp){exp();return}
 if(D.push){enablePush();return}
 if(D.notify){var mo=cur;if(!confirm("Resultat jetzt per Push an alle melden?"))return;clearTimeout(tm);push().then(function(){return sb.functions.invoke("notify",{body:{type:"result",month:mo}})}).then(function(r){alert(r&&r.error?"Senden fehlgeschlagen.":"Push-Nachricht wurde verschickt.")});return}
-if(D.lo){if(confirm("Abmelden?")){stop();ROLE="player";PLAYER=null;MEM=null;HIST=null;SM=false;tab="rang";try{localStorage.removeItem("ic_state");localStorage.removeItem("ic_dirty")}catch(e){}S=fix(def());var so=function(){sb.auth.signOut()};
+if(D.lo){if(confirm("Abmelden?")){stop();ROLE="player";PLAYER=null;MEM=null;PEN=null;STRAF=false;HIST=null;SM=false;tab="rang";try{localStorage.removeItem("ic_state");localStorage.removeItem("ic_dirty")}catch(e){}S=fix(def());var so=function(){sb.auth.signOut()};
 if(PUSH===true)navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription()}).then(function(s){return s&&sb.from("push_subscriptions").delete().eq("endpoint",s.endpoint).then(function(){return s.unsubscribe()})}).then(so,so);else so();PUSH=null;PREV=null}return}
 if(D.sm){SM=!SM}
-else if(D.tab){tab=D.tab;scrollTo(0,0)}else if(D.c){cur=+D.c;ot=nxt(S.m[cur])}
+else if(D.tab){if(D.tab=="train"&&tab!="train")PEN=null;tab=D.tab;scrollTo(0,0)}else if(D.c){cur=+D.c;ot=nxt(S.m[cur])}
 else if(D.ot!=null){ot=ot===+D.ot?-1:+D.ot}
 else if(D.ab!=null){var ab=S.m[cur].tr[+D.ab].p,q=ab.indexOf(D.p);q<0?ab.push(D.p):ab.splice(q,1);save()}
 else if(D.dtr!=null){if(confirm("Training löschen?")){S.m[cur].tr.splice(+D.dtr,1);ot=-1;save()}}
@@ -422,6 +451,7 @@ function smDl(){document.getElementById("smc").toBlob(function(b){var f=new File
 if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f]}).catch(function(){});return}give(f)},"image/png")}
 document.addEventListener("change",function(e){var D=e.target.dataset,v=e.target.value.trim();
 if(D.resto!=null){if(!(RESTO||ROLE=="admin"))return;var rx=trAt(TSEL).x,rv=e.target.value.trim();if(rv)rx.r=rv;else delete rx.r;save();render();return}
+if(D.mstraf!=null){var su=MEM.filter(function(x){return x.user_id==D.mstraf})[0],so=su.strafen,son=e.target.checked;su.strafen=son;sb.rpc("set_strafen",{uid:D.mstraf,on_strafen:son}).then(function(r){if(r.error){su.strafen=so;alert(r.error.message)}else if(D.mstraf==me.id)STRAF=son;render()});return}
 if(D.mresto!=null){var mu=MEM.filter(function(x){return x.user_id==D.mresto})[0],mo=mu.resto,mon=e.target.checked;mu.resto=mon;sb.rpc("set_resto",{uid:D.mresto,on_resto:mon}).then(function(r){if(r.error){mu.resto=mo;alert(r.error.message)}else if(D.mresto==me.id)RESTO=mon;render()});return}
 if(D.tsel!=null){TSEL=e.target.value;render();return}
 if(D.ntf!=null){var on=e.target.checked;sb.rpc("set_notify",{on_changes:on}).then(function(r){if(r.error){alert(r.error.message);e.target.checked=!on}else NOTIFY=on});return}
@@ -465,7 +495,7 @@ var PUB=false;
 function showPublic(){PUB=true;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();render();
 sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.data&&r.data.data){S=fix(r.data.data);render()}})}
 function start(){PUB=false;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();goNow();render();
-setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};ROLE=d.role||"player";PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;RESTO=!!d.resto;render()});pushState();
+setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};ROLE=d.role||"player";PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;RESTO=!!d.resto;STRAF=!!d.strafen;render()});pushState();
 sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){S=fix(r.data.data);store();goNow();render()}else push()});
 stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;S=fix(n.data);store();if(!document.activeElement||!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))render()}).subscribe()},0)}
 function stop(){if(live){sb.removeChannel(live);live=null}}
