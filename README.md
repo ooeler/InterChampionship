@@ -69,7 +69,26 @@ Im Tab **Infos** können alle Mitglieder Ideen und Fehler melden. Die Edge Funct
 
 Es wird **kein persönliches GitHub-Token** benötigt – der Ablauf nutzt den eingebauten Token von GitHub Actions. Voraussetzung ist nur das Secret `SUPABASE_CRON_SECRET` (siehe unten).
 
-### 4. GitHub
+### 4. Login mit Google, Microsoft oder GitHub (optional)
+
+Die App zeigt die Knöpfe, sobald der Anbieter in Supabase aktiv und in der GitHub-Variable `OAUTH_PROVIDERS` eingetragen ist (z. B. `google,azure,github`). Auch per Anbieter kommen nur **eingeladene** Adressen rein.
+
+Callback-URL für alle Anbieter: `https://bxzywtpddgtfgghyiduf.supabase.co/auth/v1/callback`
+
+| Anbieter | Wo erstellen | In Supabase eintragen |
+|---|---|---|
+| Google | Google Cloud Console → APIs & Services → Credentials → OAuth-Client-ID (Web) | Authentication → Providers → Google: Client ID + Secret |
+| Microsoft | Microsoft Entra → App-Registrierungen → Neue Registrierung, Secret unter „Certificates & secrets“ | Providers → Azure: Client ID, Secret, URL `https://login.microsoftonline.com/common` |
+| GitHub | GitHub → Settings → Developer settings → OAuth Apps → New | Providers → GitHub: Client ID + Secret |
+
+### Sicherheit
+
+- Passwörter verwaltet ausschliesslich Supabase (gehasht); die App sieht sie nie.
+- Freie Registrierung ist aus, Zugriff nur über Einladungen; Daten sind durch Row Level Security geschützt.
+- Die ausgelieferte App hat eine **Content-Security-Policy** mit Prüfsummen (`scripts/build.mjs`): nur der eigene Code läuft, Verbindungen nur zu Supabase. Bilddaten werden vor der Anzeige geprüft.
+- Empfohlen in Supabase → Authentication: *Secure password change* an, Passwortanforderungen „Buchstaben und Ziffern“, optional Zwei-Faktor (TOTP).
+
+### 5. GitHub
 
 1. Repository `InterChampionship` anlegen und den Code pushen.
 2. **Settings → Pages** → *Source: GitHub Actions*.
