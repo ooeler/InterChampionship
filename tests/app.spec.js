@@ -105,6 +105,7 @@ test.describe("Daten & Synchronisation", () => {
   test("Backup speichern und wieder laden", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("h3[data-acc=bk]"); // standardmässig zugeklappt
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-exp]")]);
     expect(dl.suggestedFilename()).toBe("interchampionship-26-27-2026-10-27.json");
     const json = JSON.parse(require("fs").readFileSync(await dl.path(), "utf8"));
@@ -113,6 +114,21 @@ test.describe("Daten & Synchronisation", () => {
     json.t[0].n = "Aus Backup";
     await page.setInputFiles("[data-imp]", { name: "b.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(json)) });
     await expect(page.locator("#sub")).toHaveText("Aus Backup vs SpVgg Nieder");
+  });
+
+  test("Backup und Datensicherung stehen zugeklappt am Ende des Teams-Tabs", async ({ page }) => {
+    await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
+    await page.click("nav [data-tab=team]");
+    const titles = await page.locator("main .card > h3").allTextContents();
+    expect(titles.slice(-2)).toEqual(["Backup", "Datensicherung"]);
+    for (const k of ["bk", "ds"]) {
+      const card = page.locator(".card", { has: page.locator(`h3[data-acc=${k}]`) });
+      await expect(card).toHaveClass(/(^| )cl( |$)/);
+      await page.click(`h3[data-acc=${k}]`);
+      await expect(card).not.toHaveClass(/(^| )cl( |$)/);
+    }
+    await expect(page.locator("[data-exp]")).toBeVisible();
+    await expect(page.locator("[data-snap]")).toBeVisible();
   });
 
   test("Ungültiges Backup wird abgelehnt", async ({ page }) => {
