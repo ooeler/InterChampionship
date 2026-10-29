@@ -4,6 +4,8 @@
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
 //                                    + Mail an die Trainingsleitung 24 h vorher: Anzahl Feldspieler/Torhüter, Gäste, Abmeldungen
 //                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
+//   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
+//                                    (prüft die Brevo-Einrichtung; höchstens eine pro Person und 10 Min.)
 //   { type: "result", month: 0-7 } – aus der App, nur für eingeloggte Mitglieder
 //   { type: "signup", d, player, off } – aus der App: An-/Abmeldung an alle mit notify_changes (ausser der Person selbst);
 //                                    Spieler und Training müssen existieren, max. eine Nachricht pro Person/Training/10 Min.
@@ -11,7 +13,7 @@
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushEndpointOk } from "../_shared/sicherheit.mjs";
-import { leadMailMessages, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { leadMailMessages, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -26,31 +28,35 @@ webpush.setVapidDetails(
   Deno.env.get("VAPID_PRIVATE_KEY")!,
 );
 
-// Mail über die Brevo-API an alle Konten, die dem Spieler zugeordnet sind. Gibt die Anzahl verschickter Mails zurück.
+const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampionship/";
+
+// Eine Mail über die Brevo-API. Ohne BREVO_API_KEY/MAIL_FROM: { ok: false, error }
+async function brevo(to: { email: string; name?: string }[], subject: string, text: string) {
+  const apiKey = Deno.env.get("BREVO_API_KEY"), from = Deno.env.get("MAIL_FROM");
+  if (!apiKey || !from) return { ok: false, error: "BREVO_API_KEY oder MAIL_FROM fehlt (Supabase → Edge Functions → Secrets)" };
+  const r = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ sender: { email: from, name: "Herren Inter" }, to, subject, textContent: text }),
+  });
+  return r.ok ? { ok: true } : { ok: false, error: `Brevo ${r.status}: ${(await r.text()).slice(0, 300)}` };
+}
+
+// Mail an alle Konten, die dem Spieler zugeordnet sind. Gibt die Anzahl verschickter Mails zurück.
 type Mail = { key: string; player: string; subject: string; text: string };
 async function sendLeadMails(db: ReturnType<typeof createClient>, mails: Mail[]) {
-  const apiKey = Deno.env.get("BREVO_API_KEY"), from = Deno.env.get("MAIL_FROM");
   if (!mails.length) return 0;
-  if (!apiKey || !from) { console.log("Mail an Trainingsleitung übersprungen: BREVO_API_KEY/MAIL_FROM fehlen"); return 0; }
+  if (!Deno.env.get("BREVO_API_KEY") || !Deno.env.get("MAIL_FROM")) { console.log("Mail an Trainingsleitung übersprungen: BREVO_API_KEY/MAIL_FROM fehlen"); return 0; }
   let n = 0;
   for (const m of mails) {
     const { data: to } = await db.from("members").select("email").eq("player", m.player);
     if (!to?.length) continue;
     const { error } = await db.from("push_log").insert({ key: m.key });
     if (error) continue; // bereits verschickt
-    const r = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
-      body: JSON.stringify({
-        sender: { email: from, name: "Herren Inter" },
-        to: to.map((x) => ({ email: x.email, name: m.player })),
-        subject: m.subject,
-        textContent: m.text,
-      }),
-    });
+    const r = await brevo(to.map((x) => ({ email: x.email, name: m.player })), m.subject, m.text);
     if (r.ok) n += to.length;
     else { // nochmals versuchen beim nächsten Lauf (alle 15 Min. innerhalb des Fensters)
-      console.log("Brevo-Fehler", r.status, await r.text());
+      console.log("Mail-Fehler", r.error);
       await db.from("push_log").delete().eq("key", m.key);
     }
   }
@@ -72,7 +78,18 @@ Deno.serve(async (req) => {
   if (body.type === "training") {
     if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
     msgs = trainingSoonMessages(row.data, Date.now());
-    mailed = await sendLeadMails(db, leadMailMessages(row.data, Date.now(), Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampionship/"));
+    mailed = await sendLeadMails(db, leadMailMessages(row.data, Date.now(), APP_URL));
+  } else if (body.type === "testmail") {
+    const { data: { user } } = await db.auth.getUser(token);
+    if (!user?.email) return json({ error: "unauthorized" }, 401);
+    const { data: member } = await db.from("members").select("role").eq("user_id", user.id).maybeSingle();
+    if (member?.role !== "admin") return json({ error: "Nur die Spielleitung darf Test-Mails verschicken" }, 403);
+    const m = testLeadMail(row.data, Date.now(), APP_URL);
+    if (!m) return json({ error: "Kein kommendes Training gefunden" }, 400);
+    const { error } = await db.from("push_log").insert({ key: `testmail:${user.id}:${Math.floor(Date.now() / 6e5)}` });
+    if (error) return json({ error: "Bitte ein paar Minuten warten und dann nochmals versuchen" }, 429);
+    const r = await brevo([{ email: user.email }], m.subject, m.text);
+    return r.ok ? json({ ok: true, to: user.email }) : json({ error: r.error }, 502);
   } else if (body.type === "signup") {
     const { data: { user } } = await db.auth.getUser(token);
     if (!user) return json({ error: "unauthorized" }, 401);

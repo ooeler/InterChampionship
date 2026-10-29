@@ -154,7 +154,7 @@ test.describe("Training-Tab", () => {
     await card.locator("[data-tmon='2']").click();
     await expect(card).toContainText("3 Trainings, davon 1 vorbei");
     const cells = async (name) => card.locator("tr", { hasText: name }).locator("td").allTextContents();
-    expect(await cells("Andreas Scherrer")).toEqual(["Andreas Scherrer", "2", "0", "0"]); // 1 übernommen + 1 bestätigt
+    expect(await cells("Andreas Scherrer")).toEqual(["Andreas Scherrer C", "2", "0", "0"]); // C = Captain // 1 übernommen + 1 bestätigt
     expect(await cells("Beat Rentsch")).toEqual(["Beat Rentsch", "1", "1", "0"]);
     expect(await cells("Julien Stadler")).toEqual(["Julien Stadler", "1", "0", "1"]);
   });
