@@ -8,7 +8,8 @@
     "start": "node scripts/build.mjs && http-server dist -p 4173 -c-1",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test:e2e": "playwright test -c playwright.e2e.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0"

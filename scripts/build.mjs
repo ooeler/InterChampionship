@@ -13,13 +13,15 @@ const supabase = process.env.SUPABASE_URL || "https://*.supabase.co";
 export function csp(html, supabaseUrl = supabase) {
   const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map((m) => `'sha256-${createHash("sha256").update(m[1], "utf8").digest("base64")}'`);
-  const host = supabaseUrl.replace(/^https:\/\//, "").replace(/\/.*$/, "");
+  const host = supabaseUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  // http nur für die lokale Test-Datenbank der E2E-Tests, ausgeliefert wird immer https
+  const [http, ws] = /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(supabaseUrl) ? ["http", "ws"] : ["https", "wss"];
   return [
     "default-src 'self'",
     `script-src 'self' ${hashes.join(" ")}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    `connect-src 'self' https://${host} wss://${host}`,
+    `connect-src 'self' ${http}://${host} ${ws}://${host}`,
     "img-src 'self' data: blob:",
     "worker-src 'self'",
     "manifest-src 'self'",

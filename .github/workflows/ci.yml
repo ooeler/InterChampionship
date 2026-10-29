@@ -28,6 +28,77 @@ jobs:
           path: playwright-report
           retention-days: 14
 
+  e2e:
+    # End-to-End gegen eine echte, lokale Supabase (Docker): Migrationen, Row Level Security, Trigger, Edge Functions.
+    # Kein Zugriff auf die Produktion – alles läuft im Runner und wird danach verworfen.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3
+        with:
+          version: 2.122.0  # gleiche Version wie im Release
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Lokale Supabase starten
+        run: |
+          # Eigener Ordner ohne migrations/: die Migrationen werden unten wie im Release der Reihe nach angewendet
+          mkdir -p /tmp/sb/supabase
+          cp supabase/config.toml /tmp/sb/supabase/
+          cp -r supabase/functions /tmp/sb/supabase/
+          # wie in Produktion: nur feedback prüft das Login-Token selbst über Supabase, die anderen prüfen in der Function
+          for fn in invite notify ops feedback-export; do printf '\n[functions.%s]\nverify_jwt = false\n' "$fn" >> /tmp/sb/supabase/config.toml; done
+          cd /tmp/sb
+          supabase start -x studio,imgproxy,logflare,vector,supavisor,postgres-meta,storage-api
+          supabase status -o env | sed 's/"//g' | sed -n \
+            -e 's/^API_URL=/E2E_SUPABASE_URL=/p' -e 's/^ANON_KEY=/E2E_ANON_KEY=/p' \
+            -e 's/^SERVICE_ROLE_KEY=/E2E_SERVICE_KEY=/p' -e 's/^DB_URL=/E2E_DB_URL=/p' >> "$GITHUB_ENV"
+      - name: Datenbank wie in Produktion aufbauen (setup.sql + alle Migrationen)
+        run: |
+          psql "$E2E_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/setup.sql
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            echo "→ $(basename "$f")"
+            psql "$E2E_DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Sicherheitsprüfung Datenbank (wie im Release)
+        run: |
+          f=$(psql "$E2E_DB_URL" -tA -c "select coalesce(string_agg(p.proname, ', '), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype and has_function_privilege('anon', p.oid, 'EXECUTE')")
+          t=$(psql "$E2E_DB_URL" -tA -c "select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity")
+          [ -z "$f" ] || { echo "::error::Ohne Login ausführbare Funktionen: $f"; exit 1; }
+          [ -z "$t" ] || { echo "::error::Tabellen ohne Row Level Security: $t"; exit 1; }
+          echo "Funktionsrechte und Row Level Security in Ordnung"
+      - name: Edge Functions erreichbar?
+        run: |
+          code=$(curl -s -o /tmp/fn.json -w "%{http_code}" -X POST "$E2E_SUPABASE_URL/functions/v1/invite" \
+            -H "apikey: $E2E_ANON_KEY" -H "Content-Type: application/json" -d '{"action":"check","token":"x"}')
+          echo "invite → HTTP $code: $(head -c 200 /tmp/fn.json)"
+          if [ "$code" = "404" ] || [ "$code" = "502" ] || [ "$code" = "503" ]; then
+            echo "Functions separat starten"
+            cd /tmp/sb && (nohup supabase functions serve > /tmp/functions.log 2>&1 &)
+            for i in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$E2E_SUPABASE_URL/functions/v1/invite" -H "apikey: $E2E_ANON_KEY" -H "Content-Type: application/json" -d '{"action":"check","token":"x"}')
+              [ "$code" = "400" ] || [ "$code" = "200" ] || [ "$code" = "403" ] && break; sleep 2
+            done
+            echo "invite → HTTP $code"
+          fi
+      - run: npm run test:e2e
+      - name: Logs bei Fehler
+        if: failure()
+        run: |
+          cat /tmp/functions.log 2>/dev/null | tail -50 || true
+          docker ps --format '{{.Names}}' | grep -i edge | xargs -r -I{} docker logs --tail 80 {} || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: playwright-report-e2e
+          path: playwright-report-e2e
+          retention-days: 14
+
   security:
     # Sicherheitsprüfung vor jedem Merge (zusätzlich: CodeQL und die statischen Tests in tests/sicherheit-statisch.spec.js)
     runs-on: ubuntu-latest
