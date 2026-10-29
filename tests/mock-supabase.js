@@ -19,6 +19,8 @@
     return { id: "u-" + email, email: email, user_metadata: u.name ? { full_name: u.name } : {} };
   }
   function session(email) { return { access_token: "t", user: user(email) } }
+  var PEN = "__mock_pen";
+  function canFine() { var s = get(SESS); return !!s && (["admin", "captain"].indexOf(role()) >= 0 || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
   function role() { var s = get(SESS); return s && (USERS[s.user.email] || { role: "player" }).role }
 
   function createClient() {
@@ -89,9 +91,10 @@
             order: function () {
               var res;
               if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
+              else if (table == "penalties") res = get(SESS) ? (get(PEN) || []) : []; // alle Mitglieder lesen
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
-              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null, resto: !!USERS[e].resto } });
+              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null, resto: !!USERS[e].resto, strafen: !!USERS[e].strafen } });
               var p = ok(res); p.limit = function (n) { return ok(res.slice(0, n)) }; return p;
             }
           };
@@ -109,7 +112,23 @@
           log({ op: "upsert", table: table, row: table == "league_state" ? undefined : row });
           return ok();
         },
-        delete: function () { return { eq: function (c, v) { log({ op: "delete", table: table, value: v }); return ok() } } }
+        // Strafen: spiegelt die RLS-Policies (Strafenchef, Captains, Spielleitung)
+        insert: function (row) {
+          if (table != "penalties") return ok();
+          if (!canFine()) return fail("new row violates row-level security policy for table \"penalties\"");
+          var L = get(PEN) || []; L.push(Object.assign({ id: L.length + 1, paid: false }, row)); set(PEN, L); log({ op: "insert", table: table, row: row }); return ok();
+        },
+        update: function (patch) {
+          return { eq: function (c, v) {
+            if (table == "penalties" && !canFine()) return ok(); // RLS: still keine Zeile geändert
+            var L = get(PEN) || []; L.forEach(function (x) { if (x[c] == v) Object.assign(x, patch) }); set(PEN, L); log({ op: "update", table: table, patch: patch, value: v }); return ok();
+          } };
+        },
+        delete: function () { return { eq: function (c, v) {
+          log({ op: "delete", table: table, value: v });
+          if (table == "penalties" && canFine()) set(PEN, (get(PEN) || []).filter(function (x) { return x[c] != v }));
+          return ok();
+        } } }
       };
     }
 
@@ -122,12 +141,16 @@
       if (!s) return fail("JWT expired");
       if (fn == "me") {
         var me = USERS[s.user.email] || {};
-        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1" });
+        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1", strafen: !!me.strafen || localStorage.getItem("__mock_strafen") == "1" });
       }
       log({ op: "rpc", fn: fn, args: a });
       if (fn == "set_resto") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
         USERS[a.uid.slice(2)].resto = a.on_resto; return ok(null);
+      }
+      if (fn == "set_strafen") {
+        if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
+        USERS[a.uid.slice(2)].strafen = a.on_strafen; return ok(null);
       }
       if (fn == "set_notify") { localStorage.setItem("__mock_notify", a.on_changes ? "1" : "0"); return ok(null) }
       if (fn == "snapshot_league") {
