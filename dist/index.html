@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Ychr+9ZABwfoqRUuDI3E63CzI0QtwMPKVtybV1BBvVU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-jl5SsqA+W+muFolUNtFm8u95PDGOtTFVhVQseoV7XXc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#B9001B">
-<title>InterChampionship 26/27</title>
+<title>Herren Inter 26/27</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="InterChampionship">
+<meta name="apple-mobile-web-app-title" content="Herren Inter">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Pacifico&display=swap" rel="stylesheet">
 <style>
@@ -74,6 +74,10 @@ input[type=date].t{display:block;min-height:42px;line-height:1.2}
 body.lo header,body.lo main,body.lo nav{display:none}
 /* Responsive: Tablet = eine zentrierte Spalte, Desktop = zwei Spalten */
 header>div{min-width:0}h1{font-size:clamp(20px,6.4vw,30px);overflow-wrap:break-word}h1 span{white-space:nowrap}
+/* Header: Logo + Titel oben, darunter Mannschaften und Begrüssung über die ganze Breite; rechts Abmelden und Let’s Fly */
+header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"logo title btn" "info info tag";gap:6px 0;align-items:center}
+#clogo{grid-area:logo;align-self:start;margin-right:12px}#h1{grid-area:title}#li,#lo{grid-area:btn;margin-left:12px}
+header .hd{grid-area:info;min-width:0}header .sub{margin-top:0}header .hi{margin-top:2px}header .tag{grid-area:tag;justify-self:end;align-self:end;margin-left:12px;white-space:nowrap}
 @media(min-width:720px){header{padding-left:max(16px,calc(50% - 380px));padding-right:max(16px,calc(50% - 380px))}#clogo{margin-left:0}
 main{max-width:760px;margin:0 auto}nav{justify-content:center}nav button{flex:0 1 180px}h1{font-size:38px}}
 @media(min-width:1100px){header{padding-left:max(16px,calc(50% - 590px));padding-right:max(16px,calc(50% - 590px))}
@@ -105,9 +109,9 @@ nav button.on i{animation:pop .3s ease-out}
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;z-index:25;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
 @media(prefers-reduced-motion:reduce){#splash *,#app.fx,.card.op>*,.row.nw,nav button.on i{animation:none!important}button,.chip,.pb{transition:none!important}.ball{display:none!important}}
 </style></head><body class="lo">
-<div id="splash" role="status" aria-label="InterChampionship lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
+<div id="splash" role="status" aria-label="Herren Inter lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
 <div id="auth" hidden></div>
-<header><img id="clogo" hidden><div><h1 id="h1">InterChampionship</h1><div class="tag">Let’s Fly</div><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button></header>
+<header><img id="clogo" hidden><h1 id="h1">Herren Inter</h1><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button><div class="hd"><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><div class="tag">Let’s Fly</div></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <script src="config.js"></script>
@@ -337,7 +341,7 @@ balls();var smc=document.getElementById("smc");if(smc)drawSM(smc,S.m[cur]);if(ta
 document.getElementById("hi").textContent=hello();document.getElementById("lo").title=me&&me.email?"Angemeldet als "+me.email:"";
 document.getElementById("lo").hidden=PUB;document.getElementById("li").hidden=!PUB;document.getElementById("hi").hidden=PUB;
 document.getElementById("nav").innerHTML=[["spiel","⚡","Spieltag"],["train","🏒","Training"],["rang","🏆","Rangliste"],["team","👥","Teams"],["info","ℹ️","Infos"]].filter(function(x){return PUB?x[0]=="rang":x[0]!="team"||canTeam()}).map(function(x){return '<button class="'+(tab==x[0]?"on":"")+'" data-tab="'+x[0]+'"><i>'+x[1]+'</i>'+x[2]+'</button>'}).join("");
-document.getElementById("sub").textContent=S.t[0].n+" vs "+S.t[1].n;document.getElementById("h1").innerHTML='InterChampionship <span>'+esc(S.sn)+'</span>';var cg=document.getElementById("clogo");cg.hidden=!S.logo;if(S.logo)cg.src=img(S.logo);document.title="InterChampionship "+S.sn}
+document.getElementById("sub").textContent=S.t[0].n+" vs "+S.t[1].n;document.getElementById("h1").innerHTML='Herren Inter <span>'+esc(S.sn)+'</span>';var cg=document.getElementById("clogo");cg.hidden=!S.logo;if(S.logo)cg.src=img(S.logo);document.title="Herren Inter "+S.sn}
 document.addEventListener("click",function(e){var d=e.target.closest("[data-tab],[data-c],[data-k],[data-add],[data-rm],[data-ot],[data-ab],[data-dtr],[data-atr],[data-clrb],[data-cap],[data-tg],[data-all],[data-gs],[data-rg],[data-rmimg],[data-rs],[data-exp],[data-lo],[data-push],[data-notify],[data-sm],[data-smdl],[data-ff],[data-fbk],[data-abw],[data-snap],[data-restore],[data-reload],[data-leadme],[data-tall],[data-tp],[data-allc],[data-tadd],[data-tdel],[data-tmon],[data-more],[data-login]");if(!d)return;var D=d.dataset;
 if(D.login){ascr("login");return}
 if(D.more!=null){MORE[D.more]=!MORE[D.more];if(MORE[D.more])MOREN=D.more}else
@@ -428,7 +432,7 @@ function ascr(k,msg){var a=document.getElementById("auth"),h;hideSplash();docume
 if(k=="cfg")h='<h1>Einrichtung fehlt</h1><div class="sp">In <b>config.js</b> sind die Supabase-Adresse und der Schlüssel noch nicht eingetragen (oder die Verbindung zum Internet fehlt).</div>';
 else if(k=="setpw")h='<h1>Passwort festlegen</h1><div class="sp">Willkommen'+(me&&me.email?', '+esc(me.email):'')+'! Lege dein Passwort für die App fest.</div><form data-f="setpw"><label>Neues Passwort (mind. 8 Zeichen)</label><input class="t" aria-label="Neues Passwort (mind. 8 Zeichen)" type="password" name="p1" autocomplete="new-password" minlength="8" required><label>Passwort wiederholen</label><input class="t" aria-label="Passwort wiederholen" type="password" name="p2" autocomplete="new-password" required><button class="btn">Speichern &amp; los</button><div class="err"></div></form>';
 else if(k=="forgot")h='<h1>Passwort vergessen</h1><div class="sp">Du erhältst eine Mail mit einem Link, um ein neues Passwort festzulegen.</div><form data-f="forgot"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="email" required><button class="btn">Link senden</button><div class="err"></div></form><button class="lnk" data-af="login">Zurück zur Anmeldung</button>';
-else h='<h1>InterChampionship</h1><div class="sp">Nur für eingeladene Mitglieder.</div>'+((window.IM_CONFIG||{}).providers||[]).filter(function(p){return OA[p]}).map(function(p){return '<button class="btn oa" data-oa="'+p+'">Mit '+OA[p]+' anmelden</button>'}).join("")+(((window.IM_CONFIG||{}).providers||[]).length?'<div class="or">oder mit E-Mail</div>':'')+'<form data-f="login"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="username" required><label>Passwort</label><input class="t" aria-label="Passwort" type="password" name="pw" autocomplete="current-password" required><button class="btn">Anmelden</button><div class="err"></div></form><button class="lnk" data-af="forgot">Passwort vergessen?</button><button class="lnk" data-af="public">Zurück zur Rangliste</button>';
+else h='<h1>Herren Inter</h1><div class="sp">Nur für eingeladene Mitglieder.</div>'+((window.IM_CONFIG||{}).providers||[]).filter(function(p){return OA[p]}).map(function(p){return '<button class="btn oa" data-oa="'+p+'">Mit '+OA[p]+' anmelden</button>'}).join("")+(((window.IM_CONFIG||{}).providers||[]).length?'<div class="or">oder mit E-Mail</div>':'')+'<form data-f="login"><label>E-Mail</label><input class="t" aria-label="E-Mail" type="email" name="email" autocomplete="username" required><label>Passwort</label><input class="t" aria-label="Passwort" type="password" name="pw" autocomplete="current-password" required><button class="btn">Anmelden</button><div class="err"></div></form><button class="lnk" data-af="forgot">Passwort vergessen?</button><button class="lnk" data-af="public">Zurück zur Rangliste</button>';
 a.innerHTML='<div class="card">'+h+'</div>';if(msg){var E=a.querySelector(".err");if(E)E.textContent=msg}}
 document.getElementById("auth").addEventListener("click",function(e){var b=e.target.closest("[data-af],[data-oa]");if(!b)return;if(b.dataset.af){if(b.dataset.af=="public")showPublic();else ascr(b.dataset.af);return}
 b.disabled=true;sb.auth.signInWithOAuth({provider:b.dataset.oa,options:{redirectTo:location.origin+location.pathname}}).then(function(r){b.disabled=false;if(r.error)document.querySelector("#auth .err").textContent=aerr(r.error.message)})});
