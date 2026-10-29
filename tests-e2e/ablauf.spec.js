@@ -144,7 +144,11 @@ test("Strafenchef pflegt den Strafenkatalog im Teams-Tab, Spieler ohne Rolle nic
   await f.locator("input[name=g]").fill("Handy im Training");
   await f.locator("input[name=b]").fill("10");
   await f.locator("button.add").click();
-  await expect.poll(async () => (await rest("/rest/v1/penalty_catalog?select=reason,amount")).data).toEqual([{ reason: "Handy im Training", amount: 10 }]);
+  await expect.poll(async () => (await rest("/rest/v1/penalty_catalog?reason=eq.Handy%20im%20Training&select=reason,amount,item")).data).toEqual([{ reason: "Handy im Training", amount: 10, item: null }]);
+  // Katalog der Herren Inter aus der Migration, inkl. Sachstrafen
+  const all = (await rest("/rest/v1/penalty_catalog?select=reason,amount,item&order=reason")).data;
+  expect(all).toHaveLength(7);
+  expect(all).toContainEqual({ reason: "Shutout vom Goali (Hauptmatch)", amount: 0, item: "Kiste Bier" });
   // ohne Login: nicht lesbar
   expect((await rest("/rest/v1/penalty_catalog?select=id", { key: ANON })).status).not.toBe(200);
 });

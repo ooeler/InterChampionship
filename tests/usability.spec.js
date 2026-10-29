@@ -58,7 +58,7 @@ test.describe("Usability", () => {
     await login(page);
     await page.click("nav [data-tab=info]");
     const t = await titles(page);
-    expect(t[0]).toBe("Herren Inter");
+    expect(t.slice(0, 2)).toEqual(["📲 App installieren", "Herren Inter"]); // Installieren zuerst (solange nicht installiert)
     expect(t.at(-1)).toBe("Verbesserungsvorschlag");
   });
 
