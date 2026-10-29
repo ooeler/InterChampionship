@@ -124,6 +124,7 @@ test.describe("Daten & Synchronisation", () => {
     for (const k of ["bk", "ds"]) {
       const card = page.locator(".card", { has: page.locator(`h3[data-acc=${k}]`) });
       await expect(card).toHaveClass(/(^| )cl( |$)/);
+      await expect(card.locator("button:visible, label:visible")).toHaveCount(0); // zugeklappt: nichts sichtbar
       await page.click(`h3[data-acc=${k}]`);
       await expect(card).not.toHaveClass(/(^| )cl( |$)/);
     }
