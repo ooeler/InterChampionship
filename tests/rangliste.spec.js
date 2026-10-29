@@ -60,3 +60,11 @@ test.describe("Rangliste", () => {
     await expect(page.locator("nav button")).toHaveCount(5);
   });
 });
+
+test("Teamsponsor steht zwischen Meisterschaft und Spieltagen", async ({ page }) => {
+  await seed(page, `d.sp = "data:image/png;base64,iVBORw0KGgo="`);
+  const titles = await page.locator("main .card > h3").allTextContents();
+  const i = (t) => titles.indexOf(t);
+  expect(i("Teamsponsor")).toBe(i("Meisterschaft") + 1);
+  expect(i("Spieltage")).toBe(i("Teamsponsor") + 1);
+});
