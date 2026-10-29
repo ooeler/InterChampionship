@@ -148,7 +148,7 @@ if(isMD(TD))return w+", heute ist Match Day! ⚑";if(PREV&&Date.now()-new Date(P
 var CUT=null; // gesetzt: Stand vor diesem Datum (für ▲/▼ in der Rangliste)
 // 100% im abgeschlossenen Monat: alle Termine besucht, auch die vor der App übernommenen (base)
 function full(m,p){var T=m.tr,pre=Math.max.apply(null,[0].concat(Object.values(m.base)));return T.length>0&&T.every(function(x){return x.d<TD&&x.p.indexOf(p)>=0})&&(m.base[p]||0)>=pre}
-function fullBadge(p){var ms=MON.filter(function(n,i){return full(S.m[i],p)});return ms.length?'<span class="fm" title="100% Anwesenheit: '+ms.join(", ")+'">💯'+(ms.length>1?"×"+ms.length:"")+'</span>':""}
+function fullBadge(p){var ms=MON.filter(function(n,i){return full(S.m[i],p)});return ms.length?'<span class="fm" title="100% Anwesenheit: '+ms.join(", ")+'">💯🎉'+(ms.length>1?"×"+ms.length:"")+'</span>':""}
 function an(m,p){return (m.base[p]||0)+m.tr.filter(function(x){return x.d<=TD&&(!CUT||x.d<CUT)&&x.p.indexOf(p)>=0}).length}
 function lastEv(){var l="";S.m.forEach(function(m){m.tr.forEach(function(x){if(x.d<=TD&&x.d>l)l=x.d})});return l}
 function sum(m,t){return S.t[t].p.reduce(function(a,p){return a+an(m,p)},0)}
@@ -255,8 +255,8 @@ var cnt=function(p){var a=0,o=0,f=0;T.forEach(function(x){var c=x.p.indexOf(p)>=
 return '<div class="card"><h3>Monatsübersicht</h3><div class="chips" style="padding:0 0 6px">'+MON.map(function(n,i){return '<button class="chip'+(i==TMON?" on":"")+'" data-tmon="'+i+'">'+n.slice(0,3)+'</button>'}).join("")+'</div>'
 +'<div class="sp">'+T.length+' Trainings, davon '+past.length+' vorbei'+(Object.keys(m.base).length?' · inkl. übernommene Anwesenheit':'')+'</div>'
 +[0,1].map(function(t){return '<table class="mt"><tr><th class="'+(t?"tb":"ta")+'">'+esc(S.t[t].n)+'</th><th title="anwesend (bestätigt)">✓</th><th title="abgemeldet">✗</th><th title="gefehlt ohne Abmeldung">–</th></tr>'
-+S.t[t].p.map(function(p){var c=cnt(p);return '<tr><td>'+esc(p)+(full(m,p)?' <span class="fm" title="100% Anwesenheit">💯</span>':"")+'</td><td>'+c[0]+'</td><td>'+c[1]+'</td><td'+(c[2]?' class="fl"':'')+'>'+c[2]+'</td></tr>'}).join("")+'</table>'}).join("")
-+'<div class="sp">✓ anwesend (bestätigt) · ✗ abgemeldet · – gefehlt ohne Abmeldung · 💯 jedes Training und den Match Day besucht</div></div>'}
++S.t[t].p.map(function(p){var c=cnt(p);return '<tr><td>'+esc(p)+(full(m,p)?' <span class="fm" title="100% Anwesenheit">💯🎉</span>':"")+'</td><td>'+c[0]+'</td><td>'+c[1]+'</td><td'+(c[2]?' class="fl"':'')+'>'+c[2]+'</td></tr>'}).join("")+'</table>'}).join("")
++'<div class="sp">✓ anwesend (bestätigt) · ✗ abgemeldet · – gefehlt ohne Abmeldung · 💯🎉 jedes Training und den Match Day besucht</div></div>'}
 function notifyCard(){if(!me)return "";return '<div class="card"><h3>Benachrichtigungen</h3><label class="row" style="border:0"><span class="nm">Bei An- und Abmeldungen informieren</span><input type="checkbox" data-ntf="1"'+(NOTIFY?" checked":"")+'></label>'
 +(PUSH===true?'':'<div class="sp">Dafür müssen Push-Nachrichten aktiviert sein (Rangliste → Benachrichtigungen).</div>')+'</div>'}
 // Restaurant nach dem Training: eintragen dürfen Restaurant-Chef und Spielleitung, Vorschläge aus früheren Einträgen

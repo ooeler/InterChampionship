@@ -77,7 +77,7 @@ test.describe("100% Anwesenheit", () => {
     await seed(page, full);
     await board(page, "Anwesenheit Saison").locator("[data-more]").click();
     const row = (n) => board(page, "Anwesenheit Saison").locator(".row", { hasText: n });
-    await expect(row("Othmar Oeler").locator(".fm")).toHaveText("💯");
+    await expect(row("Othmar Oeler").locator(".fm")).toHaveText("💯🎉");
     await expect(row("Othmar Oeler").locator(".fm")).toHaveAttribute("title", "100% Anwesenheit: November");
     await expect(row("Beat Rentsch").locator(".fm")).toHaveCount(0);
     // fehlte beim übernommenen Training vor der App
@@ -97,7 +97,7 @@ test.describe("100% Anwesenheit", () => {
     await page.click("nav [data-tab=train]");
     const card = page.locator(".card", { hasText: "Monatsübersicht" });
     await card.locator("[data-tmon='2']").click();
-    await expect(card.locator("tr", { hasText: "Othmar Oeler" }).locator(".fm")).toHaveText("💯");
+    await expect(card.locator("tr", { hasText: "Othmar Oeler" }).locator(".fm")).toHaveText("💯🎉");
     await expect(card.locator("tr", { hasText: "Beat Rentsch" }).locator(".fm")).toHaveCount(0);
   });
 });
