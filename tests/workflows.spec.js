@@ -61,3 +61,8 @@ test("SQL: Parameter, die wie Spalten heissen, sind eindeutig aufgelöst", () =>
   expect(last.snapshot_league.f).toBe("20261029_04_fix_snapshot.sql");
   expect(last.snapshot_league.body).toContain("#variable_conflict use_column");
 });
+
+test("Auto-Merge: Entwurfs-Läufe brechen echte Läufe nicht ab", () => {
+  // bei #6 brach ein übersprungener Entwurfs-Lauf den echten Lauf nach "ready for review" ab
+  expect(wf("auto-merge.yml")).toContain("group: auto-merge-${{ github.event.pull_request.number }}-${{ github.event.pull_request.draft }}");
+});
