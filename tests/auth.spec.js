@@ -14,7 +14,7 @@ test.describe("Login", () => {
 
   test("Anmelden öffnet den Login, 'Zurück' führt zur Rangliste", async ({ page }) => {
     await openLogin(page);
-    await expect(page.locator("#auth h1")).toHaveText("InterChampionship");
+    await expect(page.locator("#auth h1")).toHaveText("Herren Inter");
     await expect(page.locator("#auth")).toContainText("Nur für eingeladene Mitglieder");
     await expect(page.locator("header")).toBeHidden();
     await expect(page.locator("main")).toBeHidden();
@@ -44,7 +44,7 @@ test.describe("Login", () => {
 
   test("Login zeigt die Rangliste und bleibt nach Neuladen erhalten", async ({ page }) => {
     await login(page);
-    await expect(page.locator("#h1")).toContainText("InterChampionship 26/27");
+    await expect(page.locator("#h1")).toContainText("Herren Inter 26/27");
     await expect(page.locator("main")).toContainText("Meisterschaft");
     await expect(page.locator("#auth")).toBeHidden(); // Overlay darf die App nicht verdecken
     await page.reload();

@@ -60,7 +60,7 @@ test.describe("PWA", () => {
     await page.goto("/");
     const href = await page.getAttribute("link[rel=manifest]", "href");
     const m = await (await request.get("/" + href)).json();
-    expect(m.name).toBe("InterChampionship");
+    expect(m.name).toBe("Herren Inter");
     expect(m.display).toBe("standalone");
     expect(m.icons.map((i) => i.sizes)).toEqual(expect.arrayContaining(["192x192", "512x512"]));
     expect(m.icons.some((i) => i.purpose === "maskable")).toBe(true);

@@ -1,7 +1,7 @@
 {
-  "name": "InterChampionship",
-  "short_name": "InterChamp",
-  "description": "Spieltage, Anwesenheit, Skorer und Rangliste der InterChampionship",
+  "name": "Herren Inter",
+  "short_name": "Herren Inter",
+  "description": "Spieltage, Anwesenheit, Skorer und Rangliste der Herren Inter",
   "lang": "de",
   "start_url": "./",
   "scope": "./",
