@@ -3,6 +3,9 @@
 ## Schwachstelle melden
 Bitte nicht als öffentliches Issue, sondern über **Security → Report a vulnerability** im GitHub-Repository.
 
+## GitHub-Sicherheitsfunktionen (kostenlos für öffentliche Repos)
+Aktiv: Code Scanning (CodeQL), Secret Scanning mit Push-Schutz (Pushes mit erkannten Schlüsseln werden abgelehnt), Dependabot-Warnungen und automatische Sicherheits-Updates, private Meldung von Schwachstellen.
+
 ## Was vor jedem Merge geprüft wird
 Ein Pull Request wird nur gemergt, wenn alles grün ist (`auto-merge.yml`):
 

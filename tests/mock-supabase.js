@@ -19,7 +19,9 @@
     return { id: "u-" + email, email: email, user_metadata: u.name ? { full_name: u.name } : {} };
   }
   function session(email) { return { access_token: "t", user: user(email) } }
-  var PEN = "__mock_pen";
+  var PEN = "__mock_pen", CAT = "__mock_cat";
+  // Strafenkatalog pflegen: Spielleitung oder Strafenchef (spiegelt can_edit_catalog)
+  function canCat() { var s = get(SESS); return !!s && (role() == "admin" || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
   function canFine() { var s = get(SESS); return !!s && (["admin", "captain"].indexOf(role()) >= 0 || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
   function role() { var s = get(SESS); return s && (USERS[s.user.email] || { role: "player" }).role }
 
@@ -92,6 +94,7 @@
               var res;
               if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
               else if (table == "penalties") res = get(SESS) ? (get(PEN) || []) : []; // alle Mitglieder lesen
+              else if (table == "penalty_catalog") res = get(SESS) ? (get(CAT) || []).slice().sort(function (a, b) { return a.reason.localeCompare(b.reason, "de") }) : [];
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
               else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null, resto: !!USERS[e].resto, strafen: !!USERS[e].strafen } });
@@ -114,6 +117,12 @@
         },
         // Strafen: spiegelt die RLS-Policies (Strafenchef, Captains, Spielleitung)
         insert: function (row) {
+          if (table == "penalty_catalog") {
+            if (!canCat()) return fail("new row violates row-level security policy for table \"penalty_catalog\"");
+            var C = get(CAT) || [];
+            if (C.some(function (x) { return x.reason == row.reason })) return fail("duplicate key value violates unique constraint \"penalty_catalog_reason_key\"");
+            C.push(Object.assign({ id: C.length ? Math.max.apply(null, C.map(function (x) { return x.id })) + 1 : 1 }, row)); set(CAT, C); log({ op: "insert", table: table, row: row }); return ok();
+          }
           if (table != "penalties") return ok();
           if (!canFine()) return fail("new row violates row-level security policy for table \"penalties\"");
           var L = get(PEN) || []; L.push(Object.assign({ id: L.length + 1, paid: false }, row)); set(PEN, L); log({ op: "insert", table: table, row: row }); return ok();
@@ -121,12 +130,14 @@
         update: function (patch) {
           return { eq: function (c, v) {
             if (table == "penalties" && !canFine()) return ok(); // RLS: still keine Zeile geändert
+            if (table == "penalty_catalog") { if (canCat()) { var C = get(CAT) || []; C.forEach(function (x) { if (x[c] == v) Object.assign(x, patch) }); set(CAT, C) } return ok(); }
             var L = get(PEN) || []; L.forEach(function (x) { if (x[c] == v) Object.assign(x, patch) }); set(PEN, L); log({ op: "update", table: table, patch: patch, value: v }); return ok();
           } };
         },
         delete: function () { return { eq: function (c, v) {
           log({ op: "delete", table: table, value: v });
           if (table == "penalties" && canFine()) set(PEN, (get(PEN) || []).filter(function (x) { return x[c] != v }));
+          if (table == "penalty_catalog" && canCat()) set(CAT, (get(CAT) || []).filter(function (x) { return x[c] != v }));
           return ok();
         } } }
       };
