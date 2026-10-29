@@ -120,3 +120,55 @@ export function signupMessage(state, { player, d, off }, uid = "", now = 0) {
     body: `Training ${wd(d)}, ${x.t || "18:45"} Uhr`,
   };
 }
+
+// Wer kommt zum Training (Stand: Anmeldungen): Spieler ohne Abmeldung + Gastspieler; Torhüter separat gezählt
+export function trainingCount(state, x) {
+  const gkSet = new Set((state.t || []).flatMap((t) => t.gk || []));
+  const ab = x.ab || [];
+  const on = (state.t || []).flatMap((t) => t.p || []).filter((p) => !ab.includes(p));
+  const gs = (x.gs || []).filter((g) => g && typeof g.n === "string" && g.n.trim());
+  const keeper = on.filter((p) => gkSet.has(p)).concat(gs.filter((g) => g.gk).map((g) => g.n + " (Gast)"));
+  return {
+    field: on.length + gs.length - keeper.length,
+    gk: keeper.length,
+    keepers: keeper,
+    guests: gs.map((g) => g.n + (g.gk ? " 🧤" : "")),
+    off: (state.t || []).flatMap((t) => t.p || []).filter((p) => ab.includes(p)),
+  };
+}
+
+// Mail an die Trainingsleitung 24 h vor dem Training (läuft alle 15 Min.; push_log verhindert Doppelte)
+export function leadMailMessages(state, nowMs, appUrl = "", hoursBefore = 24) {
+  const out = [];
+  (state.m || []).forEach((m) => {
+    m.tr.forEach((x, ti) => {
+      if (ti === m.tr.length - 1 || !x.lead) return; // Match Day hat keine Trainingsleitung
+      const t = x.t || "18:45";
+      const from = zurichToUtc(x.d, t) - hoursBefore * 36e5;
+      if (nowMs < from || nowMs >= from + 36e5) return;
+      const c = trainingCount(state, x);
+      const list = (a) => (a.length ? a.join(", ") : "–");
+      out.push({
+        key: `lead-mail:${x.d}:${x.lead}`,
+        player: x.lead,
+        subject: `Training ${wd(x.d)}: ${c.field} Feldspieler, ${c.gk} Torhüter`,
+        text: [
+          `Hallo ${x.lead.split(" ")[0]}`,
+          "",
+          `Morgen, ${wd(x.d)}, ${t} Uhr, leitest du das Training.`,
+          "",
+          `Angemeldet: ${c.field} Feldspieler und ${c.gk} Torhüter${c.guests.length ? ` (inkl. ${c.guests.length} Gast${c.guests.length > 1 ? "spieler" : ""})` : ""}.`,
+          `Torhüter: ${list(c.keepers)}`,
+          `Gastspieler: ${list(c.guests)}`,
+          `Abgemeldet: ${list(c.off)}`,
+          "",
+          "Denk an Einlaufen, Passübungen und deine 3 Übungen. Abmeldungen sind noch bis 23 h vorher möglich – den aktuellen Stand siehst du in der App:",
+          appUrl,
+          "",
+          "Let's fly!",
+        ].join("\n"),
+      });
+    });
+  });
+  return out;
+}

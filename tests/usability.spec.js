@@ -10,7 +10,7 @@ test.describe("Usability", () => {
     const t = await titles(page);
     expect(t.slice(0, 2)).toEqual(["Allgemein", "Mitglied einladen"]);
     expect(t.at(-1)).toBe("Backup");
-    await expect(card(page, "Team 1")).toContainText("C = Captain wählen · ✕ = Spieler entfernen");
+    await expect(card(page, "Team 1")).toContainText("C = Captain · 🧤 = Torhüter · ✕ = Spieler entfernen");
     await expect(page.locator("[data-rm]").first()).toHaveAttribute("aria-label", /entfernen$/);
   });
 
