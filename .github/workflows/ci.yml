@@ -1,6 +1,6 @@
 name: Tests
 
-# Testläufe für main. Pull Requests werden über auto-merge.yml getestet, Releases über release.yml.
+# Tests und Sicherheitsprüfung für main. Pull Requests werden über auto-merge.yml getestet, Releases über release.yml.
 on:
   push:
     branches: [main]
@@ -27,3 +27,21 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 14
+
+  security:
+    # Sicherheitsprüfung vor jedem Merge (zusätzlich: CodeQL und die statischen Tests in tests/sicherheit-statisch.spec.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v7
+      - name: Semgrep (Schwachstellen-Muster, Secrets, Workflows)
+        run: >
+          semgrep scan --error --metrics=off
+          --config p/javascript --config p/typescript --config p/secrets --config p/github-actions
+          --exclude tests --exclude node_modules --exclude "app/vendor"
+      - name: Abhängigkeiten mit bekannten Schwachstellen
+        run: |
+          apk add --no-cache nodejs npm > /dev/null 2>&1 || true
+          npm audit --audit-level=high

@@ -226,9 +226,18 @@ test.describe("Push-Texte Training (Edge Function)", () => {
     expect(at("2027-03-30T15:30:00Z")[0].body).toContain("19:30 Uhr"); // eigene Startzeit, Sommerzeit
   });
 
-  test("An-/Abmeldung als Nachricht", () => {
-    expect(L.signupMessage({ player: "Silvan Frey", d: "2026-10-28", t: "18:45", off: true })).toMatchObject({ key: null, title: "✗ Silvan Frey hat sich abgemeldet", body: "Training Mi, 28.10.2026, 18:45 Uhr" });
-    expect(L.signupMessage({ player: "Silvan Frey", d: "2026-10-28", off: false }).title).toBe("✓ Silvan Frey ist wieder angemeldet");
-    expect(L.signupMessage({ player: "", d: "x" })).toBeNull();
+  test("An-/Abmeldung als Nachricht, nur für echte Spieler und Trainings", () => {
+    const st = { ...state, t: [{ n: "A", p: ["Silvan Frey"] }, { n: "B", p: [] }] };
+    const now = Date.parse("2026-10-27T10:00:00Z");
+    const m = L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-28", off: true }, "u1", now);
+    expect(m).toMatchObject({ title: "✗ Silvan Frey hat sich abgemeldet", body: "Training Mi, 28.10.2026, 18:45 Uhr" });
+    expect(L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-28", off: false }, "u1", now).title).toBe("✓ Silvan Frey ist wieder angemeldet");
+    expect(L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-28", t: "99:99 – Klick hier: evil.example", off: true }, "u1", now).body).toBe("Training Mi, 28.10.2026, 18:45 Uhr"); // Zeit kommt aus den Daten
+    // gleiche Meldung innerhalb von 10 Minuten → gleicher Schlüssel (wird nur einmal verschickt)
+    expect(L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-28", off: true }, "u1", now + 5 * 6e4).key).toBe(m.key);
+    expect(L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-28", off: true }, "u1", now + 11 * 6e4).key).not.toBe(m.key);
+    expect(L.signupMessage(st, { player: "Gratis-Gutschein unter evil.example", d: "2026-10-28", off: true })).toBeNull(); // kein Spieler
+    expect(L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-29", off: true })).toBeNull(); // kein Training
+    expect(L.signupMessage(st, { player: "", d: "x" })).toBeNull();
   });
 });
