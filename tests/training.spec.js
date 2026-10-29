@@ -262,3 +262,19 @@ test.describe("Usability Training", () => {
     await expect(page.locator(".uc")).toHaveCount(0);
   });
 });
+
+test.describe("Statistik Trainingsleitung", () => {
+  test("Teams-Tab zeigt geleitete und geplante Trainings pro Spieler", async ({ page }) => {
+    await seed(page, { player: null, patch: `d.m[2].tr[0].lead = "Beat Rentsch"; d.m[2].tr[1].lead = "Beat Rentsch"; d.m[3].tr[0].lead = "Othmar Oeler";` });
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    const card = page.locator(".card", { has: page.locator("h3", { hasText: /^Trainingsleitung$/ }) });
+    await expect(card.locator(".row").first()).toHaveAttribute("data-lst", "Beat Rentsch");
+    await expect(card.locator(".row[data-lst='Beat Rentsch'] b")).toHaveText("1");
+    await expect(card.locator(".row[data-lst='Beat Rentsch'] .lf")).toHaveText("+1 geplant");
+    await expect(card.locator(".row[data-lst='Othmar Oeler'] b")).toHaveText("0");
+    await expect(card.locator(".row[data-lst='Othmar Oeler'] .lf")).toHaveText("+1 geplant");
+    await expect(card.locator(".row")).toHaveCount(16); // alle Spieler, auch wer noch nie geleitet hat
+    await expect(card.locator(".uc")).toHaveText("⚠️ 1 Training in den nächsten 4 Wochen noch ohne Leitung");
+  });
+});

@@ -60,3 +60,27 @@ test.describe("Restaurant", () => {
     await expect(card.locator(".row")).toHaveCount(6);
   });
 });
+
+test.describe("Restaurant-Besuche im Teams-Tab", () => {
+  test("zeigt, wie oft wir im Restaurant waren, und die letzten 5 Besuche", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-12-20T10:00:00"));
+    await seed(page, `const L = ["Rössli", "Sonne", "Rössli", "Pizzeria", "Sonne", "Rössli", "Krone"];
+      [[2, 0], [2, 1], [2, 2], [3, 0], [3, 2], [3, 3], [4, 1]].forEach(([m, t], i) => d.m[m].tr[t].r = L[i]);
+      d.m[4].tr[3].r = "Zukunft";`);
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    const card = page.locator(".card", { has: page.locator("h3", { hasText: /^Restaurant-Besuche$/ }) });
+    await expect(card.locator("[data-rtot]")).toHaveText("7×");
+    await expect(card.locator("[data-rv]")).toHaveCount(5);
+    await expect(card.locator("[data-rv]").first()).toContainText("Krone");
+    await expect(card.locator("[data-rv]").first()).toContainText("16.12.2026");
+    await expect(card).not.toContainText("Zukunft");
+  });
+
+  test("ohne Einträge ein Hinweis", async ({ page }) => {
+    await seed(page);
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator(".card", { has: page.locator("h3", { hasText: /^Restaurant-Besuche$/ }) })).toContainText("Noch kein Restaurant eingetragen");
+  });
+});

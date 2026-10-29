@@ -68,7 +68,7 @@ input[type=date].t{display:block;min-height:42px;line-height:1.2}
 #auth .oa{background:var(--card);color:var(--tx);border:1px solid var(--ln)}#auth .or{text-align:center;color:var(--mu);font-size:12px;margin:16px 0 -4px}
 #auth .err:empty{display:none}
 .pen{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.pen input[name=g],.pen select{grid-column:1/-1}.pen select{width:100%;min-height:40px}.pen .add{margin:0}.pnr b{white-space:nowrap}.invk{display:grid;gap:6px;margin-top:8px}.invk input{font-size:12px}.hi{color:#fff;font-weight:700;font-size:15px;margin-top:8px}
-.mv{width:14px;font-size:11px;text-align:center}
+.mv{width:14px;font-size:11px;text-align:center}.lf{width:74px;text-align:right;white-space:nowrap}
 .uc{background:#fef3c7;color:#78350f;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:13px}.uc .pt{margin-top:6px}.uc .pb.sel{box-shadow:inset 0 0 0 2px #b45309}
 .fm{margin-left:4px;font-size:12px;white-space:nowrap}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
 #li,#lo{margin-left:auto;align-self:flex-start;flex:none;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:6px 12px;font:600 12px Arial,Helvetica,sans-serif}
@@ -202,6 +202,15 @@ function sk(t,m,p,n,x,y){return '<div class="sk"><div class="row" style="border:
 function skor(t,m){return '<div class="card"><h3 class="'+(t?"tb":"ta")+'">'+esc(S.t[t].n)+' · Tore / Assists</h3>'+S.t[t].p.map(function(p){return sk(t,m,p,p,cp(t,p)+' <span class="sp">· Anwesend '+an(m,p)+'</span>','')}).join("")+m.gs.map(function(g,j){return g.t==t?sk(t,m,g.k,g.n,' <span class="sp">· Gast</span>','<button class="x" data-rg="'+j+'">✕</button>'):''}).join("")+'<button class="add" data-gs="'+t+'">+ Gastspieler (nur dieser Spieltag)</button></div>'}
 // Trainingsleitung: jedes Training ausser dem Match Day leitet ein Spieler (jede Person darf eintragen)
 function allP(){return S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.localeCompare(b,"de")})}
+// Statistik Trainingsleitung (Teams-Tab): geleitete und geplante Trainings pro Spieler, Match Days zählen nicht
+function leadStats(){var T=allTr().filter(function(r){return !r.md}),c={};S.t.forEach(function(t,k){t.p.forEach(function(p){c[p]={p:p,k:k,d:0,f:0}})});
+T.forEach(function(r){var z=c[r.x.lead];if(z){if(started(r.x))z.d++;else z.f++}});
+var L=Object.keys(c).map(function(p){return c[p]}).sort(function(a,b){return b.d-a.d||b.f-a.f||a.p.localeCompare(b.p,"de")}),mx=Math.max(1,L[0].d),
+open=T.filter(function(r){return !started(r.x)&&!r.x.lead&&r.x.d<=addDays(TD,28)}).length;
+return '<div class="card"><h3>Trainingsleitung</h3><div class="sp">Geleitete Trainings pro Spieler, dahinter bereits übernommene kommende Trainings. Match Days zählen nicht.</div>'
++(open?'<div class="uc" style="margin-top:6px">⚠️ '+(open==1?'1 Training':open+' Trainings')+' in den nächsten 4 Wochen noch ohne Leitung</div>':'')
++L.map(function(r){return '<div class="row" data-lst="'+esc(r.p)+'"><span class="nm '+(r.k?"tb":"ta")+'">'+esc(r.p)+'</span><div class="bar"><div style="width:'+r.d/mx*100+'%"></div></div><b>'+r.d+'</b><span class="sp lf">'+(r.f?'+'+r.f+' geplant':'')+'</span></div>'}).join("")+'</div>'}
+function addDays(d,n){var x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")}
 function leadTxt(x){if(!x.lead)return '';var o=(x.ab||[]).indexOf(x.lead)>=0;return ' · <span class="ld">Leitung: '+esc(x.lead)+(o?' <b class="fl">⚠ abgemeldet</b>':'')+'</span>'}
 function leadSel(mi,ti,x){return '<div class="sp" style="margin:8px 0 4px">Training leitet</div><select class="t" data-lead="'+mi+','+ti+'" aria-label="Training leitet"><option value="">– Leitung offen –</option>'+allP().map(function(p){return '<option'+(x.lead==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select>'}
 // ── Training: An-/Abmeldung, Bestätigung der Anwesenheit, Übersichten ──
@@ -264,6 +273,9 @@ function notifyCard(){if(!me)return "";return '<div class="card"><h3>Benachricht
 function restos(){var c={};allTr().forEach(function(r){var n=(r.x.r||"").trim();if(n)c[n]=(c[n]||0)+1});return c}
 function restoField(x){var can=RESTO||ROLE=="admin";if(!can)return x.r?'<div class="kv" style="margin-top:6px"><span class="sp">🍽️ Restaurant</span><b>'+esc(x.r)+'</b></div>':'';
 return '<div class="sp" style="margin:8px 0 4px">🍽️ Restaurant nach dem Training</div><input class="t" list="restos" data-resto="1" placeholder="Restaurant eintragen" value="'+esc(x.r||"")+'"><datalist id="restos">'+Object.keys(restos()).sort(function(a,b){return a.localeCompare(b,"de")}).map(function(n){return '<option value="'+esc(n)+'">'}).join("")+'</datalist>'}
+// Restaurant-Besuche (Teams-Tab): wie oft wir nach dem Training im Restaurant waren, die letzten 5 Besuche
+function restoStats(){var V=allTr().filter(function(r){return (r.x.r||"").trim()&&r.x.d<=TD}).sort(function(a,b){return a.x.d<b.x.d?1:-1}),n=allTr().filter(function(r){return started(r.x)}).length;
+return '<div class="card"><h3>Restaurant-Besuche</h3>'+(V.length?'<div class="kv"><span>Wir waren im Restaurant</span><b data-rtot>'+V.length+'×</b></div><div class="sp">bei '+n+' Trainings bisher</div><div class="sp" style="margin-top:8px">Letzte Besuche</div>'+V.slice(0,5).map(function(r){return '<div class="row" data-rv><span class="nm">🍽️ '+esc(r.x.r.trim())+'</span><span class="sp">'+wd(r.x.d)+'</span></div>'}).join(""):'<div class="sp">Noch kein Restaurant eingetragen. Das Restaurant trägt der Restaurant-Chef unter Training → Übersicht pro Training ein.</div>')+'</div>'}
 function restoBoard(){var c=restos(),L=Object.keys(c).map(function(n){return{n:n,v:c[n]}}).sort(function(a,b){return b.v-a.v||a.n.localeCompare(b.n,"de")});if(!L.length)return "";var t="Restaurants",open=MORE[t],shown=open?L:L.slice(0,5),mx=L[0].v;
 return '<div class="card"><h3>'+t+'</h3>'+shown.map(function(r){return '<div class="row"><span class="rk">'+(1+L.filter(function(z){return z.v>r.v}).length)+'</span><span class="nm">🍽️ '+esc(r.n)+'</span><div class="bar"><div style="width:'+r.v/mx*100+'%"></div></div><b>'+r.v+'×</b></div>'}).join("")+(L.length>5?'<button class="add" data-more="'+t+'">'+(open?'Weniger zeigen':'Zeige mehr ('+L.length+')')+'</button>':'')+'</div>'}
 // ── Strafen: pro Training / Match Day einem Spieler zugeordnet (Tabelle penalties, nicht öffentlich) ──
@@ -335,7 +347,7 @@ h+='<div class="card"><h3>Spieltage</h3>'+S.m.map(function(m,j){var x=win(m);ret
 return h+board("Anwesenheit Saison",function(p){return tot("att",p)},0,fullBadge)+board("Skorerpunkte",function(p){return tot("g",p)+tot("a",p)},1)+board("Tore",function(p){return tot("g",p)},1)+restoBoard()}
 function teams(){return gen()+S.t.map(function(t,k){return '<div class="card"><h3 class="'+(k?"tb":"ta")+'">Team '+(k+1)+' · '+t.p.length+' Spieler</h3><input class="t" data-tn="'+k+'" value="'+esc(t.n)+'">'+'<div class="row" style="border:0"><span class="logo">'+(t.img?'<img src="'+img(t.img)+'">':'')+'</span><label class="add" style="margin:0;flex:1;text-align:center">Bild wählen<input type="file" accept="image/*" data-img="'+k+'" hidden></label>'+(t.img?'<button class="x" data-rmimg="'+k+'">✕</button>':'')+'</div>'
 +t.p.map(function(p,j){return '<div class="row"><input class="t" data-pn="'+k+'" data-j="'+j+'" value="'+esc(p)+'"><button class="x" data-cap="'+k+'" data-p="'+esc(p)+'" style="font-weight:700;color:'+(t.c==p?"var(--ac)":"var(--mu)")+'">C</button><button class="x" data-rm="'+k+'" data-j="'+j+'">✕</button></div>'}).join("")
-+'<button class="add" data-add="'+k+'">+ Spieler hinzufügen</button></div>'}).join("")+inviteCard()+users()+backups()}
++'<button class="add" data-add="'+k+'">+ Spieler hinzufügen</button></div>'}).join("")+leadStats()+restoStats()+inviteCard()+users()+backups()}
 // Mitglieder per Einladungslink einladen (Spielleitung & Captains) – über die Edge Function "invite", ohne Mailversand
 var INVD={player:"",role:"player"},INVL=null,INVK=null,INVM="";
 function fnCall(name,body){return sb.functions.invoke(name,{body:body}).then(function(r){var c=r.error&&r.error.context;return c&&c.json?c.json().then(function(d){return{error:r.error,data:d}},function(){return r}):r})}
