@@ -241,3 +241,24 @@ test.describe("Push-Texte Training (Edge Function)", () => {
     expect(L.signupMessage(st, { player: "", d: "x" })).toBeNull();
   });
 });
+
+test.describe("Usability Training", () => {
+  test("unbestätigte Trainings zählen nicht als gefehlt, Captains sehen einen Hinweis", async ({ page }) => {
+    await seed(page, { player: null });
+    await openTraining(page);
+    const ov = page.locator(".card", { has: page.locator("h3", { hasText: "Übersicht pro Training" }) });
+    await expect(ov.locator(".uc")).toContainText("1 Training ist noch nicht bestätigt");
+    await ov.locator("[data-tgo]").first().click();
+    await expect(ov.locator("select[data-tsel] option:checked")).toContainText("21.10.2026");
+    const card = page.locator(".card", { hasText: "Monatsübersicht" });
+    await card.locator("[data-tmon='2']").click();
+    await expect(card).toContainText("1 noch nicht bestätigt");
+    expect(await card.locator("tr", { hasText: "Julien Stadler" }).locator("td").allTextContents()).toEqual(["Julien Stadler", "1", "0", "0"]);
+  });
+
+  test("Spieler sehen keinen Bestätigungs-Hinweis", async ({ page }) => {
+    await seed(page);
+    await openTraining(page, SPIELER);
+    await expect(page.locator(".uc")).toHaveCount(0);
+  });
+});
