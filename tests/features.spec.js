@@ -68,7 +68,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
     await page.goto("/");
     await page.evaluate(() => localStorage.setItem("__mock_player", "Othmar Oeler"));
     await login(page);
-    await expect(page.locator("#hi")).toHaveText("Hallo Othmar!");
+    await expect(page.locator("#hi")).toHaveText(/^(Guten Morgen|Hallo|Hoi) Othmar!$/);
   });
 
   test("Umbenennen eines Spielers behält die Zuordnung", async ({ page }) => {
@@ -192,20 +192,54 @@ test.describe("Social-Media-Bild", () => {
 });
 
 test.describe("Begrüssung", () => {
-  test("Standard: Hallo + Name", async ({ page }) => {
+  test("Standard: Gruss + Name, je nach Tageszeit", async ({ page }) => {
+    await login(page); // Dienstag 10:00, kein Training
+    await expect(page.locator("#hi")).toHaveText(/^(Guten Morgen|Hallo|Hoi) Captain!$/);
+  });
+
+  test("Abends", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-27T20:00:00"));
     await login(page);
-    await expect(page.locator("#hi")).toHaveText("Hallo Captain!");
+    await expect(page.locator("#hi")).toHaveText(/^(Guten Abend|Hallo|Hoi) Captain!$/);
+  });
+
+  test("Nachtschwärmer", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-28T00:30:00"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Nachtschwärmer Captain! 🌙");
+  });
+
+  test("Am Trainingstag: vorher, während und danach", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training! 🏒");
+    await page.clock.setFixedTime(new Date("2026-10-28T18:30:00"));
+    await page.evaluate(() => render());
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Captain! 🏒");
+    await page.clock.setFixedTime(new Date("2026-10-28T20:45:00"));
+    await page.evaluate(() => render());
+    await expect(page.locator("#hi")).toHaveText(/^(Viel Spass beim Bier|Prost|Zum Wohl) Captain! 🍺$/);
+  });
+
+  test("Variante bleibt am selben Tag gleich", async ({ page }) => {
+    await login(page);
+    const a = await page.locator("#hi").textContent();
+    await page.evaluate(() => render());
+    await expect(page.locator("#hi")).toHaveText(a);
   });
 
   test("Name aus dem Profil (z. B. Google/Microsoft)", async ({ page }) => {
     await login(page, SPIELER);
-    await expect(page.locator("#hi")).toHaveText("Hallo Silvan!");
+    await expect(page.locator("#hi")).toHaveText(/^(Guten Morgen|Hallo|Hoi) Silvan!$/);
   });
 
   test("Am Match Day", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-11-04T18:00:00"));
     await login(page);
     await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Match Day! ⚑");
+    await page.clock.setFixedTime(new Date("2026-11-04T19:00:00"));
+    await page.evaluate(() => render());
+    await expect(page.locator("#hi")).toHaveText("Guter Match Captain! ⚑");
   });
 
   test("Frühaufsteher", async ({ page }) => {
@@ -225,7 +259,7 @@ test.describe("Begrüssung", () => {
     await page.goto("/");
     await page.evaluate(() => localStorage.setItem("__mock_prev_seen", "2026-10-20T10:00:00Z"));
     await login(page);
-    await expect(page.locator("#hi")).toHaveText("Hallo Captain!");
+    await expect(page.locator("#hi")).toHaveText(/^(Guten Morgen|Hallo|Hoi) Captain!$/);
   });
 });
 
