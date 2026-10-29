@@ -5,6 +5,11 @@ const path = require("path");
 
 const sql = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261029_10_daten_aus_pdf.sql"), "utf8");
 const data = JSON.parse(sql.match(/\$json\$([\s\S]*?)\$json\$/)[1]);
+// Zweite Migration: Trainings August bis Oktober einzeln statt als Monatssumme
+const sql2 = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261029_11_trainings_aug_okt.sql"), "utf8");
+const [tr0, tr1] = [...sql2.matchAll(/\$json\$([\s\S]*?)\$json\$/g)].map((m) => JSON.parse(m[1]));
+Object.assign(data.m[0], { tr: tr0, base: {} });
+Object.assign(data.m[1], { tr: tr1, base: {} });
 const card = (page, t) => page.locator(".card", { has: page.locator("h3", { hasText: new RegExp("^" + t + "$") }) });
 
 // Leaderboards aus dem PDF (Seite 1)
@@ -40,11 +45,29 @@ test.describe("Übernahme aus dem PDF", () => {
     test(`${title} wie im PDF`, async ({ page }) => {
       const c = card(page, title);
       await c.locator("[data-more]").click();
-      const rows = await c.locator(".row").evaluateAll((rs) => rs.map((r) => [r.querySelector(".nm").textContent.trim(), +r.querySelector("b").textContent]));
+      const rows = await c.locator(".row").evaluateAll((rs) => rs.map((r) => [r.querySelector(".nm").firstChild.textContent.trim(), +r.querySelector("b").textContent])); // Name ohne 💯-Abzeichen
       const got = Object.fromEntries(rows.filter(([, v]) => v > 0));
       expect(got).toEqual(want);
     });
   }
+
+  test("Trainings August bis Oktober in der Übersicht, alle bestätigt", async ({ page }) => {
+    await page.click("#li");
+    await page.fill("#auth input[name=email]", "captain@flyingpenguins.test");
+    await page.fill("#auth input[name=pw]", "geheim123");
+    await page.click("#auth form .btn");
+    await page.click("nav [data-tab=train]");
+    const ov = page.locator(".card", { has: page.locator("h3", { hasText: "Übersicht pro Training" }) });
+    await ov.locator(".tsm [data-tsm='0']").click();
+    await expect(ov.locator(".tch [data-tgo]")).toHaveText(["12.08.", "19.08.", "26.08.", "02.09. ⚑"]);
+    await ov.locator(".tsm [data-tsm='1']").click();
+    await expect(ov.locator(".tch [data-tgo]")).toHaveText(["09.09.", "16.09.", "23.09.", "30.09.", "07.10.", "14.10. ⚑"]);
+    await ov.locator(".tch [data-tgo]").first().click();
+    // 9.9.: Lochball Legenden 6 von 8, SpVgg Nieder 6 von 8 (laut PDF)
+    await expect(ov.locator(".sk .kv").first()).toContainText("6 bestätigt");
+    await expect(ov.locator(".sk .kv").nth(1)).toContainText("6 bestätigt");
+    await expect(ov.locator(".uc")).toHaveCount(0); // keine unbestätigten Trainings
+  });
 
   test("keine Abmeldungen, Leitungen, Restaurants; Pre-Games und Schiedsrichter übernommen", async () => {
     const tr = data.m.flatMap((m) => m.tr);
