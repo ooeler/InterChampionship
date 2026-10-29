@@ -106,12 +106,17 @@ export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
 }
 
 // Nachricht, wenn sich jemand an- oder abmeldet
-export function signupMessage({ player, d, t, off }) {
-  if (!player || !/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return null;
+// Prüft gegen die Saison-Daten: nur echte Spieler und echte Trainings, Beginn aus den Daten (nicht vom Client).
+// Der Schlüssel begrenzt auf eine Nachricht pro Person, Spieler, Training und Richtung alle 10 Minuten.
+export function signupMessage(state, { player, d, off }, uid = "", now = 0) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return null;
+  if (!(state.t || []).some((t) => (t.p || []).includes(player))) return null;
+  const x = (state.m || []).flatMap((m) => m.tr || []).find((tr) => tr.d === d);
+  if (!x) return null;
   return {
-    key: null,
+    key: `signup:${uid}:${d}:${player}:${off ? 1 : 0}:${Math.floor(now / 6e5)}`,
     tag: `signup-${d}`,
     title: off ? `✗ ${player} hat sich abgemeldet` : `✓ ${player} ist wieder angemeldet`,
-    body: `Training ${wd(d)}, ${t || "18:45"} Uhr`,
+    body: `Training ${wd(d)}, ${x.t || "18:45"} Uhr`,
   };
 }

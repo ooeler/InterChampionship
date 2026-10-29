@@ -3,10 +3,12 @@
 //                                    Match Day in 3 Tagen (an alle) + Trainingsleitung in 2 Tagen (nur an den Leiter)
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
 //   { type: "result", month: 0-7 } – aus der App, nur für eingeloggte Mitglieder
-//   { type: "signup", d, t, player, off } – aus der App: An-/Abmeldung an alle mit notify_changes (ausser der Person selbst)
+//   { type: "signup", d, player, off } – aus der App: An-/Abmeldung an alle mit notify_changes (ausser der Person selbst);
+//                                    Spieler und Training müssen existieren, max. eine Nachricht pro Person/Training/10 Min.
 // Jede Nachricht wird nur einmal verschickt (Tabelle push_log).
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { safeEqual, pushEndpointOk } from "../_shared/sicherheit.mjs";
 import { matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
@@ -34,21 +36,21 @@ Deno.serve(async (req) => {
   let msgs: { key: string | null; tag: string; title: string; body: string; player?: string }[] = [];
   let onlyUsers: string[] | null = null; // null = alle Abos
   if (body.type === "training") {
-    if (!token || token !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
+    if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
     msgs = trainingSoonMessages(row.data, Date.now());
   } else if (body.type === "signup") {
     const { data: { user } } = await db.auth.getUser(token);
     if (!user) return json({ error: "unauthorized" }, 401);
     const { data: member } = await db.from("members").select("role").eq("user_id", user.id).maybeSingle();
     if (!member) return json({ error: "forbidden" }, 403);
-    const m = signupMessage(body);
+    const m = signupMessage(row.data, body, user.id, Date.now());
     if (!m) return json({ error: "ungültig" }, 400);
     const { data: fans } = await db.from("members").select("user_id").eq("notify_changes", true).neq("user_id", user.id);
     onlyUsers = (fans ?? []).map((x) => x.user_id);
     if (!onlyUsers.length) return json({ sent: 0 });
     msgs = [m];
   } else if (body.type === "matchday") {
-    if (!token || token !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
+    if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
     const today = zurichDate(new Date());
     msgs = [...matchdayMessages(row.data, today), ...trainingLeadMessages(row.data, today)];
   } else if (body.type === "result") {
@@ -77,6 +79,7 @@ Deno.serve(async (req) => {
     const { data: subs } = await q;
     const { player: _p, ...payload } = msg;
     for (const s of subs ?? []) {
+      if (!pushEndpointOk(s.endpoint)) continue; // nur bekannte Push-Dienste
       try {
         await webpush.sendNotification(s.sub, JSON.stringify({ ...payload, url: "./" }));
         sent++;

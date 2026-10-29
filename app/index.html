@@ -131,7 +131,9 @@ s.v=v;return s}
 function load(){try{var j=localStorage.getItem("ic_state");if(j)S=fix(JSON.parse(j))}catch(e){}}
 function store(){try{localStorage.setItem("ic_state",JSON.stringify(S))}catch(e){}}
 function save(){store();sq++;try{localStorage.setItem("ic_dirty","1")}catch(e){}clearTimeout(tm);tm=setTimeout(push,400)}
-function push(){tm=null;if(!sb||!me||NEWER)return Promise.resolve({});var s=sq;return sb.from("league_state").upsert({id:"main",data:S,client:CID,updated_by:me.id,updated_at:new Date().toISOString()}).then(function(r){if(!r.error&&s==sq)try{localStorage.removeItem("ic_dirty")}catch(e){}return r})}
+function push(){tm=null;if(!sb||!me||NEWER)return Promise.resolve({});var s=sq;return sb.from("league_state").upsert({id:"main",data:S,client:CID,updated_by:me.id,updated_at:new Date().toISOString()}).then(function(r){if(!r.error&&s==sq)try{localStorage.removeItem("ic_dirty")}catch(e){}
+// Vom Server abgelehnt (fehlende Rechte): nicht endlos neu versuchen, sondern den gültigen Stand laden
+if(r.error&&/Nur Admins/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return r})}
 function isDirty(){try{return!!localStorage.getItem("ic_dirty")}catch(e){return false}}
 var TD=(function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})(new Date());
 function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.tr.length-1:i}

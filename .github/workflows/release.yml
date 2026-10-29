@@ -43,8 +43,8 @@ jobs:
           if [ -n "$miss" ]; then echo "::error::Fehlt in GitHub → Settings → Secrets and variables → Actions:$miss"; exit 1; fi
           code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects)
           if [ "$code" != "200" ]; then echo "::error::SUPABASE_ACCESS_TOKEN wird abgelehnt (HTTP $code) – vermutlich abgelaufen. Neues Token erstellen und in GitHub ersetzen (siehe README)."; exit 1; fi
-      - uses: actions/checkout@v7
-      - uses: supabase/setup-cli@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3
         with:
           version: 2.122.0  # gleiche Version wie lokal getestet
 
@@ -84,9 +84,21 @@ jobs:
              exception when sqlstate 'P0099' then null; end; end \$\$" > /dev/null
           echo "snapshot_league funktioniert"
 
+      - name: Sicherheitsprüfung Datenbank
+        run: |
+          # Ohne Login (anon) darf keine Funktion ausführbar sein, und jede Tabelle braucht Row Level Security
+          q() { supabase db query --agent no --linked --project-ref "$REF" -o json "$1" | jq -r 'if type == "array" then .[0].c else .rows[0].c end'; }
+          f=$(q "select coalesce(string_agg(p.proname, ', '), '') as c from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype and has_function_privilege('anon', p.oid, 'EXECUTE')")
+          t=$(q "select coalesce(string_agg(c.relname, ', '), '') as c from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                 where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity")
+          [ -z "$f" ] || { echo "::error::Ohne Login ausführbare Funktionen: $f"; exit 1; }
+          [ -z "$t" ] || { echo "::error::Tabellen ohne Row Level Security: $t"; exit 1; }
+          echo "Funktionsrechte und Row Level Security in Ordnung"
+
       - name: Edge Functions
         run: |
-          for d in supabase/functions/*/; do
+          for d in supabase/functions/[!_]*/; do  # _shared = gemeinsamer Code, keine eigene Function
             fn=$(basename "$d")
             case "$fn" in feedback) flags="" ;; *) flags="--no-verify-jwt" ;; esac  # notify/ops prüfen selbst
             supabase functions deploy "$fn" $flags --use-api --project-ref "$REF"
@@ -103,8 +115,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - run: npm ci --omit=dev
@@ -128,9 +140,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
         run: node scripts/build.mjs
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist
       - id: deploy
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
