@@ -292,7 +292,19 @@ h+='<div class="card"><h3>Spieltage</h3>'+S.m.map(function(m,j){var x=win(m);ret
 return h+(S.sp?'<div class="card"><h3>Teamsponsor</h3><div style="text-align:center"><img src="'+S.sp+'" style="max-width:100%;max-height:120px"></div></div>':"")+board("Anwesenheit Saison",function(p){return tot("att",p)})+board("Skorerpunkte",function(p){return tot("g",p)+tot("a",p)},1)+board("Tore",function(p){return tot("g",p)},1)+restoBoard()}
 function teams(){return gen()+S.t.map(function(t,k){return '<div class="card"><h3 class="'+(k?"tb":"ta")+'">Team '+(k+1)+' · '+t.p.length+' Spieler</h3><input class="t" data-tn="'+k+'" value="'+esc(t.n)+'">'+'<div class="row" style="border:0"><span class="logo">'+(t.img?'<img src="'+t.img+'">':'')+'</span><label class="add" style="margin:0;flex:1;text-align:center">Bild wählen<input type="file" accept="image/*" data-img="'+k+'" hidden></label>'+(t.img?'<button class="x" data-rmimg="'+k+'">✕</button>':'')+'</div>'
 +t.p.map(function(p,j){return '<div class="row"><input class="t" data-pn="'+k+'" data-j="'+j+'" value="'+esc(p)+'"><button class="x" data-cap="'+k+'" data-p="'+esc(p)+'" style="font-weight:700;color:'+(t.c==p?"var(--ac)":"var(--mu)")+'">C</button><button class="x" data-rm="'+k+'" data-j="'+j+'">✕</button></div>'}).join("")
-+'<button class="add" data-add="'+k+'">+ Spieler hinzufügen</button></div>'}).join("")+users()+backups()}
++'<button class="add" data-add="'+k+'">+ Spieler hinzufügen</button></div>'}).join("")+inviteCard()+users()+backups()}
+// Mitglieder direkt aus der App einladen (Spielleitung & Captains) – über die Edge Function "invite"
+var INVM=null,INVD={email:"",player:"",role:"player"};
+function inviteCard(){if(!canTeam())return "";return '<div class="card"><h3>Mitglied einladen</h3><div class="sp">Die Person bekommt eine Mail mit einem Link, legt ihr Passwort fest und ist danach dabei.</div><form id="inv">'
++'<input class="t" type="email" name="email" aria-label="Mail-Adresse" placeholder="Mail-Adresse" required value="'+esc(INVD.email)+'" style="margin-top:8px">'
++'<div class="two" style="margin-top:8px"><select class="t" name="player" aria-label="Spieler"><option value="">– Spieler später zuordnen –</option>'+allP().map(function(p){return '<option'+(INVD.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select>'
++(ROLE=="admin"?'<select class="t" name="role" aria-label="Rolle">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(INVD.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select>':'<span class="sp" style="align-self:center">Rolle: Spieler</span>')+'</div>'
++'<button class="add">Einladung senden</button>'+(INVM?'<div class="sp invm" style="margin-top:8px">'+INVM+'</div>':'')+'</form></div>'}
+document.addEventListener("input",function(e){var f=e.target.form;if(f&&f.id=="inv")INVD[e.target.name]=e.target.value});
+document.addEventListener("change",function(e){var f=e.target.form;if(f&&f.id=="inv")INVD[e.target.name]=e.target.value});
+document.addEventListener("submit",function(e){if(e.target.id!="inv")return;e.preventDefault();var B=e.target.querySelector("button.add");B.disabled=true;
+sb.functions.invoke("invite",{body:{email:INVD.email,player:INVD.player||null,role:ROLE=="admin"?INVD.role:"player"}}).then(function(r){var c=r.error&&r.error.context;return c&&c.json?c.json().then(function(d){return{error:r.error,data:d}},function(){return r}):r}).then(function(r){
+if(r.error||!r.data||!r.data.ok){INVM="✗ "+esc(r.data&&r.data.error||"Einladung fehlgeschlagen.")}else{INVM="✓ Einladung an "+esc(r.data.email)+" verschickt.";INVD={email:"",player:"",role:"player"};MEM=null}render()})});
 var MEM=null,RL={admin:"Spielleitung (Admin)",captain:"Captain",player:"Spieler"};
 var HIST=null;
 function backups(){if(ROLE!="admin")return "";if(HIST==null){HIST=[];sb.from("league_state_history").select("id,saved_at,reason").order("saved_at",{ascending:false}).limit(15).then(function(r){HIST=r.data||[];render()})}
