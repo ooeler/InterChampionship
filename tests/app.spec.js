@@ -120,7 +120,7 @@ test.describe("Daten & Synchronisation", () => {
     await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
     await page.click("nav [data-tab=team]");
     const titles = await page.locator("main .card > h3").allTextContents();
-    expect(titles.slice(-2)).toEqual(["Backup", "Datensicherung"]);
+    expect(titles.slice(-3)).toEqual(["Backup", "Mail testen", "Datensicherung"]);
     for (const k of ["bk", "ds"]) {
       const card = page.locator(".card", { has: page.locator(`h3[data-acc=${k}]`) });
       await expect(card).toHaveClass(/(^| )cl( |$)/);

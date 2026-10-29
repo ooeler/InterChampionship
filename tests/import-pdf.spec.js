@@ -49,7 +49,7 @@ test.describe("Übernahme aus dem PDF", () => {
     test(`${title} wie im PDF`, async ({ page }) => {
       const c = card(page, title);
       await c.locator("[data-more]").click();
-      const rows = await c.locator(".row").evaluateAll((rs) => rs.map((r) => [r.querySelector(".nm").firstChild.textContent.trim(), +r.querySelector("b").textContent])); // Name ohne 💯-Abzeichen
+      const rows = await c.locator(".row").evaluateAll((rs) => rs.map((r) => [r.querySelector(".nm").firstChild.textContent.trim(), +r.querySelector(":scope > b").textContent])); // Name ohne 💯-Abzeichen
       const got = Object.fromEntries(rows.filter(([, v]) => v > 0));
       expect(got).toEqual(want);
     });

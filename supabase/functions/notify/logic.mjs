@@ -137,38 +137,54 @@ export function trainingCount(state, x) {
   };
 }
 
+// Inhalt der Mail an die Trainingsleitung für ein Training
+function leadMail(state, x, appUrl) {
+  const t = x.t || "18:45";
+  const c = trainingCount(state, x);
+  const list = (a) => (a.length ? a.join(", ") : "–");
+  return {
+    subject: `Training ${wd(x.d)}: ${c.field} Feldspieler, ${c.gk} Torhüter`,
+    text: [
+      `Hallo ${x.lead.split(" ")[0]}`,
+      "",
+      `Morgen, ${wd(x.d)}, ${t} Uhr, leitest du das Training.`,
+      "",
+      `Angemeldet: ${c.field} Feldspieler und ${c.gk} Torhüter${c.guests.length ? ` (inkl. ${c.guests.length} Gast${c.guests.length > 1 ? "spieler" : ""})` : ""}.`,
+      `Torhüter: ${list(c.keepers)}`,
+      `Gastspieler: ${list(c.guests)}`,
+      `Abgemeldet: ${list(c.off)}`,
+      "",
+      "Denk an Einlaufen, Passübungen und deine 3 Übungen. Abmeldungen sind noch bis 23 h vorher möglich – den aktuellen Stand siehst du in der App:",
+      appUrl,
+      "",
+      "Let's fly!",
+    ].join("\n"),
+  };
+}
+
 // Mail an die Trainingsleitung 24 h vor dem Training (läuft alle 15 Min.; push_log verhindert Doppelte)
 export function leadMailMessages(state, nowMs, appUrl = "", hoursBefore = 24) {
   const out = [];
   (state.m || []).forEach((m) => {
     m.tr.forEach((x, ti) => {
       if (ti === m.tr.length - 1 || !x.lead) return; // Match Day hat keine Trainingsleitung
-      const t = x.t || "18:45";
-      const from = zurichToUtc(x.d, t) - hoursBefore * 36e5;
+      const from = zurichToUtc(x.d, x.t || "18:45") - hoursBefore * 36e5;
       if (nowMs < from || nowMs >= from + 36e5) return;
-      const c = trainingCount(state, x);
-      const list = (a) => (a.length ? a.join(", ") : "–");
-      out.push({
-        key: `lead-mail:${x.d}:${x.lead}`,
-        player: x.lead,
-        subject: `Training ${wd(x.d)}: ${c.field} Feldspieler, ${c.gk} Torhüter`,
-        text: [
-          `Hallo ${x.lead.split(" ")[0]}`,
-          "",
-          `Morgen, ${wd(x.d)}, ${t} Uhr, leitest du das Training.`,
-          "",
-          `Angemeldet: ${c.field} Feldspieler und ${c.gk} Torhüter${c.guests.length ? ` (inkl. ${c.guests.length} Gast${c.guests.length > 1 ? "spieler" : ""})` : ""}.`,
-          `Torhüter: ${list(c.keepers)}`,
-          `Gastspieler: ${list(c.guests)}`,
-          `Abgemeldet: ${list(c.off)}`,
-          "",
-          "Denk an Einlaufen, Passübungen und deine 3 Übungen. Abmeldungen sind noch bis 23 h vorher möglich – den aktuellen Stand siehst du in der App:",
-          appUrl,
-          "",
-          "Let's fly!",
-        ].join("\n"),
-      });
+      out.push({ key: `lead-mail:${x.d}:${x.lead}`, player: x.lead, ...leadMail(state, x, appUrl) });
     });
   });
   return out;
+}
+
+// Test-Mail für die Spielleitung: so sähe die Mail für das nächste Training aus (ohne Leitung: Beispielname)
+export function testLeadMail(state, nowMs, appUrl = "") {
+  for (const m of state.m || []) {
+    for (let ti = 0; ti < m.tr.length - 1; ti++) {
+      const x = m.tr[ti];
+      if (zurichToUtc(x.d, x.t || "18:45") <= nowMs) continue;
+      const mail = leadMail(state, { ...x, lead: x.lead || "Trainingsleitung" }, appUrl);
+      return { subject: "[Test] " + mail.subject, text: "Dies ist eine Test-Mail aus Herren Inter (Teams → Mail testen).\n\n" + mail.text };
+    }
+  }
+  return null;
 }
