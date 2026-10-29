@@ -4,8 +4,7 @@ test.describe("Login", () => {
   test("Ohne Login nur die öffentliche Rangliste", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("main")).toContainText("Meisterschaft");
-    await expect(page.locator("nav button")).toHaveCount(1);
-    await expect(page.locator("nav [data-tab=rang]")).toBeVisible();
+    await expect(page.locator("nav")).toBeHidden(); // nur ein Tab: keine Navigation
     await expect(page.locator("#lo")).toBeHidden();
     await expect(page.locator("#hi")).toBeHidden();
     await page.evaluate(() => { tab = "team"; render() });

@@ -256,10 +256,12 @@ test.describe("Push-Nachrichten", () => {
       localStorage.setItem("__mock_vapid", "BElw0d9Vj8C0eJQ0b1n5S8rS9QH0iZ3n2B4kq9pKX7pZ6Y0iN3QnB9uU1c8m2Wl8hYqK7vQyR8hC3f5a4Tz6x1A");
     });
     await login(page);
-    const card = page.locator(".card", { hasText: "Benachrichtigungen" });
+    await page.click("nav [data-tab=train]"); // alle Benachrichtigungen im Training-Tab
+    const card = page.locator(".card", { has: page.locator("h3", { hasText: "Benachrichtigungen" }) });
     await expect(card).toBeVisible();
     await card.locator("[data-push]").click();
-    await expect(card).toHaveCount(0);
+    await expect(card.locator("[data-push]")).toHaveCount(0);
+    await expect(card).toContainText("Push-Nachrichten sind auf diesem Gerät aktiv");
     const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")));
     const up = log.find((l) => l.table === "push_subscriptions");
     expect(up.row).toMatchObject({ endpoint: "https://push.test/abc", user_id: "u-captain@flyingpenguins.test" });
@@ -269,6 +271,7 @@ test.describe("Push-Nachrichten", () => {
     test.skip(browserName !== "webkit", "nur iPhone-Profil");
     await page.addInitScript(() => localStorage.setItem("__mock_vapid", "x"));
     await login(page);
+    await page.click("nav [data-tab=train]");
     await expect(page.locator(".card", { hasText: "Benachrichtigungen" })).toContainText("Zum Home-Bildschirm");
   });
 });
