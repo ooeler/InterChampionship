@@ -10,6 +10,10 @@ const sql2 = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations"
 const [tr0, tr1] = [...sql2.matchAll(/\$json\$([\s\S]*?)\$json\$/g)].map((m) => JSON.parse(m[1]));
 Object.assign(data.m[0], { tr: tr0, base: {} });
 Object.assign(data.m[1], { tr: tr1, base: {} });
+// Dritte Migration: Trainingsleitungen aus "Trainingsübersicht 26-27.pdf"
+const sql3 = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261029_12_trainingsleitung.sql"), "utf8");
+const LEADS = Object.fromEntries([...sql3.matchAll(/\('(\d{4}-\d\d-\d\d)', '([^']+)'\)/g)].map((m) => [m[1], m[2]]));
+data.m.forEach((m) => m.tr.forEach((x) => { if (LEADS[x.d]) x.lead = LEADS[x.d]; }));
 const card = (page, t) => page.locator(".card", { has: page.locator("h3", { hasText: new RegExp("^" + t + "$") }) });
 
 // Leaderboards aus dem PDF (Seite 1)
@@ -69,9 +73,28 @@ test.describe("Übernahme aus dem PDF", () => {
     await expect(ov.locator(".uc")).toHaveCount(0); // keine unbestätigten Trainings
   });
 
-  test("keine Abmeldungen, Leitungen, Restaurants; Pre-Games und Schiedsrichter übernommen", async () => {
+  test("Trainingsleitungen aus der Trainingsübersicht", async ({ page }) => {
+    expect(Object.keys(LEADS)).toHaveLength(14);
+    const allP = data.t.flatMap((t) => t.p);
+    expect(Object.values(LEADS).every((p) => allP.includes(p))).toBe(true); // nur echte Spieler
+    const tr = data.m.flatMap((m) => m.tr.map((x, i) => ({ ...x, md: i == m.tr.length - 1 })));
+    expect(Object.keys(LEADS).every((d) => tr.some((x) => x.d == d && !x.md))).toBe(true); // jedes Datum existiert, kein Match Day
+
+    await page.click("#li");
+    await page.fill("#auth input[name=email]", "captain@flyingpenguins.test");
+    await page.fill("#auth input[name=pw]", "geheim123");
+    await page.click("#auth form .btn");
+    await page.click("nav [data-tab=team]");
+    const c = page.locator(".card", { has: page.locator("h3", { hasText: /^Trainingsleitung$/ }) });
+    // bis 28.10. geleitet (je 1), danach geplant
+    for (const p of ["Othmar Oeler", "Michael Süess", "Raphael Germann", "Thomas Allemann"]) await expect(c.locator(`.row[data-lst='${p}'] b`)).toHaveText("1");
+    for (const p of ["Cornel Eberle", "Michael Vetter", "Pascal Fröhlich", "Silvan Frey"]) await expect(c.locator(`.row[data-lst='${p}'] .lf`)).toHaveText("+1 geplant");
+    await expect(c.locator(".row[data-lst='Tobias Keller'] b")).toHaveText("0");
+  });
+
+  test("keine Abmeldungen, Restaurants; Pre-Games und Schiedsrichter übernommen", async () => {
     const tr = data.m.flatMap((m) => m.tr);
-    expect(tr.some((x) => (x.ab || []).length || x.lead || x.r)).toBe(false);
+    expect(tr.some((x) => (x.ab || []).length || x.r)).toBe(false);
     expect(data.m.map((m) => m.pre)).toEqual([[1, 3], [3, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]);
     expect(data.m.map((m) => m.ref)).toEqual(["Tobias Keller", "", "", "", "", "Robin Thaddey", "Michael Süess", "Silvan Germann"]);
     expect(data.t.map((t) => t.c)).toEqual(["Andreas Scherrer", "Manuel Ammann"]);
