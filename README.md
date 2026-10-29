@@ -32,7 +32,8 @@ supabase/
   setup.sql               Tabellen, Rollen, Sicherheitsregeln
   cron.sql                Täglicher Match-Day-Check
   functions/notify/       Edge Function für Push-Nachrichten
-tests/                    Playwright-E2E-Tests (Android, iPhone, Desktop)
+tests/                    Playwright-Tests mit nachgebauter Datenbank (Android, iPhone, Desktop)
+tests-e2e/                E2E-Ablauf gegen eine echte, lokale Supabase (im CI per Docker)
 .github/                  Tests, Release-Deploy, Dependabot, CodeQL
 ```
 
@@ -111,7 +112,8 @@ Voraussetzung: [Node.js](https://nodejs.org) 20+.
 ```bash
 npm install
 npx playwright install
-npm test          # alle Tests
+npm test          # alle Tests (nachgebaute Datenbank)
+npm run test:e2e  # E2E gegen lokale Supabase (braucht Docker, siehe playwright.e2e.config.js)
 npm run test:ui   # Tests interaktiv
 npm start         # App unter http://localhost:4173 (config.js mit Supabase-Werten füllen)
 ```

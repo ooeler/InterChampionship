@@ -13,6 +13,7 @@ Ein Pull Request wird nur gemergt, wenn alles grün ist (`auto-merge.yml`):
 | **npm audit** | Abhängigkeiten mit bekannten Schwachstellen (ab „high“) |
 | `tests/sicherheit-statisch.spec.js` | Datenbank-Funktionen ohne Login ausführbar, Tabellen ohne Row Level Security, Edge Functions ohne Zugriffsprüfung, unsichere Workflows, Secrets im Repo |
 | `tests/sicherheit.spec.js` | Content-Security-Policy, blockierter eingeschleuster Code, Prüfung der Bilddaten |
+| **E2E mit echter Datenbank** (`tests-e2e/`) | lokale Supabase mit allen Migrationen: Funktionsrechte und RLS, Zugriffe ohne Login, Rechte von Spielern (Teams, Rollen, Strafen), Einladungslink nur einmal gültig |
 
 Bei jedem Release prüft `release.yml` zusätzlich die **echte Datenbank**: Keine Funktion darf ohne Login ausführbar sein, jede Tabelle braucht Row Level Security. Sonst bricht das Release ab.
 
