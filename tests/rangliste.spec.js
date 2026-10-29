@@ -68,3 +68,36 @@ test("Teamsponsor steht zwischen Meisterschaft und Spieltagen", async ({ page })
   expect(i("Teamsponsor")).toBe(i("Meisterschaft") + 1);
   expect(i("Spieltage")).toBe(i("Teamsponsor") + 1);
 });
+
+test.describe("100% Anwesenheit", () => {
+  const full = `d.m[2].tr.forEach((x) => x.p = ["Othmar Oeler", "Beat Rentsch", "Raphael Germann"]); d.m[2].tr[1].p = ["Othmar Oeler", "Raphael Germann"];`;
+
+  test("abgeschlossener Monat mit jedem Termin → 💯 in der Rangliste", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-05T10:00:00"));
+    await seed(page, full);
+    await board(page, "Anwesenheit Saison").locator("[data-more]").click();
+    const row = (n) => board(page, "Anwesenheit Saison").locator(".row", { hasText: n });
+    await expect(row("Othmar Oeler").locator(".fm")).toHaveText("💯");
+    await expect(row("Othmar Oeler").locator(".fm")).toHaveAttribute("title", "100% Anwesenheit: November");
+    await expect(row("Beat Rentsch").locator(".fm")).toHaveCount(0);
+    // fehlte beim übernommenen Training vor der App
+    await expect(row("Raphael Germann").locator(".fm")).toHaveCount(0);
+  });
+
+  test("laufender Monat zählt noch nicht", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-04T10:00:00"));
+    await seed(page, full);
+    await expect(page.locator(".fm")).toHaveCount(0);
+  });
+
+  test("Monatsübersicht zeigt 💯 beim Spieler", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-05T10:00:00"));
+    await seed(page, full);
+    await login(page);
+    await page.click("nav [data-tab=train]");
+    const card = page.locator(".card", { hasText: "Monatsübersicht" });
+    await card.locator("[data-tmon='2']").click();
+    await expect(card.locator("tr", { hasText: "Othmar Oeler" }).locator(".fm")).toHaveText("💯");
+    await expect(card.locator("tr", { hasText: "Beat Rentsch" }).locator(".fm")).toHaveCount(0);
+  });
+});
