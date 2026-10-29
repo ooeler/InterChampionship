@@ -152,13 +152,26 @@
     var functions = {
       invoke: function (name, o) {
         log({ op: "invoke", name: name, body: o.body });
-        if (name == "invite") { // spiegelt supabase/functions/invite/logic.mjs (vereinfacht)
-          var b = o.body, em = String(b.email || "").toLowerCase(), r = role();
+        if (name == "invite") { // spiegelt supabase/functions/invite (vereinfacht), Einladungen in localStorage
+          var b = o.body, r = role(), L = get("__mock_invites") || [], sv = function () { set("__mock_invites", L) };
           var err = function (m) { return Promise.resolve({ data: null, error: { message: "non-2xx", context: { json: function () { return Promise.resolve({ error: m }) } } } }) };
+          var open = function (t) { return L.filter(function (x) { return x.token == t && !x.used && x.expires_at > new Date().toISOString() })[0] };
+          if (b.action == "check") { var c = open(b.token); return c ? ok({ ok: true, player: c.player, role: c.role }) : err("Dieser Einladungslink ist ungültig, abgelaufen oder wurde schon verwendet.") }
+          if (b.action == "join") {
+            var j = open(b.token), em = String(b.email || "").trim().toLowerCase();
+            if (!j) return err("Dieser Einladungslink ist ungültig, abgelaufen oder wurde schon verwendet.");
+            if (String(b.password || "").length < 8) return err("Das Passwort braucht mindestens 8 Zeichen.");
+            if (USERS[em]) return err("Diese Adresse hat bereits ein Konto. Bitte normal anmelden.");
+            USERS[em] = { pw: b.password, role: j.role, player: j.player, name: j.player }; j.used = true; sv(); return ok({ ok: true, email: em });
+          }
           if (r != "admin" && r != "captain") return err("Nur Spielleitung und Captains dürfen einladen.");
-          if (b.role != "player" && r != "admin") return err("Nur die Spielleitung darf Captains oder Spielleitung einladen.");
-          if (USERS[em]) return err("Diese Adresse hat bereits ein Konto.");
-          USERS[em] = { pw: null, role: b.role, player: b.player }; return ok({ ok: true, email: em });
+          if (b.action == "create") {
+            if (b.role != "player" && r != "admin") return err("Nur die Spielleitung darf Captains oder Spielleitung einladen.");
+            var t = "T" + String(L.length + 1).padStart(42, "x"), exp = new Date(Date.now() + 7 * 864e5).toISOString();
+            L.push({ id: L.length + 1, token: t, role: b.role, player: b.player, mine: true, expires_at: exp }); sv(); return ok({ ok: true, token: t, expires_at: exp });
+          }
+          if (b.action == "list") return ok({ ok: true, items: L.filter(function (x) { return !x.used }).map(function (x) { return { id: x.id, player: x.player, role: x.role, expires_at: x.expires_at, mine: x.mine } }).reverse() });
+          if (b.action == "revoke") { L = L.filter(function (x) { return x.id != b.id }); sv(); return ok({ ok: true }) }
         }
         if (name == "feedback") {
           // wie supabase-js bei HTTP-Fehlern: data = null, Server-Antwort steckt in error.context (Response)
