@@ -50,11 +50,13 @@ test.describe("Sicherheit (statisch)", () => {
     expect(S.pushEndpointOk("kaputt")).toBe(false);
   });
 
-  test("Workflows: minimale Rechte, kein pull_request_target, Actions mit Version", () => {
+  test("Workflows: minimale Rechte, kein pull_request_target, Actions mit Commit-Hash", () => {
     for (const [f, y] of workflows) {
       expect(y, `${f}: permissions fehlen`).toMatch(/^permissions:/m);
       expect(y, `${f}: pull_request_target`).not.toMatch(/pull_request_target/);
-      expect(y, `${f}: Action ohne feste Version`).not.toMatch(/uses: [^\s]+@(main|master)\b/);
+      // Fremde Actions nur über festen Commit-Hash (ein Versions-Tag kann nachträglich verändert werden)
+      const loose = [...y.matchAll(/uses: ([^\s.][^\s]*)@([^\s]+)/g)].filter((m) => !/^[0-9a-f]{40}$/.test(m[2])).map((m) => m[0]);
+      expect(loose, `${f}: Action ohne Commit-Hash`).toEqual([]);
       // Werte aus PRs/Issues nie direkt ins Shell-Skript (Script-Injection), sondern über env:
       expect(y, `${f}: Script-Injection`).not.toMatch(/run:.*\$\{\{\s*github\.event\.(pull_request|issue|comment)\.[^}]*(title|body|head\.ref)/);
     }

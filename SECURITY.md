@@ -28,7 +28,8 @@ Laufend aktiv: GitHub Secret Scanning mit Push-Schutz und Dependabot-Sicherheits
 | 3 | Mittel | Die Push-Nachricht „An-/Abmeldung“ übernahm Name und Uhrzeit ungeprüft vom Gerät. Ein Mitglied hätte allen Abonnenten beliebigen Text schicken können (Phishing), und zwar beliebig oft. | Spieler und Training werden gegen die Saison-Daten geprüft, die Uhrzeit kommt aus den Daten; höchstens eine Nachricht pro Person, Training und 10 Minuten |
 | 4 | Niedrig | Push-Adressen wurden ungeprüft angesprochen. Ein Mitglied hätte den Server Anfragen an beliebige Adressen schicken lassen können (SSRF). | Nur noch die Push-Dienste von Google, Mozilla, Apple und Microsoft |
 | 5 | Niedrig | Das Cron-Secret wurde nicht in konstanter Zeit verglichen (Timing-Angriff). | `safeEqual` in `supabase/functions/_shared/sicherheit.mjs` |
-| 6 | Niedrig | Der Build-Ordner `dist/` war eingecheckt. | Aus dem Repository entfernt (steht in `.gitignore`) |
+| 6 | Niedrig | GitHub Actions waren nur per Versions-Tag eingebunden; ein manipulierter Tag hätte fremden Code mit Deploy-Rechten ausgeführt (Lieferkette). | Alle Actions auf feste Commit-Hashes gepinnt (Dependabot hält sie aktuell) |
+| 7 | Niedrig | Der Build-Ordner `dist/` war eingecheckt. | Aus dem Repository entfernt (steht in `.gitignore`) |
 | – | Hoch | *(v1.8.0)* Bilddaten (Logos, Sponsor) wurden ungeprüft ins HTML eingesetzt (XSS). | Prüfung der Bilddaten und Content-Security-Policy mit Prüfsummen |
 
 ### Bewusst akzeptiert / offen

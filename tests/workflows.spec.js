@@ -6,7 +6,7 @@ const path = require("path");
 const wf = (n) => fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", n), "utf8");
 
 test("Release: Supabase CLI ist auf eine getestete Version fixiert", () => {
-  expect(wf("release.yml")).toMatch(/supabase\/setup-cli@v\d+\s+with:\s+version: \d+\.\d+\.\d+/);
+  expect(wf("release.yml")).toMatch(/supabase\/setup-cli@[0-9a-f]{40} # v\d+\s+with:\s+version: \d+\.\d+\.\d+/);
 });
 
 test("Release: Migrations-Abfrage versteht beide JSON-Formate der CLI", () => {
