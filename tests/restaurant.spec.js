@@ -74,9 +74,10 @@ test.describe("Restaurant", () => {
     await expect(overview(page).locator("input[data-resto]")).toBeVisible();
   });
 
-  test("Statistik der besuchten Restaurants in der Rangliste (öffentlich)", async ({ page }) => {
+  test("Statistik der besuchten Restaurants in der Rangliste (nur Mitglieder)", async ({ page }) => {
     await seed(page, `["Rössli","Rössli","Rössli","Roma","Roma","Bären","Krone","Löwen","Adler"].forEach((r, i) => { const all = d.m.flatMap((m) => m.tr); all[i].r = r; });`);
-    await page.reload();
+    await login(page);
+    await page.click("nav [data-tab=rang]");
     const card = page.locator(".card", { has: page.locator("h3", { hasText: /^Restaurants$/ }) });
     await expect(card.locator(".row")).toHaveCount(5);
     await expect(card.locator(".row").first()).toContainText("Rössli");
@@ -108,4 +109,15 @@ test.describe("Restaurant-Besuche im Teams-Tab", () => {
     await page.click("nav [data-tab=team]");
     await expect(page.locator(".card", { has: page.locator("h3", { hasText: /^Restaurant-Besuche$/ }) })).toContainText("Noch kein Restaurant eingetragen");
   });
+});
+
+test("Restaurant-Statistik nur für Mitglieder, nicht in der öffentlichen Rangliste", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => { const d = fix(def()); d.m[2].tr[0].r = "Rössli"; localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: d })); });
+  await page.reload();
+  await expect(page.locator("main")).toContainText("Anwesenheit Saison");
+  await expect(page.locator("main")).not.toContainText("Rössli");
+  await login(page);
+  await page.click("nav [data-tab=rang]");
+  await expect(page.locator(".card", { has: page.locator("h3", { hasText: /^Restaurants$/ }) })).toContainText("Rössli");
 });
