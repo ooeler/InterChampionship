@@ -3,6 +3,9 @@
 // Env: SUPABASE_URL, CRON_SECRET, GITHUB_TOKEN, GITHUB_REPOSITORY
 // Exit-Code 1, wenn etwas schiefgeht → GitHub meldet den fehlgeschlagenen Lauf per Mail.
 
+// Nur Issues, die ab diesem Zeitpunkt geschlossen werden, lösen eine Benachrichtigung aus (ältere bleiben still)
+export const NOTIFY_SINCE = "2026-10-30T17:00:00Z";
+
 export async function run({ env, fetch: f = fetch, log = console.log }) {
   const ops = (body) =>
     f(`${env.SUPABASE_URL}/functions/v1/feedback-export`, {
@@ -41,6 +44,23 @@ export async function run({ env, fetch: f = fetch, log = console.log }) {
     }
   }
   if (failed) throw new Error(`${failed} Vorschläge konnten nicht als Issue angelegt werden`);
+
+  // Geschlossene Issues zurückmelden: Wer den Vorschlag gemacht hat, wird informiert
+  const open = await ops({ action: "open" });
+  if (!open.ok) throw new Error(`feedback-export (open) antwortet mit HTTP ${open.status}`);
+  for (const it of (await open.json()).items || []) {
+    const gh = await f(`https://api.github.com/repos/${env.GITHUB_REPOSITORY}/issues/${it.issue_number}`, {
+      headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "InterChampionship" },
+    });
+    if (!gh.ok) { log(`Issue #${it.issue_number}: HTTP ${gh.status}, wird beim nächsten Lauf erneut geprüft`); continue; }
+    const issue = await gh.json();
+    if (issue.state !== "closed") continue;
+    const completed = issue.state_reason === "completed", notify = issue.closed_at >= NOTIFY_SINCE;
+    const r = await ops({ action: "closed", id: it.id, completed, notify });
+    if (!r.ok) throw new Error(`Issue #${it.issue_number} geschlossen, aber Status nicht gespeichert (HTTP ${r.status})`);
+    const d = await r.json();
+    log(`Issue #${it.issue_number} geschlossen${d.mailed ? ", Person per Mail informiert" : d.error ? `, Mail fehlgeschlagen: ${d.error}` : ""}`);
+  }
   return items.length;
 }
 

@@ -15,7 +15,15 @@ const mock = () => readFileSync("tests/mock-supabase.js", "utf8")
   .replace(`{ pw: "geheim123", role: "captain" }`, `{ pw: "geheim123", role: "captain", player: "Andreas Scherrer" }`)
   .replace(`{ pw: "admin123", role: "admin" }`, `{ pw: "admin123", role: "admin", player: "Othmar Oeler" }`)
   .replace(`{ pw: "spieler123", role: "player", name: "Silvan Frey" }`, `{ pw: "spieler123", role: "player", name: "Silvan Frey", player: "Silvan Frey" },
-    "chef@flyingpenguins.test": { pw: "chef123", role: "player", player: "Beat Rentsch", resto: true, strafen: true }`);
+    "chef@flyingpenguins.test": { pw: "chef123", role: "player", player: "Beat Rentsch", resto: true, strafen: true }`)
+  // Die Demo startet ohne Saison-Zeile im Backend; in der echten Datenbank existiert sie immer
+  .replace(`role() == "player" && (!old || [`, `role() == "player" && old && [`)
+  .replace(`JSON.stringify(row.data[k]) })))`, `JSON.stringify(row.data[k]) }))`)
+  // Der Browser-Bereich unterdrückt native Dialoge: hier gelten Rückfragen als bestätigt, Meldungen stehen in der Konsole
+  + `
+window.confirm = function (m) { console.warn("Rückfrage bestätigt: " + m); return true };
+window.alert = function (m) { console.warn("Meldung: " + m) };
+`;
 
 createServer((req, res) => {
   const path = normalize(decodeURIComponent(new URL(req.url, "http://localhost").pathname));

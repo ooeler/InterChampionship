@@ -42,7 +42,7 @@ test("legt Issues mit dem GitHub-Actions-Token an und meldet sie zurück", async
 test("ohne neue Vorschläge passiert nichts", async () => {
   const { f, calls } = fakeFetch();
   expect(await run({ env: ENV, fetch: f, log: () => {} })).toBe(0);
-  expect(calls).toHaveLength(1);
+  expect(calls.map((c) => c.body.action)).toEqual(["pending", "open"]);
 });
 
 test("GitHub-Fehler wird gespeichert und lässt den Lauf fehlschlagen", async () => {
@@ -64,4 +64,32 @@ test("Workflow nutzt keinen persönlichen Token und hat Issue-Schreibrecht", asy
   expect(yml).toContain("secrets.GITHUB_TOKEN");
   expect(yml).not.toContain("GITHUB_ISSUES_TOKEN");
   expect(yml).toMatch(/cron: "\*\/10 \* \* \* \*"/);
+});
+
+test("meldet geschlossene Issues: umgesetzt informiert, ältere und abgelehnte nicht", async () => {
+  const calls = [];
+  const issues = {
+    10: { state: "closed", state_reason: "completed", closed_at: "2026-10-31T08:00:00Z" },
+    11: { state: "closed", state_reason: "not_planned", closed_at: "2026-10-31T08:00:00Z" },
+    12: { state: "closed", state_reason: "completed", closed_at: "2026-10-01T08:00:00Z" },
+    13: { state: "open", state_reason: null, closed_at: null },
+    14: null,
+  };
+  const f = async (url, init) => {
+    if (url.endsWith("/functions/v1/feedback-export")) {
+      const body = JSON.parse(init.body);
+      calls.push(body);
+      if (body.action === "pending") return res(200, { items: [] });
+      if (body.action === "open") return res(200, { items: Object.keys(issues).map((n) => ({ id: +n * 10, issue_number: +n })) });
+      return res(200, { ok: true, mailed: body.notify && body.completed });
+    }
+    const n = url.split("/").pop();
+    return issues[n] ? res(200, issues[n]) : res(404, {});
+  };
+  await run({ env: ENV, fetch: f, log: () => {} });
+  expect(calls.filter((c) => c.action === "closed")).toEqual([
+    { action: "closed", id: 100, completed: true, notify: true },
+    { action: "closed", id: 110, completed: false, notify: true },
+    { action: "closed", id: 120, completed: true, notify: false },
+  ]);
 });

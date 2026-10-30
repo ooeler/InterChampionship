@@ -104,10 +104,20 @@ test("Ein Einladungslink funktioniert nur einmal", async ({ page }) => {
 
 test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Datenbank", async () => {
   await player.click("nav [data-tab=train]");
-  const btn = player.locator(".card", { hasText: "Meine Trainings" }).locator("[data-abw]:not(.dis)").first();
+  const btn = player.locator(".card", { hasText: "Meine Trainings" }).locator("[data-abw]:not(.lt)").first();
   await btn.click();
+  await player.locator("[data-stt$='|off']").click();
+  await player.locator("form#abf input[name=g]").fill("Geschäftsreise");
+  await player.locator("form#abf button.del").click();
   await expect(btn).toContainText("abgemeldet");
   await expect.poll(async () => (await state()).m.flatMap((m) => m.tr).some((x) => (x.ab || []).includes("Silvan Frey"))).toBe(true);
+  // der Grund ist in der geschützten Tabelle, nie in den öffentlichen Saison-Daten
+  expect((await rest("/rest/v1/absence_reasons?select=player,reason")).data).toEqual([{ player: "Silvan Frey", reason: "Geschäftsreise" }]);
+  expect((await rest("/rest/v1/absence_reasons?select=reason", { key: ANON })).status).not.toBe(200);
+  expect(JSON.stringify(await state())).not.toContain("Geschäftsreise");
+  // fremde Gründe schreiben geht nicht
+  const r = await player.evaluate(async () => (await sb.from("absence_reasons").insert({ d: "2026-12-16", player: "Tobias Keller", reason: "erfunden" })).error.message);
+  expect(r).toContain("row-level security");
 });
 
 test("Spieler darf Teams, Rollen und Strafen nicht ändern (serverseitig)", async () => {
@@ -123,6 +133,14 @@ test("Spieler darf Teams, Rollen und Strafen nicht ändern (serverseitig)", asyn
   expect(r[1]).toContain("Nur die Spielleitung");
   expect(r[2]).toContain("Nur Admins und Captains");
   expect((await state()).t[0].n).toBe("Lochball Legenden");
+  // Infos: fremde Änderungen werden still verworfen, das Speichern selbst scheitert nicht
+  const info = await player.evaluate(async () => {
+    const cur = (await sb.from("league_state").select("data").eq("id", "main").single()).data.data;
+    cur.info = "## Gehackt";
+    return (await sb.from("league_state").update({ data: cur }).eq("id", "main")).error;
+  });
+  expect(info).toBeNull();
+  expect((await state()).info).toBeUndefined();
 });
 
 test("Spielleitung macht den Spieler zum Strafenchef – danach darf er Strafen eintragen", async () => {
@@ -197,6 +215,7 @@ test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleib
   expect(JSON.stringify((await state()).t)).toContain("Silvan Frey");
   expect((await rest("/rest/v1/league_state?id=eq.main&select=updated_by")).data[0].updated_by).toBeNull();
   await expect(admin.locator(".card", { hasText: "Benutzer & Rollen" })).not.toContainText(PLAYER.email);
+  expect((await rest("/rest/v1/absence_reasons?select=player")).data).toEqual([{ player: "Silvan Frey" }]); // Grund bleibt, Spieler bleibt
 });
 
 test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async ({ page }) => {

@@ -19,6 +19,8 @@ test.describe("Login", () => {
   test("Anmelden öffnet den Login, 'Zurück' führt zur Rangliste", async ({ page }) => {
     await openLogin(page);
     await expect(page.locator("#auth h1")).toHaveText("Herren Inter");
+    await expect(page.locator("#auth .alogo")).toBeVisible();
+    expect(await page.locator("#auth .alogo").evaluate((i) => i.naturalWidth)).toBeGreaterThan(0); // Club-Logo geladen
     await expect(page.locator("#auth")).toContainText("Nur für eingeladene Mitglieder");
     await expect(page.locator("header")).toBeHidden();
     await expect(page.locator("main")).toBeHidden();
