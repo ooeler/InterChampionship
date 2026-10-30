@@ -450,3 +450,35 @@ test.describe("Push-Texte (Edge Function)", () => {
     expect(L.addDays("2026-12-30", 3)).toBe("2027-01-02");
   });
 });
+
+test("Leader werden auch mal mit Titel begrüsst (Anwesenheitskönig, Topskorer, Knipser …)", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    const d = fix(def());
+    d.m[0].base = { "Silvan Frey": 9 }; d.m[0].g = { "Silvan Frey": 7 };
+    localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: d }));
+    localStorage.setItem("__mock_player", "Silvan Frey");
+  });
+  await login(page, { email: "spieler@flyingpenguins.test", password: "spieler123" });
+  const T = /^(Hallo Anwesenheitskönig|Hoi Trainingsweltmeister|Salü Dauerbrenner|Hallo Mister 100 Prozent|Hallo Topskorer|Hoi Punktesammler|Salü Skorerkönig|Hallo Spielmacher|Hallo Knipser|Hoi Torjäger|Salü Goalgetter|Hallo Vollstrecker) Silvan! (👑|🏆|🎯)$/;
+  // über mehrere Tage: mal mit Titel, mal normal – und nie ein Titel für Nicht-Leader
+  const seen = await page.evaluate(() => { const o = []; for (let i = 1; i <= 20; i++) { TD = "2026-11-" + String(i).padStart(2, "0"); o.push(leadTitle(TD + "Silvan")) } return o; });
+  expect(seen.filter(Boolean).length).toBeGreaterThan(5);
+  expect(seen.filter((x) => !x).length).toBeGreaterThan(0);
+  for (const x of seen.filter(Boolean)) expect(x[0] + " Silvan! " + x[1]).toMatch(T);
+  expect(await page.evaluate(() => { PLAYER = "Beat Rentsch"; return leadTitle("x") })).toBeNull();
+});
+
+test("Begrüssung: Happy Friday und Schöne OLMA / OFFA (an manchen Tagen)", async ({ page }) => {
+  await login(page);
+  const at = (iso) => page.evaluate((iso) => { const o = new Set(); for (let i = 0; i < 25; i++) { TD = iso.slice(0, 10); PLAYER = "P" + i; o.add(hello()) } return [...o]; }, iso);
+  await page.clock.setFixedTime(new Date("2026-10-30T12:00:00")); // Freitag
+  const fr = await at("2026-10-30");
+  expect(fr.some((g) => /^Happy Friday .*! 🎉$/.test(g))).toBe(true);
+  expect(fr.some((g) => !g.startsWith("Happy Friday"))).toBe(true);
+  await page.clock.setFixedTime(new Date("2027-04-22T12:00:00")); // OFFA (Donnerstag)
+  const of = await at("2027-04-22");
+  expect(of.some((g) => /^(Schöne |Viel Spass an der )OFFA .*! 🌷$/.test(g))).toBe(true);
+  await page.clock.setFixedTime(new Date("2027-04-28T12:00:00"));
+  expect((await at("2027-04-28")).some((g) => /OFFA|OLMA/.test(g))).toBe(false);
+});
