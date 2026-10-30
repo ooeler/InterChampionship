@@ -108,6 +108,19 @@ test.describe("Grund beim Abmelden", () => {
     await expect(overview(page).locator(".abr")).toContainText("Silvan Frey: Geschäftsreise");
   });
 
+  test("Formular löst keine Skriptfehler aus", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await seed(page);
+    await open(page);
+    await choose(page, "off");
+    await mine(page).locator("form#abf input[name=g]").click();
+    await mine(page).locator("form#abf input[name=g]").fill("Ferien");
+    await mine(page).locator("form#abf button.del").click();
+    await expect(first(page).locator("[data-abw]")).toHaveText("✗ abgemeldet");
+    expect(errors).toEqual([]);
+  });
+
   test("Abbrechen lässt alles, wie es war", async ({ page }) => {
     await seed(page);
     await open(page);
