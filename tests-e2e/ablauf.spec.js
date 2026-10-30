@@ -200,8 +200,8 @@ test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleib
 test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async ({ page }) => {
   expect((await rest("/rest/v1/app_status?select=maintenance", { key: ANON })).data).toEqual([{ maintenance: false }]);
   await rest("/rest/v1/app_status?id=eq.main", { key: ANON, method: "PATCH", body: { maintenance: true } });
-  const r = await admin.evaluate(async () => (await sb.from("app_status").update({ maintenance: true }).eq("id", "main").select()).data);
-  expect(r).toEqual([]);
+  const r = await admin.evaluate(async () => (await sb.from("app_status").update({ maintenance: true }).eq("id", "main").select()).error.message);
+  expect(r).toContain("permission denied"); // auch die Spielleitung nicht – nur der Release-Workflow
   expect((await rest("/rest/v1/app_status?select=maintenance")).data).toEqual([{ maintenance: false }]);
   // eingeschaltet (wie im Release-Workflow) → Wartungsseite, ausgeschaltet → App lädt neu
   await rest("/rest/v1/app_status?id=eq.main", { method: "PATCH", body: { maintenance: true } });
