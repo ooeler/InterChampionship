@@ -301,3 +301,32 @@ test.describe("Übersicht pro Training nach Spieltag", () => {
     await expect(page.locator(".card", { hasText: "Monatsübersicht" }).locator("th img.sl")).toHaveCount(2);
   });
 });
+
+test.describe("Engagement", () => {
+  test("Toast beim Abmelden (Schade …) und beim Wieder-Anmelden, verschwindet nach 6 s", async ({ page }) => {
+    await seed(page);
+    await openTraining(page, SPIELER);
+    const first = mine(page).locator(".row").first();
+    await first.locator("[data-abw]").click();
+    const t = page.locator("#toast");
+    await expect(t).toBeVisible();
+    await expect(t).toContainText(/Schade|Abgemeldet/);
+    await expect(t).toContainText("28.10.");
+    await expect(t).toBeHidden({ timeout: 8000 });
+    await first.locator("[data-abw]").click();
+    await expect(t).toContainText(/wieder dabei|kommst/);
+    await t.click(); // antippen schliesst
+    await expect(t).toBeHidden();
+  });
+
+  test("Wer die letzten 3 Trainings verpasst hat, wird auch mal ins Training eingeladen", async ({ page }) => {
+    // 3 bestätigte Trainings vor heute, Silvan war bei keinem dabei
+    await seed(page, { patch: `const m = d.m.find((m) => m.tr.some((x) => x.d == "2026-10-21")); m.tr.unshift({ d: "2026-10-07", p: [] }, { d: "2026-10-14", p: [] }); m.tr.filter((x) => x.d < "2026-10-27").forEach((x) => { x.p = ["Beat Rentsch"] });` });
+    await openTraining(page, SPIELER);
+    const r = await page.evaluate(() => { const o = [missing()]; PLAYER = "Beat Rentsch"; o.push(missing()); return o; });
+    expect(r).toEqual([true, false]);
+    // die Begrüssung wechselt je nach Tag zwischen "Komm mal wieder …" und der normalen
+    const g = await page.evaluate(() => { PLAYER = "Silvan Frey"; const o = new Set(); for (let i = 0; i < 30; i++) { const k = "2026-10-27Silvan" + i; o.add(missing() && pick([1, 0], k + "mw") ? "mw" : "normal") } return [...o].sort(); });
+    expect(g).toEqual(["mw", "normal"]);
+  });
+});

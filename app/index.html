@@ -111,6 +111,9 @@ nav button.on i{animation:pop .3s ease-out}
 /* Match Day: fliegende Unihockey-Bälle */
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;z-index:25;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
 @media(prefers-reduced-motion:reduce){#splash *,#app.fx,.card.op>*,.row.nw,nav button.on i{animation:none!important}button,.chip,.pb{transition:none!important}.ball{display:none!important}}
+/* Toast */
+#toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:35;max-width:480px;margin:0 auto;background:#14161c;color:#fff;border-left:4px solid #B9001B;border-radius:12px;padding:12px 14px;font:600 14px/1.4 Arial,Helvetica,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer}#toast[hidden]{display:none}#toast.in{animation:tin .3s ease-out}@keyframes tin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#toast.in{animation:none}}
 /* Wartungsseite während eines Updates */
 #wart{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(174deg,#B9001B 0 58%,#000 58% 80%,#5C000D 80%)}#wart[hidden]{display:none}#wart .wb{background:var(--card);color:var(--tx);border-radius:18px;padding:24px 20px;max-width:360px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.35)}#wart .wi{font-size:44px}#wart h2{margin:6px 0 8px;font-size:20px}#wart p{margin:0 0 8px;line-height:1.4}.wl{height:4px;border-radius:4px;background:var(--ln);overflow:hidden;margin-top:12px}.wl span{display:block;height:100%;width:40%;background:var(--ac);animation:wl 1.4s ease-in-out infinite}@keyframes wl{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
 @media(prefers-reduced-motion:reduce){.wl span{animation:none;width:100%}}
@@ -122,6 +125,7 @@ nav button.on i{animation:pop .3s ease-out}
 </style></head><body class="lo">
 <div id="splash" role="status" aria-label="Herren Inter lädt"><div class="fly"><span class="ln"></span><span class="ln"></span><span class="ln"></span><div><img src="logo.png" alt="UHC Flying Penguins"></div></div><div class="lf">Let’s Fly</div></div>
 <div id="auth" hidden></div>
+<div id="toast" role="status" aria-live="polite" hidden></div>
 <div id="wart" role="alertdialog" aria-modal="true" aria-labelledby="wart-t" hidden><div class="wb"><div class="wi">🛠️</div><h2 id="wart-t">Update wird eingespielt</h2><p>Herren Inter bekommt gerade eine neue Version. In ein bis zwei Minuten geht es weiter – die Seite lädt dann von selbst neu.</p><p class="sp">Deine Eingaben sind sicher und werden danach gespeichert.</p><div class="wl"><span></span></div></div></div>
 <header><img id="clogo" hidden><h1 id="h1">Herren Inter</h1><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button><div class="hd"><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><div class="tag">Let’s Fly</div></header>
 <main id="app"></main>
@@ -156,6 +160,17 @@ var TD=(function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2
 function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.tr.length-1:i}
 function isMD(d){return S.m.some(function(m){return m.tr.length&&m.tr[m.tr.length-1].d==d})}
 // Begrüssung je nach Tageszeit und Anlass; Varianten wechseln täglich (pro Person stabil, kein Flackern)
+// Wer im Leaderboard vorne ist, wird an manchen Tagen mit Titel begrüsst (z. B. „Hallo Knipser Silvan!“)
+var LT={att:[["Hallo Anwesenheitskönig","Hoi Trainingsweltmeister","Salü Dauerbrenner","Hallo Mister 100 Prozent"],"👑"],sk:[["Hallo Topskorer","Hoi Punktesammler","Salü Skorerkönig","Hallo Spielmacher"],"🏆"],g:[["Hallo Knipser","Hoi Torjäger","Salü Goalgetter","Hallo Vollstrecker"],"🎯"]};
+// Hat in den letzten 3 bestätigten Trainings gefehlt
+function missing(){if(!PLAYER)return false;var L=allTr().filter(function(r){return r.x.d<TD&&r.x.p.length}).slice(-3);return L.length==3&&L.every(function(r){return r.x.p.indexOf(PLAYER)<0})}
+function leadTitle(k){if(!PLAYER)return null;var C=[];if(leaders(function(q){return tot("att",q)}).indexOf(PLAYER)>=0)C.push("att");if(leaders(function(q){return tot("g",q)+tot("a",q)}).indexOf(PLAYER)>=0)C.push("sk");if(leaders(function(q){return tot("g",q)}).indexOf(PLAYER)>=0)C.push("g");
+if(!C.length||pick([1,1,0],k+"lt")==0)return null;var c=LT[pick(C,k+"c")];return [pick(c[0],k),c[1]]}
+// Kurze Meldung unten am Bildschirm (6 s, antippen schliesst sie)
+var TT=null;function toast(t){var e=document.getElementById("toast");e.textContent=t;e.hidden=false;e.classList.remove("in");void e.offsetWidth;e.classList.add("in");clearTimeout(TT);TT=setTimeout(function(){e.hidden=true},6000)}
+document.addEventListener("click",function(e){if(e.target.id=="toast"){clearTimeout(TT);e.target.hidden=true}});
+// Messen in St. Gallen (Daten jedes Jahr hier nachtragen; OLMA 2027 noch nicht offiziell bestätigt)
+var FAIR=[["OLMA","2026-10-08","2026-10-18","🐄"],["OFFA","2027-04-21","2027-04-25","🌷"],["OLMA","2027-10-14","2027-10-24","🐄"]];
 var GR={morgen:["Guten Morgen","Hallo","Hoi"],tag:["Hallo","Hoi","Salü"],abend:["Guten Abend","Hallo","Hoi"],bier:["Viel Spass beim Bier","Prost","Zum Wohl"]};
 function pick(a,k){var x=0;for(var i=0;i<k.length;i++)x=(x*31+k.charCodeAt(i))%9973;return a[x%a.length]}
 function hello(){var u=me&&me.user_metadata||{},n=(PLAYER||u.full_name||u.name||"").split(" ")[0]||(me&&me.email||"").split("@")[0].split(/[._+-]/)[0],d=new Date(),h=d.getHours(),mi=h*60+d.getMinutes();n=n?n.charAt(0).toUpperCase()+n.slice(1):"";
@@ -166,6 +181,10 @@ if(T&&mi>=st-30)return T.md?"Guter Match"+sp+"! ⚑":"Gutes Training"+sp+"! 🏒
 if(h>=23||h<4)return "Hallo Nachtschwärmer"+sp+"! 🌙";
 if(T)return T.md?w+", heute ist Match Day! ⚑":w+", heute ist Training! 🏒";
 if(h<7)return "Hallo Frühaufsteher"+sp+"! ☀️";
+var fa=FAIR.filter(function(f){return TD>=f[1]&&TD<=f[2]})[0];if(fa&&pick([1,1,0],k+"fa"))return pick(["Schöne ","Viel Spass an der "],k)+fa[0]+sp+"! "+fa[3];
+if(d.getDay()==5&&pick([1,0],k+"fr"))return "Happy Friday"+sp+"! 🎉";
+var lt=leadTitle(k);if(lt)return lt[0]+sp+"! "+lt[1];
+if(missing()&&pick([1,0],k+"mw"))return pick(["Hallo"+sp+", komm mal wieder ins Training!","Hoi"+sp+", wir vermissen dich im Training!","Salü"+sp+", das Training wartet auf dich!"],k)+" 🏒";
 return pick(h<11?GR.morgen:h<18?GR.tag:GR.abend,k)+sp+"!"}
 var CUT=null; // gesetzt: Stand vor diesem Datum (für ▲/▼ in der Rangliste)
 // 100% im abgeschlossenen Monat: alle Termine besucht, auch die vor der App übernommenen (base)
@@ -284,6 +303,7 @@ function isOff(x,p){return (x.ab||[]).indexOf(p)>=0}
 function setOff(k,p,off){var r=trAt(k),x=r.x;if(started(x)){alert("Das Training hat schon begonnen.");return false}
 if(off&&!canTeam()&&!canOff(x)){alert("Abmelden ist nur bis 23 Stunden vor Trainingsbeginn möglich. Bitte melde dich direkt bei deinem Captain.");return false}
 x.ab=x.ab||[];var q=x.ab.indexOf(p);if(off&&q<0)x.ab.push(p);if(!off&&q>=0)x.ab.splice(q,1);save();
+if(p==PLAYER)toast(off?pick(["Schade, dass du am "+wd(x.d)+" nicht ins Training kommst. Bis zum nächsten Mal! 👋","Schade, wir werden dich am "+wd(x.d)+" vermissen! 😢","Abgemeldet für "+wd(x.d)+". Schade – nächstes Mal wieder? 🏒"],x.d+p+Date.now()):pick(["Super, du bist am "+wd(x.d)+" wieder dabei! 🏒","Schön, dass du am "+wd(x.d)+" kommst! 💪"],x.d+p+Date.now()));
 if(sb&&me)sb.functions.invoke("notify",{body:{type:"signup",d:x.d,t:tstart(x),player:p,off:off}}).catch(function(){});return true}
 function myTr(){if(!PLAYER)return ROLE=="player"?'<div class="card"><h3>Meine Trainings</h3><div class="sp">Dein Konto ist noch keinem Spieler zugeordnet. Bitte die Spielleitung, das unter Teams → Benutzer &amp; Rollen zu erledigen – dann kannst du dich hier abmelden.</div></div>':"";
 var L=allTr().filter(function(r){return r.x.d>=TD&&(!started(r.x)||RESTO&&r.x.d==TD)});
