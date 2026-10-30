@@ -35,14 +35,20 @@ export function matchdayMessages(state, today, daysBefore = 3) {
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const wd = (d) => WD[new Date(d + "T12:00:00Z").getUTCDay()] + ", " + fd(d);
 
-// Trainingsleitung: Erinnerung an den eingeteilten Spieler (nicht am Match Day).
+// Winter Event (2. Mittwoch im Dezember, wie evts() in app/index.html): kein Training mit Leitung
+export function isWinterEvent(d) {
+  const x = new Date(d + "T12:00:00Z");
+  return x.getUTCMonth() === 11 && x.getUTCDay() === 3 && x.getUTCDate() >= 8 && x.getUTCDate() <= 14;
+}
+
+// Trainingsleitung: Erinnerung an den eingeteilten Spieler (nicht am Match Day und nicht am Winter Event).
 // `player` sagt der Edge Function, dass nur dessen Geräte die Nachricht bekommen.
 export function trainingLeadMessages(state, today, daysBefore = 2) {
   const target = addDays(today, daysBefore);
   const out = [];
   state.m.forEach((m) => {
     m.tr.forEach((x, ti) => {
-      if (ti === m.tr.length - 1 || !x.lead || x.d !== target) return;
+      if (ti === m.tr.length - 1 || !x.lead || x.d !== target || isWinterEvent(x.d)) return;
       const off = (x.ab || []).includes(x.lead);
       out.push({
         key: `training:${x.d}:${x.lead}`,
@@ -111,7 +117,7 @@ export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
 export function signupMessage(state, { player, d, off }, uid = "", now = 0) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return null;
   if (!(state.t || []).some((t) => (t.p || []).includes(player))) return null;
-  const x = (state.m || []).flatMap((m) => m.tr || []).find((tr) => tr.d === d);
+  const x = (state.m || []).flatMap((m) => m.tr || []).concat(state.evt || []).find((tr) => tr.d === d);
   if (!x) return null;
   return {
     key: `signup:${uid}:${d}:${player}:${off ? 1 : 0}:${Math.floor(now / 6e5)}`,
@@ -167,7 +173,7 @@ export function leadMailMessages(state, nowMs, appUrl = "", hoursBefore = 24) {
   const out = [];
   (state.m || []).forEach((m) => {
     m.tr.forEach((x, ti) => {
-      if (ti === m.tr.length - 1 || !x.lead) return; // Match Day hat keine Trainingsleitung
+      if (ti === m.tr.length - 1 || !x.lead || isWinterEvent(x.d)) return; // Match Day und Winter Event haben keine Trainingsleitung
       const from = zurichToUtc(x.d, x.t || "18:45") - hoursBefore * 36e5;
       if (nowMs < from || nowMs >= from + 36e5) return;
       out.push({ key: `lead-mail:${x.d}:${x.lead}`, player: x.lead, ...leadMail(state, x, appUrl) });
@@ -181,7 +187,7 @@ export function testLeadMail(state, nowMs, appUrl = "") {
   for (const m of state.m || []) {
     for (let ti = 0; ti < m.tr.length - 1; ti++) {
       const x = m.tr[ti];
-      if (zurichToUtc(x.d, x.t || "18:45") <= nowMs) continue;
+      if (zurichToUtc(x.d, x.t || "18:45") <= nowMs || isWinterEvent(x.d)) continue;
       const mail = leadMail(state, { ...x, lead: x.lead || "Trainingsleitung" }, appUrl);
       return { subject: "[Test] " + mail.subject, text: "Dies ist eine Test-Mail aus Herren Inter (Teams → Mail testen).\n\n" + mail.text };
     }

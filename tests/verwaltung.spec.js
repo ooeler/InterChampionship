@@ -16,15 +16,17 @@ test.describe("Verwaltung durch die Spielleitung", () => {
     await expect(bar.locator("[data-view=admin]")).toHaveClass(/on/);
     await bar.locator("[data-view=player]").click();
     await expect(page.locator(".vw.pv")).toContainText("Du siehst die App als Spieler");
-    await expect(page.locator("nav [data-tab=team]")).toHaveCount(0); // Spieler haben keinen Teams-Tab
+    await expect(page.locator("h3", { hasText: /^Team 1/ })).toHaveCount(0); // Spieler sehen im Teams-Tab nur Statistiken
+    await expect(page.locator("h3[data-acc=us]")).toHaveCount(0);
     await page.click("nav [data-tab=train]");
     await expect(page.locator(".card", { hasText: "Übersicht pro Training" })).not.toContainText("Als Spielleitung kannst du");
     await page.reload();
     await expect(page.locator(".vw.pv")).toBeVisible();
-    await expect(page.locator("nav [data-tab=team]")).toHaveCount(0);
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator("h3[data-acc=us]")).toHaveCount(0);
     await page.locator("[data-view=admin]").click();
     await expect(page.locator(".vw.pv")).toHaveCount(0);
-    await expect(page.locator("nav [data-tab=team]")).toBeVisible();
+    await expect(page.locator("h3[data-acc=us]")).toBeVisible();
   });
 
   test("Spieler und Captains sehen keinen Ansicht-Umschalter", async ({ page }) => {

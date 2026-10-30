@@ -9,7 +9,8 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "build": "node scripts/build.mjs",
-    "test:e2e": "playwright test -c playwright.e2e.config.js"
+    "test:e2e": "playwright test -c playwright.e2e.config.js",
+    "ui-test": "node scripts/build.mjs && node scripts/ui-test-server.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0"

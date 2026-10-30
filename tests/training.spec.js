@@ -43,8 +43,8 @@ test.describe("Training-Tab", () => {
     await expect(c.locator(".row").first()).toContainText("Mi, 28.10.2026");
     await expect(c.locator(".row", { hasText: "04.11.2026" })).toContainText("Match Day ⚑");
     await c.locator("[data-tall]").click();
-    await expect(c.locator(".row", { hasText: "09.12.2026" })).toContainText("🎉 Weihnachts-Apéro");
-    await expect(c.locator(".row.evr", { hasText: "07.05.2027" })).toContainText("🎉 Jahresabschluss");
+    await expect(c.locator(".row", { hasText: "09.12.2026" })).toContainText("🎉 Winter Event");
+    await expect(c.locator(".row", { hasText: "07.05.2027" })).toContainText("🎉 Sommer Event");
     await expect(c.locator("[data-tall]")).toHaveText("Weniger zeigen");
   });
 
