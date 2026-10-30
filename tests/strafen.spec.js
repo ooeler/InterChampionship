@@ -101,6 +101,7 @@ test.describe("Strafen", () => {
     await seed(page);
     await login(page, ADMIN);
     await page.click("nav [data-tab=team]");
+    await page.click("h3[data-acc=us]"); // standardmässig zugeklappt
     const box = page.locator("input[data-mstraf='u-spieler@flyingpenguins.test']");
     await expect(box).not.toBeChecked();
     await box.check();

@@ -29,18 +29,34 @@ test.describe("Strafenkatalog", () => {
     await addEntry(page, "Handy im Training", 10);
     await expect(katalog(page).locator(".catr")).toHaveCount(2);
     await expect(katalog(page).locator(".catr").first()).toContainText("Handy im Training"); // alphabetisch
-    // Betrag ändern
-    const amt = katalog(page).locator(".catr", { hasText: "zu spät" }).locator("input[data-catamt]");
-    await amt.fill("7.5");
-    await amt.blur();
-    await expect.poll(async () => (await cat(page)).find((c) => c.reason == "zu spät").amount).toBe(7.5);
+    // bearbeiten: Grund und Betrag
+    await katalog(page).locator(".catr", { hasText: "zu spät" }).locator("[data-catedit]").click();
+    const ef = katalog(page).locator("form#cate");
+    await expect(ef.locator("input[name=g]")).toBeFocused();
+    await ef.locator("input[name=g]").fill("zu spät gekommen");
+    await ef.locator("input[name=b]").fill("7.5");
+    await ef.locator("button.add", { hasText: "Speichern" }).click();
+    await expect(ef).toHaveCount(0);
+    await expect(katalog(page).locator(".catr", { hasText: "zu spät gekommen" })).toContainText("CHF 7.5");
+    expect((await cat(page)).find((c) => c.id == 1)).toMatchObject({ reason: "zu spät gekommen", amount: 7.5, item: null });
+    // in Sachstrafe umwandeln, dann abbrechen ändert nichts
+    await katalog(page).locator(".catr", { hasText: "Handy" }).locator("[data-catedit]").click();
+    await ef.locator("input[name=i]").fill("Kiste Bier");
+    await ef.locator("button.add", { hasText: "Speichern" }).click();
+    await expect(katalog(page).locator(".catr", { hasText: "Handy" })).toContainText("Kiste Bier");
+    expect((await cat(page)).find((c) => c.id == 2)).toMatchObject({ amount: 0, item: "Kiste Bier" });
+    await katalog(page).locator(".catr", { hasText: "Handy" }).locator("[data-catedit]").click();
+    await ef.locator("input[name=g]").fill("anders");
+    await ef.locator("[data-catedit='']").click();
+    await expect(katalog(page).locator(".catr", { hasText: "Handy" })).toBeVisible();
+    expect((await cat(page)).map((c) => c.reason).sort()).toEqual(["Handy im Training", "zu spät gekommen"]);
     // doppelt geht nicht
-    await addEntry(page, "zu spät", 1);
+    await addEntry(page, "zu spät gekommen", 1);
     expect((await cat(page)).length).toBe(2);
     // löschen
     await katalog(page).locator(".catr", { hasText: "Handy" }).locator("[data-catdel]").click();
     await expect(katalog(page).locator(".catr")).toHaveCount(1);
-    expect((await cat(page)).map((c) => c.reason)).toEqual(["zu spät"]);
+    expect((await cat(page)).map((c) => c.reason)).toEqual(["zu spät gekommen"]);
   });
 
   test("Strafenchef sieht im Teams-Tab nur den Katalog und darf ihn pflegen", async ({ page }) => {

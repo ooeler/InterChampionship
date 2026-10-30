@@ -29,6 +29,7 @@ test.describe("Mitglieder per Einladungslink einladen", () => {
     await expect(c.locator("[data-invcp]")).toBeVisible();
     // erscheint bei der Spielleitung unter Benutzer & Rollen und lässt sich dort löschen
     const u = page.locator(".card", { has: page.locator("h3", { hasText: "Benutzer & Rollen" }) });
+    await page.click("h3[data-acc=us]"); // standardmässig zugeklappt
     await expect(u.locator(".row", { hasText: "Tobias Keller" })).toBeVisible();
     await expect(c.locator(".row", { hasText: "Tobias Keller" })).toHaveCount(0);
     await u.locator(".row", { hasText: "Tobias Keller" }).locator("[data-invdel]").click();

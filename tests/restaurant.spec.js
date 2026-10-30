@@ -27,6 +27,30 @@ test.describe("Restaurant", () => {
     await expect.poll(async () => (await db(page)).m[2].tr[1].r).toBe("Rössli");
   });
 
+  test("Restaurant-Chef trägt das Restaurant direkt bei Meine Trainings ein", async ({ page }) => {
+    await seed(page, `d.m[2].tr[0].r = "Rössli";`);
+    await page.evaluate(() => { localStorage.setItem("__mock_resto", "1"); localStorage.setItem("__mock_player", "Silvan Frey"); });
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=train]");
+    const mine = page.locator(".card", { has: page.locator("h3", { hasText: "Meine Trainings" }) });
+    const inp = mine.locator("input[data-restok]").first();
+    await expect(inp).toHaveAttribute("list", "restos");
+    const key = await inp.getAttribute("data-restok");
+    await inp.fill("Pizzeria Roma");
+    await inp.blur();
+    await expect.poll(async () => { const [m, t] = key.split(",").map(Number); return (await db(page)).m[m].tr[t].r }).toBe("Pizzeria Roma");
+    await expect(mine.locator(`input[data-restok='${key}']`)).toHaveValue("Pizzeria Roma");
+  });
+
+  test("Ohne Zusatzrolle kein Restaurant-Feld bei Meine Trainings", async ({ page }) => {
+    await seed(page);
+    await page.evaluate(() => localStorage.setItem("__mock_player", "Silvan Frey"));
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=train]");
+    await expect(page.locator(".card", { hasText: "Meine Trainings" }).locator("[data-abw]").first()).toBeVisible();
+    await expect(page.locator("input[data-restok]")).toHaveCount(0);
+  });
+
   test("Spieler ohne Zusatzrolle sehen das Restaurant nur", async ({ page }) => {
     await seed(page, `d.m[2].tr[1].r = "Rössli";`);
     await login(page, SPIELER);
@@ -39,6 +63,7 @@ test.describe("Restaurant", () => {
     await seed(page);
     await login(page, ADMIN);
     await page.click("nav [data-tab=team]");
+    await page.click("h3[data-acc=us]"); // standardmässig zugeklappt
     const box = page.locator("input[data-mresto='u-spieler@flyingpenguins.test']");
     await expect(box).not.toBeChecked();
     await box.check();

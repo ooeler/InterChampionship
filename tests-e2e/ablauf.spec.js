@@ -67,6 +67,7 @@ test("Spielleitung meldet sich an und sieht die Verwaltung", async () => {
   await login(admin, ADMIN);
   await expect(admin.locator("nav [data-tab=team]")).toBeVisible();
   await admin.click("nav [data-tab=team]");
+  await admin.click("h3[data-acc=us]");
   await expect(admin.locator(".card", { hasText: "Benutzer & Rollen" })).toContainText(ADMIN.email);
 });
 
@@ -125,6 +126,7 @@ test("Spieler darf Teams, Rollen und Strafen nicht ändern (serverseitig)", asyn
 test("Spielleitung macht den Spieler zum Strafenchef – danach darf er Strafen eintragen", async () => {
   await admin.reload();
   await admin.click("nav [data-tab=team]");
+  await admin.click("h3[data-acc=us]");
   await admin.locator(`input[data-mstraf='${playerId}']`).check();
   await expect.poll(async () => (await rest("/rest/v1/members?user_id=eq." + playerId + "&select=strafen")).data[0].strafen).toBe(true);
 
@@ -149,6 +151,12 @@ test("Strafenchef pflegt den Strafenkatalog im Teams-Tab, Spieler ohne Rolle nic
   const all = (await rest("/rest/v1/penalty_catalog?select=reason,amount,item&order=reason")).data;
   expect(all).toHaveLength(7);
   expect(all).toContainEqual({ reason: "Shutout vom Goali (Hauptmatch)", amount: 0, item: "Kiste Bier" });
+  // bearbeiten (Grund + Betrag)
+  await player.locator(".catr", { hasText: "Handy im Training" }).locator("[data-catedit]").click();
+  await player.locator("form#cate input[name=g]").fill("Handy in der Garderobe");
+  await player.locator("form#cate input[name=b]").fill("15");
+  await player.locator("form#cate button.add", { hasText: "Speichern" }).click();
+  await expect.poll(async () => (await rest("/rest/v1/penalty_catalog?reason=like.Handy*&select=reason,amount")).data).toEqual([{ reason: "Handy in der Garderobe", amount: 15 }]);
   // ohne Login: nicht lesbar
   expect((await rest("/rest/v1/penalty_catalog?select=id", { key: ANON })).status).not.toBe(200);
 });
@@ -170,4 +178,36 @@ test("Resultat der Spielleitung erscheint sofort in der öffentlichen Rangliste"
 test("Jede Änderung wird automatisch gesichert (Datensicherung)", async () => {
   const h = (await rest("/rest/v1/league_state_history?select=reason")).data.map((x) => x.reason);
   expect(h).toContain("Änderung");
+});
+
+test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleiben", async () => {
+  // der Spieler hat zuletzt gespeichert (updated_by) – das darf das Löschen nicht blockieren
+  await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { updated_by: playerId } });
+  const r = await player.evaluate(async (uid) => (await sb.rpc("delete_member", { uid })).error.message, playerId);
+  expect(r).toContain("Nur die Spielleitung");
+  await admin.reload();
+  await admin.click("nav [data-tab=team]");
+  await admin.click("h3[data-acc=us]");
+  admin.once("dialog", (d) => d.accept());
+  await admin.locator(`[data-mdel='${playerId}']`).click();
+  await expect.poll(async () => (await rest("/rest/v1/members?user_id=eq." + playerId + "&select=user_id")).data).toEqual([]);
+  expect((await rest("/auth/v1/admin/users/" + playerId)).status).toBe(404);
+  expect(JSON.stringify((await state()).t)).toContain("Silvan Frey");
+  expect((await rest("/rest/v1/league_state?id=eq.main&select=updated_by")).data[0].updated_by).toBeNull();
+  await expect(admin.locator(".card", { hasText: "Benutzer & Rollen" })).not.toContainText(PLAYER.email);
+});
+
+test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async ({ page }) => {
+  expect((await rest("/rest/v1/app_status?select=maintenance", { key: ANON })).data).toEqual([{ maintenance: false }]);
+  await rest("/rest/v1/app_status?id=eq.main", { key: ANON, method: "PATCH", body: { maintenance: true } });
+  const r = await admin.evaluate(async () => (await sb.from("app_status").update({ maintenance: true }).eq("id", "main").select()).error.message);
+  expect(r).toContain("permission denied"); // auch die Spielleitung nicht – nur der Release-Workflow
+  expect((await rest("/rest/v1/app_status?select=maintenance")).data).toEqual([{ maintenance: false }]);
+  // eingeschaltet (wie im Release-Workflow) → Wartungsseite, ausgeschaltet → App lädt neu
+  await rest("/rest/v1/app_status?id=eq.main", { method: "PATCH", body: { maintenance: true } });
+  await page.goto("/");
+  await expect(page.locator("#wart")).toBeVisible();
+  await rest("/rest/v1/app_status?id=eq.main", { method: "PATCH", body: { maintenance: false } });
+  await page.evaluate(() => maint());
+  await expect(page.locator("#wart")).toBeHidden();
 });
