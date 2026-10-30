@@ -88,7 +88,9 @@ test("Einladungslink: neues Mitglied erstellt sein Konto und ist dem Spieler zug
   await a.locator("form button.btn").click();
   await expect(player.locator("#lo")).toBeVisible();
   await expect(player.locator("#hi")).toContainText("Silvan");
-  await expect(player.locator("nav [data-tab=team]")).toHaveCount(0);
+  await player.click("nav [data-tab=team]"); // Statistiken für alle, aber keine Verwaltung
+  await expect(player.locator(".card", { hasText: "Restaurant-Besuche" })).toBeVisible();
+  await expect(player.locator("h3", { hasText: /^Team 1/ })).toHaveCount(0);
 
   const m = (await rest("/rest/v1/members?email=eq." + PLAYER.email + "&select=user_id,role,player")).data[0];
   expect(m).toMatchObject({ role: "player", player: "Silvan Frey" });

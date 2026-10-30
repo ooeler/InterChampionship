@@ -112,6 +112,10 @@ Callback-URL für alle Anbieter: `https://bxzywtpddgtfgghyiduf.supabase.co/auth/
 - **Alles andere geht nur mit deinem Go live**: Auf GitHub → *Releases → Draft a new release* → Version (z. B. `v1.0.0`) → **Publish**. Dann laufen die Tests nochmals, danach werden App und Edge Function deployt.
 - **Wartungsseite während des Updates**: Der Release-Workflow schaltet vor den Migrationen `public.app_status.maintenance` ein. Offene Apps zeigen dann „Update wird eingespielt“ und speichern nichts. Danach schaltet er sie wieder aus, auch wenn ein Schritt fehlschlägt, und die Apps laden die neue Version von selbst. Falls sie doch einmal hängen bleibt: im Supabase SQL Editor `update public.app_status set maintenance = false;`
 
+## UI-Test durch einen Agenten
+
+Der Claude-Code-Agent `ui-tester` (`.claude/agents/ui-tester.md`) prüft die App als Black Box: Er hat nur Browser-Werkzeuge, keinen Zugriff auf den Code, und testet anhand der Use Cases in seiner Definition. Vorher die Demo mit Test-Backend starten (`npm run ui-test`, http://localhost:4174). Echte Daten werden dabei nicht berührt. Neue Funktionen bitte dort bei den Use Cases ergänzen.
+
 ## Lokal entwickeln
 
 Voraussetzung: [Node.js](https://nodejs.org) 20+.

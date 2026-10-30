@@ -59,12 +59,12 @@ test.describe("Strafenkatalog", () => {
     expect((await cat(page)).map((c) => c.reason)).toEqual(["zu spät gekommen"]);
   });
 
-  test("Strafenchef sieht im Teams-Tab nur den Katalog und darf ihn pflegen", async ({ page }) => {
+  test("Strafenchef sieht im Teams-Tab Katalog und Statistiken und darf den Katalog pflegen", async ({ page }) => {
     await seed(page);
     await page.evaluate(() => localStorage.setItem("__mock_strafen", "1"));
     await login(page, SPIELER);
     await page.click("nav [data-tab=team]");
-    await expect(page.locator("main .card > h3")).toHaveText(["Strafenkatalog"]);
+    await expect(page.locator("main .card > h3")).toHaveText(["Strafenkatalog", "Trainingsleitung", "Restaurant-Besuche"]);
     await addEntry(page, "Material vergessen", 3);
     await expect.poll(async () => (await cat(page)).map((c) => c.reason)).toEqual(["Material vergessen"]);
   });
@@ -88,10 +88,11 @@ test.describe("Strafenkatalog", () => {
     await expect.poll(async () => (await pens(page)).map((p) => [p.player, p.reason, p.amount])).toEqual([["Silvan Frey", "Handy im Training", 10]]);
   });
 
-  test("Spieler ohne Zusatzrolle: kein Teams-Tab, Katalog nicht änderbar", async ({ page }) => {
+  test("Spieler ohne Zusatzrolle: kein Katalog im Teams-Tab, nicht änderbar", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
-    await expect(page.locator("nav [data-tab=team]")).toHaveCount(0);
+    await page.click("nav [data-tab=team]");
+    await expect(katalog(page)).toHaveCount(0);
     const r = await page.evaluate(() => sb.from("penalty_catalog").insert({ reason: "x", amount: 1 }));
     expect(r.error.message).toContain("row-level security");
   });

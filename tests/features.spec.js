@@ -4,12 +4,12 @@ const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" }
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 
 test.describe("Rollen", () => {
-  test("Spieler sehen den Bereich Teams nicht", async ({ page }) => {
+  test("Spieler sehen im Bereich Teams nur Statistiken", async ({ page }) => {
     await login(page, SPIELER);
     await expect(page.locator("nav [data-tab=rang]")).toBeVisible();
     await expect(page.locator("nav [data-tab=spiel]")).toBeVisible();
-    await expect(page.locator("nav [data-tab=team]")).toHaveCount(0);
-    await page.evaluate(() => { tab = "team"; render() });
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator("main")).toContainText("Trainingsleitung");
     await expect(page.locator("main")).not.toContainText("Team 1 ·");
   });
 
@@ -145,7 +145,7 @@ test.describe("Konzept", () => {
     await page.evaluate(() => { S.m[2].res = [4, 1]; S.m[3].res = [6, 2]; render() });
     const card = page.locator(".card", { hasText: "Meisterschaft" }).first();
     await expect(card).toContainText("🏆 Wintermeister");
-    await expect(card).toContainText("SpVgg Nieder organisiert den Weihnachts-Apéro am 09.12.2026");
+    await expect(card).toContainText("SpVgg Nieder organisiert den Winter Event am 09.12.2026");
     await expect(card).toContainText("Sommermeister (Jan–Apr)");
   });
 });

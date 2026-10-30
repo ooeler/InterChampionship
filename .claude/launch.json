@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ui-test",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "ui-test"],
+      "port": 4174
+    }
+  ]
+}
