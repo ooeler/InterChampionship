@@ -1,6 +1,6 @@
 # Deployment. Läuft automatisch nach jedem gemergten Pull Request (siehe auto-merge.yml)
 # oder manuell über ein veröffentlichtes Release / "Run workflow".
-# Reihenfolge: Tests → Backup → Datenbank-Migrationen → Edge Functions → App (GitHub Pages).
+# Reihenfolge: Tests → Backup → Wartungsseite an → Datenbank-Migrationen → Edge Functions → App (GitHub Pages) → Wartungsseite aus.
 # Bricht ein Schritt ab, geht nichts Neues live; das Backup erlaubt jederzeit ein Rollback.
 name: Release
 
@@ -56,6 +56,14 @@ jobs:
                select id, data, updated_by, 'vor Release ${GITHUB_REF_NAME}' from public.league_state;
              end if; end \$\$" > /dev/null
           echo "Backup vor Release ${GITHUB_REF_NAME} erstellt"
+
+      - name: Wartungsseite einschalten
+        # offene Apps zeigen sofort "Update wird eingespielt" und speichern nichts, bis das Update live ist
+        run: |
+          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin if to_regclass('public.app_status') is not null then
+               update public.app_status set maintenance = true, since = now() where id = 'main';
+             end if; end \$\$" > /dev/null
+          echo "Wartungsseite an"
 
       - name: Cron-Secret im Supabase Vault
         # für die Cron-Jobs (Match Day, Training) – so steht das Secret nirgends im Klartext
@@ -146,3 +154,26 @@ jobs:
           path: dist
       - id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+
+  # Läuft immer (auch wenn ein Schritt fehlschlägt), damit die App nie in der Wartung hängen bleibt.
+  # Die Apps laden danach automatisch neu und holen die neue Version.
+  wartung-aus:
+    needs: [backend, pages]
+    if: always() && needs.backend.result != 'skipped'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3
+        with:
+          version: 2.122.0
+      - name: Wartungsseite ausschalten
+        run: |
+          # GitHub Pages braucht nach dem Deployment einen Moment, bis die neue Version überall ausgeliefert wird
+          [ "${{ needs.pages.result }}" = "success" ] && sleep 30
+          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin if to_regclass('public.app_status') is not null then
+               update public.app_status set maintenance = false, since = null where id = 'main';
+             end if; end \$\$" > /dev/null
+          echo "Wartungsseite aus"

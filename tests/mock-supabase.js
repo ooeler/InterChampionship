@@ -88,6 +88,7 @@
         select: function () {
           return {
             eq: function (col, val) {
+              if (table == "app_status") return { maybeSingle: function () { return ok({ maintenance: localStorage.getItem("__mock_maint") == "1" }) } };
               return { maybeSingle: function () { var r = get(DB); return ok(r && r[col] == val ? { data: r.data } : null) } };
             },
             order: function () {
@@ -174,6 +175,11 @@
         if (!e) return fail("Version nicht gefunden");
         var cur = get(DB); hist(cur.data, "vor Wiederherstellung");
         cur.data = e.data; cur.client = "restore"; set(DB, cur); return ok(null);
+      }
+      if (fn == "delete_member") { // spiegelt supabase/migrations/20261030_15_benutzer_loeschen.sql
+        if (role() != "admin") return fail("Nur die Spielleitung darf Benutzer löschen");
+        if (a.uid == "u-" + s.user.email) return fail("Du kannst dich nicht selbst löschen");
+        delete USERS[a.uid.slice(2)]; return ok(null);
       }
       if (fn == "set_member") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Benutzer verwalten");

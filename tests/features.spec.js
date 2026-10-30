@@ -41,6 +41,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
     await login(page, ADMIN);
     await page.click("nav [data-tab=team]");
     const card = page.locator(".card", { hasText: "Benutzer & Rollen" });
+    await page.click("h3[data-acc=us]"); // standardmässig zugeklappt
     await expect(card).toContainText("spieler@flyingpenguins.test");
     await card.locator("select[data-mpl='u-captain@flyingpenguins.test']").selectOption("Andreas Scherrer");
     await card.locator("select[data-mrole='u-spieler@flyingpenguins.test']").selectOption("captain");
@@ -52,6 +53,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
   test("Spielleitung kann sich die Admin-Rolle nicht selbst entziehen", async ({ page }) => {
     await login(page, ADMIN);
     await page.click("nav [data-tab=team]");
+    await page.click("h3[data-acc=us]");
     const msg = page.waitForEvent("dialog");
     await page.locator("select[data-mrole='u-admin@flyingpenguins.test']").selectOption("player");
     expect((await msg).message()).toContain("nicht selbst entziehen");
