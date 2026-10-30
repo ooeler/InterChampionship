@@ -131,6 +131,7 @@ test.describe("Teams-Tab für alle Mitglieder", () => {
 });
 
 test("Toast nutzt den Unihockey-Ball, kein Eishockey-Icon", async ({ page }) => {
+  test.slow(); // viele Durchgänge, auf WebKit in der CI sonst über dem Zeitlimit
   await seed(page);
   await training(page);
   const btn = mine(page).locator(".row").first().locator("[data-abw]");
