@@ -4,7 +4,9 @@
 import { createServer } from "node:http";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 
+process.chdir(fileURLToPath(new URL("..", import.meta.url))); // unabhängig vom Startordner
 const PORT = 4174, ROOT = "dist";
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
 
