@@ -2,7 +2,7 @@
 // (tests/mock-supabase.js), damit nichts an den echten Daten passiert. Start: npm run ui-test
 // Daten liegen nur im Browser des Testers. Port 4174, damit die Playwright-Tests (4173) parallel laufen können.
 import { createServer } from "node:http";
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,6 +23,8 @@ createServer((req, res) => {
   if (path.endsWith("config.js")) return send(mock(), TYPES[".js"]);
   if (path.endsWith("supabase.js")) return send("", TYPES[".js"]); // das Test-Backend ersetzt die Bibliothek
   const file = join(ROOT, path === "\\" || path === "/" ? "index.html" : path);
-  if (!file.startsWith(ROOT) || !existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404); return res.end("Nicht gefunden") }
-  send(readFileSync(file), TYPES[extname(file)] || "application/octet-stream");
+  try {
+    if (!file.startsWith(ROOT)) throw new Error("ausserhalb von dist");
+    send(readFileSync(file), TYPES[extname(file)] || "application/octet-stream");
+  } catch { res.writeHead(404); res.end("Nicht gefunden") }
 }).listen(PORT, "127.0.0.1", () => console.log(`UI-Test: http://localhost:${PORT}`));
