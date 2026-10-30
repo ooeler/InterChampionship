@@ -23,6 +23,9 @@
   // Strafenkatalog pflegen: Spielleitung oder Strafenchef (spiegelt can_edit_catalog)
   function canCat() { var s = get(SESS); return !!s && (role() == "admin" || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
   function canFine() { var s = get(SESS); return !!s && (["admin", "captain"].indexOf(role()) >= 0 || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
+  var ABS = "__mock_abs";
+  function myPlayer() { var s = get(SESS); return s && (localStorage.getItem("__mock_player") || (USERS[s.user.email] || {}).player) }
+  function canAbs(x) { return ["admin", "captain"].indexOf(role()) >= 0 || x.player == myPlayer() }
   function role() { var s = get(SESS); return s && (USERS[s.user.email] || { role: "player" }).role }
 
   function createClient() {
@@ -95,6 +98,7 @@
               var res;
               if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
               else if (table == "penalties") res = get(SESS) ? (get(PEN) || []) : []; // alle Mitglieder lesen
+              else if (table == "absence_reasons") res = get(SESS) ? (get(ABS) || []) : []; // RLS: alle Mitglieder lesen
               else if (table == "penalty_catalog") res = get(SESS) ? (get(CAT) || []).slice().sort(function (a, b) { return a.reason.localeCompare(b.reason, "de") }) : [];
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
@@ -105,11 +109,16 @@
         },
         upsert: function (row) {
           if (!get(SESS)) return fail("JWT expired");
+          if (table == "absence_reasons") {
+            if (!canAbs(row)) return fail("new row violates row-level security policy for table \"absence_reasons\"");
+            var R = (get(ABS) || []).filter(function (x) { return !(x.d == row.d && x.player == row.player) }); R.push(row); set(ABS, R); log({ op: "upsert", table: table, row: row }); return ok();
+          }
           if (table == "league_state") {
             var old = get(DB);
             // Spiegelt den Trigger guard_league_state aus supabase/setup.sql
             if (role() == "player" && (!old || ["t", "sn", "logo", "sp"].some(function (k) { return JSON.stringify(old.data[k]) != JSON.stringify(row.data[k]) })))
               return fail("Nur Admins und Captains dürfen Teams und Einstellungen ändern");
+            if (old && role() != "admin") { if (old.data.info === undefined) delete row.data.info; else row.data.info = old.data.info }
             if (old) hist(old.data, "Änderung"); // spiegelt den Trigger keep_league_history
             set(DB, JSON.parse(JSON.stringify(row)));
           }
@@ -130,12 +139,15 @@
         },
         update: function (patch) {
           return { eq: function (c, v) {
+            if (table == "absence_reasons") { var A = get(ABS) || []; A.forEach(function (x) { if (x[c] == v && canAbs(x)) Object.assign(x, patch) }); set(ABS, A); return ok(); }
             if (table == "penalties" && !canFine()) return ok(); // RLS: still keine Zeile geändert
             if (table == "penalty_catalog") { if (canCat()) { var C = get(CAT) || []; C.forEach(function (x) { if (x[c] == v) Object.assign(x, patch) }); set(CAT, C) } return ok(); }
             var L = get(PEN) || []; L.forEach(function (x) { if (x[c] == v) Object.assign(x, patch) }); set(PEN, L); log({ op: "update", table: table, patch: patch, value: v }); return ok();
           } };
         },
-        delete: function () { return { eq: function (c, v) {
+        delete: function () { return { match: function (q) {
+          set(ABS, (get(ABS) || []).filter(function (x) { return !(x.d == q.d && x.player == q.player && canAbs(x)) })); return ok();
+        }, eq: function (c, v) {
           log({ op: "delete", table: table, value: v });
           if (table == "penalties" && canFine()) set(PEN, (get(PEN) || []).filter(function (x) { return x[c] != v }));
           if (table == "penalty_catalog" && canCat()) set(CAT, (get(CAT) || []).filter(function (x) { return x[c] != v }));

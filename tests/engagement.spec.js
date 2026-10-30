@@ -56,6 +56,9 @@ test.describe("Events", () => {
     await expect(row).toContainText("🎉 Sommer Event");
     await expect(row.locator("[data-leadme]")).toHaveCount(0);
     await row.locator("[data-abw]").click();
+    await mine(page).locator("[data-stt$='|off']").click();
+    await mine(page).locator("form#abf input[name=g]").fill("Ferien");
+    await mine(page).locator("form#abf button.del").click();
     await expect(row.locator("[data-abw]")).toHaveText("✗ abgemeldet");
     await expect(page.locator("#toast")).toBeVisible();
     await expect.poll(async () => ((await db(page)).evt || {}).ab).toEqual(["Silvan Frey"]);
@@ -135,6 +138,13 @@ test("Toast nutzt den Unihockey-Ball, kein Eishockey-Icon", async ({ page }) => 
   for (let i = 0; i < 14; i++) {
     await page.clock.setFixedTime(new Date(`2026-10-27T10:${String(i).padStart(2, "0")}:00`));
     await btn.click();
+    if (i % 2) await mine(page).locator("[data-stt$='|on']").click();
+    else {
+      await mine(page).locator("[data-stt$='|off']").click();
+      await mine(page).locator("form#abf input[name=g]").fill("Ferien");
+      await mine(page).locator("form#abf button.del").click();
+    }
+    await expect(btn).toHaveText(i % 2 ? "✓ angemeldet" : "✗ abgemeldet");
     await expect(page.locator("#toast")).toBeVisible();
     expect(await page.locator("#toast").textContent()).not.toContain("🏒");
     svg = svg || (await page.locator("#toast svg").count()) > 0;

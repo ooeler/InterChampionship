@@ -140,6 +140,8 @@ export function trainingCount(state, x) {
     keepers: keeper,
     guests: gs.map((g) => g.n + (g.gk ? " 🧤" : "")),
     off: (state.t || []).flatMap((t) => t.p || []).filter((p) => ab.includes(p)),
+    unsure: on.filter((p) => (x.st || {})[p] === "u"),
+    late: on.filter((p) => (x.st || {})[p] === "v"),
   };
 }
 
@@ -159,6 +161,8 @@ function leadMail(state, x, appUrl) {
       `Torhüter: ${list(c.keepers)}`,
       `Gastspieler: ${list(c.guests)}`,
       `Abgemeldet: ${list(c.off)}`,
+      ...(c.unsure.length ? [`Unsicher: ${list(c.unsure)}`] : []),
+      ...(c.late.length ? [`Verspätet: ${list(c.late)}`] : []),
       "",
       "Denk an Einlaufen, Passübungen und deine 3 Übungen. Abmeldungen sind noch bis 23 h vorher möglich – den aktuellen Stand siehst du in der App:",
       appUrl,

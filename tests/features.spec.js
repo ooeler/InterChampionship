@@ -93,7 +93,7 @@ test.describe("Konzept", () => {
     for (const t of ["Jeder erste Mittwoch im Monat ist Match-Tag.", "Wintermeisterschaft", "Sommermeisterschaft", "Forfait 0 : 5", "Spielleitung: Michael Süess, Othmar Oeler"]) {
       await expect(main).toContainText(t);
     }
-    await expect(main).toContainText("Nächster Match-Tag" + "Mi, 04.11.2026");
+    await expect(main).toContainText("Nächster Match-Tag: Mi, 04.11.2026");
     await expect(main).toContainText("zweiten Dezember-Mittwoch (09.12.2026)");
     await expect(main).toContainText("ersten Mai-Freitag (07.05.2027)");
   });

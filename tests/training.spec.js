@@ -54,10 +54,14 @@ test.describe("Training-Tab", () => {
     const first = mine(page).locator(".row").first();
     await expect(first.locator("[data-abw]")).toHaveText("✓ angemeldet");
     await first.locator("[data-abw]").click();
+    await mine(page).locator("[data-stt$='|off']").click();
+    await mine(page).locator("form#abf input[name=g]").fill("Ferien");
+    await mine(page).locator("form#abf button.del").click();
     await expect(first.locator("[data-abw]")).toHaveText("✗ abgemeldet");
     await expect.poll(async () => (await db(page)).m[2].tr[1].ab).toEqual(["Silvan Frey"]);
     expect(await log(page)).toContainEqual({ op: "invoke", name: "notify", body: { type: "signup", d: "2026-10-28", t: "18:45", player: "Silvan Frey", off: true } });
     await first.locator("[data-abw]").click(); // wieder anmelden
+    await mine(page).locator("[data-stt$='|on']").click();
     await expect(first.locator("[data-abw]")).toHaveText("✓ angemeldet");
   });
 
@@ -67,9 +71,8 @@ test.describe("Training-Tab", () => {
     await openTraining(page, SPIELER);
     const first = mine(page).locator(".row").first();
     await expect(first).toContainText("Abmelden nicht mehr möglich");
-    const msg = page.waitForEvent("dialog");
-    await first.locator("[data-abw]").click({ force: true }); // optisch gesperrt, erklärt per Hinweis
-    expect((await msg).message()).toContain("23 Stunden");
+    await first.locator("[data-abw]").click();
+    await expect(mine(page).locator("[data-stt$='|off']")).toHaveCount(0); // Abmelden wird gar nicht angeboten
     expect((await db(page)).m[2].tr[1].ab || []).toEqual([]);
   });
 
@@ -308,12 +311,16 @@ test.describe("Engagement", () => {
     await openTraining(page, SPIELER);
     const first = mine(page).locator(".row").first();
     await first.locator("[data-abw]").click();
+    await mine(page).locator("[data-stt$='|off']").click();
+    await mine(page).locator("form#abf input[name=g]").fill("Ferien");
+    await mine(page).locator("form#abf button.del").click();
     const t = page.locator("#toast");
     await expect(t).toBeVisible();
     await expect(t).toContainText(/Schade|Abgemeldet/);
     await expect(t).toContainText("28.10.");
     await expect(t).toBeHidden({ timeout: 8000 });
     await first.locator("[data-abw]").click();
+    await mine(page).locator("[data-stt$='|on']").click();
     await expect(t).toContainText(/wieder dabei|kommst/);
     await t.click(); // antippen schliesst
     await expect(t).toBeHidden();

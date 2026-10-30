@@ -70,13 +70,13 @@ test.describe("Verwaltung durch die Spielleitung", () => {
     await teams(page);
     const bk = card(page, "bk");
     const h0 = (await bk.boundingBox()).height;
-    await page.click("h3[data-acc=bk]");
+    // Klick und Prüfung im selben Takt, damit die Animation auch unter Last noch läuft
+    const toggle = () => page.evaluate(() => { document.querySelector("h3[data-acc=bk]").click(); return document.querySelector("h3[data-acc=bk]").closest(".card").getAnimations().length });
     const anim = () => page.evaluate(() => document.querySelector("h3[data-acc=bk]").closest(".card").getAnimations().length);
-    expect(await anim()).toBeGreaterThan(0);
+    expect(await toggle()).toBeGreaterThan(0);
     await expect.poll(anim).toBe(0);
     expect((await bk.boundingBox()).height).toBeGreaterThan(h0 + 40);
-    await page.click("h3[data-acc=bk]");
-    expect(await anim()).toBeGreaterThan(0);
+    expect(await toggle()).toBeGreaterThan(0);
     await expect.poll(async () => (await bk.boundingBox()).height).toBeLessThan(h0 + 2);
   });
 });
