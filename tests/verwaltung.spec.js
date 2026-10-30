@@ -78,3 +78,45 @@ test.describe("Verwaltung durch die Spielleitung", () => {
     await expect.poll(async () => (await bk.boundingBox()).height).toBeLessThan(h0 + 2);
   });
 });
+
+test("Alle Löschen-Knöpfe sehen gleich aus (roter Knopf)", async ({ page }, info) => {
+  await teams(page);
+  await page.click("h3[data-acc=us]");
+  const sel = "[data-rm],[data-catdel],[data-invdel],[data-mdel],[data-tgdel],[data-rmimg]";
+  const st = await page.locator(sel).evaluateAll((L) => L.map((b) => { const c = getComputedStyle(b); return [b.tagName, c.color, c.borderTopColor, c.borderTopStyle].join("|") }));
+  expect(st.length).toBeGreaterThan(5);
+  expect(new Set(st).size).toBe(1);
+  await page.locator(".card", { hasText: "Team 1" }).first().screenshot({ path: info.outputPath("loeschen.png") });
+});
+
+test("👑 bei allen, die die Anwesenheit anführen – in Rangliste und Listen", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    const d = fix(def());
+    d.m[0].base = { "Andreas Scherrer": 5, "Julien Stadler": 5, "Michael Vetter": 3 };
+    localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: d }));
+  });
+  await login(page);
+  await page.click("nav [data-tab=rang]");
+  const anw = page.locator(".card", { has: page.locator("h3", { hasText: "Anwesenheit Saison" }) });
+  await expect(anw.locator(".row", { hasText: "Andreas Scherrer" }).locator(".crw")).toHaveCount(1);
+  await expect(anw.locator(".row", { hasText: "Julien Stadler" }).locator(".crw")).toHaveCount(1); // Gleichstand
+  await expect(anw.locator(".crw")).toHaveCount(2);
+  // auch in anderen Listen, z. B. Übersicht pro Training
+  await page.click("nav [data-tab=train]");
+  const ov = page.locator(".card", { hasText: "Übersicht pro Training" });
+  await expect(ov.locator("[data-tp='Andreas Scherrer'] .crw")).toHaveCount(1);
+  await expect(ov.locator("[data-tp='Michael Vetter'] .crw")).toHaveCount(0);
+});
+
+test("Spieleransicht berücksichtigt die Zusatzrollen Strafenchef und Restaurant-Chef", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => { localStorage.setItem("__mock_strafen", "1"); localStorage.setItem("__mock_resto", "1"); localStorage.setItem("ic_view", "player"); });
+  await login(page, ADMIN);
+  await expect(page.locator(".vw.pv")).toBeVisible();
+  await page.click("nav [data-tab=team]"); // Strafenchef: Teams-Tab mit Strafenkatalog, aber keine Verwaltung
+  await expect(page.locator(".card", { has: page.locator("h3", { hasText: /^Strafenkatalog$/ }) })).toBeVisible();
+  await expect(page.locator("h3[data-acc=us]")).toHaveCount(0);
+  await page.click("nav [data-tab=train]"); // Restaurant-Chef: Restaurant eintragen
+  await expect(page.locator(".card", { hasText: "Übersicht pro Training" }).locator("input[data-resto]")).toBeVisible();
+});

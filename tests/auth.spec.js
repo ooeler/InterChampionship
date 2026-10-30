@@ -1,10 +1,15 @@
 const { test, expect, setup, login, openLogin, USER } = require("./fixtures");
 
 test.describe("Login", () => {
-  test("Ohne Login nur die öffentliche Rangliste", async ({ page }) => {
+  test("Ohne Login nur die öffentliche Rangliste und die Infos", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("main")).toContainText("Meisterschaft");
-    await expect(page.locator("nav")).toBeHidden(); // nur ein Tab: keine Navigation
+    expect(await page.locator("nav button").allTextContents()).toEqual(["🏆Rangliste", "ℹ️Infos"]);
+    await page.click("nav [data-tab=info]");
+    await expect(page.locator("main")).toContainText("Die interne Flying Penguins Meisterschaft.");
+    await expect(page.locator("main")).not.toContainText("Verbesserungsvorschlag"); // braucht ein Konto
+    await page.click("nav [data-tab=rang]");
+    await expect(page.locator("main")).toContainText("Meisterschaft");
     await expect(page.locator("#lo")).toBeHidden();
     await expect(page.locator("#hi")).toBeHidden();
     await page.evaluate(() => { tab = "team"; render() });
@@ -122,7 +127,7 @@ test.describe("Login", () => {
     await login(page);
     await page.click("#lo");
     await expect(page.locator("#li")).toBeVisible(); // zurück in der öffentlichen Rangliste
-    await expect(page.locator("nav button")).toHaveCount(1);
+    await expect(page.locator("nav button")).toHaveCount(2); // Rangliste + Infos
     expect(await page.evaluate(() => localStorage.getItem("ic_state"))).toBeNull();
   });
 
