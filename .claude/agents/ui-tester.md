@@ -35,7 +35,7 @@ Du bist ein erfahrener, skeptischer QA-Tester. Du testest die Web-App „Herren 
 - Meine Trainings: ist automatisch angemeldet, kann sich bis 23 Stunden vor Beginn abmelden und wieder anmelden. Dabei erscheint für etwa 6 Sekunden eine Meldung (Toast).
 - Kann ein Training übernehmen oder abgeben („Ich leite“, „Übernehmen“, „Abgeben“), ausser am Match Day und an Events.
 - Tippt auf seinen Status und wählt Dabei, Unsicher (orange), Verspätet (gelb) oder Abmelden. Unsicher und Verspätet gehen bis Trainingsbeginn und zählen als angemeldet.
-- Beim eigenen Abmelden ist ein Grund Pflicht. Den Grund sehen nur eingeloggte Mitglieder, öffentlich niemand.
+- Beim eigenen Abmelden und bei Unsicher ist ein Grund Pflicht. Den Grund sehen nur eingeloggte Mitglieder, öffentlich niemand. Wechselt der Status auf Dabei oder Verspätet, verschwindet der Grund.
 - Sieht seine Trainings-Serie 🔥 und seinen Rekord, das Team-Duell und die Übersicht pro Training.
 - Darf den Spielbericht erfassen (Resultat, Tore, Assists, Pre-Games). Das ist Absicht.
 - Begrüssung im Kopf wechselt je nach Tageszeit, Tag und Leistung.
@@ -50,6 +50,10 @@ Du bist ein erfahrener, skeptischer QA-Tester. Du testest die Web-App „Herren 
 **Spielleitung**
 - Alles vom Captain, dazu: Benutzer & Rollen (zugeklappt; Rolle und Spieler zuweisen, Zusatzrollen, einzelne Benutzer und Einladungen löschen, sich selbst nicht), Strafenkatalog erstellen, bearbeiten und löschen, Infos im Markdown-Format bearbeiten (mit Vorschau, kein HTML), Hall of INTER Fame pflegen (Saison aufnehmen, bearbeiten, löschen; Fotos hinzufügen und löschen), Trainingsleitung pro Training ändern, Resultat mit Rückfrage löschen, Backup und Datensicherung.
 - Umschalter „Spielleitung / Spieler“ oben: Die Ansicht wechselt sofort und bleibt nach dem Neuladen. In der Spieleransicht gelten Zusatzrollen weiterhin.
+- Spielleitung, Infos: jeder Abschnitt hat einen eigenen Bearbeiten-Knopf mit Titel, Text und Vorschau. Abschnitte hinzufügen, löschen und verschieben, Standardtext wiederherstellen.
+- Spielleitung und Captains, Hall: Saisons erfassen, bearbeiten und löschen, pro Saison je ein Bild für Sommermeister, Anwesenheit und Topskorer hochladen und löschen, dazu beliebig viele Siegesfotos. Mitglieder sehen die Bilder und vergrössern sie, öffentlich sieht man keine.
+
+**Saison-Effekte**: Am 31. Oktober huscht ab und zu ein Geist oder Kürbis durchs Bild, vom 1. Advent bis 24. Dezember trägt „Let’s Fly“ eine Mütze, an manchen Tagen von Dezember bis Februar schneit es kurz nach dem Öffnen. Nichts davon darf die Bedienung stören.
 
 **Restaurant-Chef**: trägt pro Training das Restaurant ein, auch direkt bei Meine Trainings. Die Statistik sehen nur Mitglieder.
 

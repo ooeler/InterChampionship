@@ -5,6 +5,7 @@ const { test, expect, login } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
+const CAPTAIN = { email: "captain@flyingpenguins.test", password: "geheim123" };
 const PIXEL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
 const hallDb = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_hall") || "[]"));
 const photos = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_hallph") || "[]"));
@@ -30,6 +31,7 @@ test.describe("Hall of INTER Fame", () => {
     await expect(c).toContainText("Jahres-Intermeister");
     await expect(c).toContainText("SpVgg Nieder");
     await expect(c).toContainText("Beat Rentsch");
+    await expect(c).not.toContainText("Wintermeister");
     await expect(page.locator(".hph")).toHaveCount(0);
     await expect(page.locator("[data-hse]")).toHaveCount(0);
   });
@@ -61,6 +63,7 @@ test.describe("Hall of INTER Fame", () => {
     const f = page.locator("form#hsf");
     await expect(f.locator("input[name=season]")).toHaveValue("26/27");
     await expect(f.locator("input[name=attendance]")).not.toHaveValue(""); // Vorschlag aus der Rangliste
+    await expect(f.locator("input[name=winter]")).toHaveCount(0);
     await f.locator("input[name=sommer]").fill("SpVgg Nieder");
     await f.locator("button.add", { hasText: "Speichern" }).click();
     await expect(f).toHaveCount(0);
@@ -86,6 +89,29 @@ test.describe("Hall of INTER Fame", () => {
     expect(await hallDb(page)).toEqual([]);
   });
 
+  test("Captains pflegen die Hall wie die Spielleitung", async ({ page }) => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hall-")), "sieger.png");
+    fs.writeFileSync(file, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64"));
+    await seed(page);
+    await hall(page, CAPTAIN);
+    await page.click("[data-hse='new']");
+    const f = page.locator("form#hsf");
+    await f.locator("input[name=season]").fill("24/25");
+    await f.locator("input[name=sommer]").fill("SpVgg Nieder");
+    await f.locator("button.add", { hasText: "Speichern" }).click();
+    await expect(page.locator("#toast")).toContainText("Saison gespeichert.");
+    expect((await hallDb(page)).map((x) => x.season)).toEqual(["24/25"]);
+
+    await page.waitForFunction(() => Array.isArray(HP["24/25"]));
+    await page.waitForTimeout(100);
+    await page.locator("[data-hkd=sommer]").setInputFiles(file);
+    await expect(page.locator(".hw img")).toHaveCount(1);
+    await page.click(".hw [data-hpd]");
+    await expect.poll(() => photos(page)).toEqual([]);
+    await page.click("[data-hsd='24/25']");
+    await expect.poll(() => hallDb(page)).toEqual([]);
+  });
+
   test("Frühere Saison nachtragen; ungültige Bezeichnung wird abgelehnt", async ({ page }) => {
     await seed(page);
     await hall(page, ADMIN);
@@ -108,7 +134,7 @@ test.describe("Hall of INTER Fame", () => {
     const ruhig = () => page.waitForFunction(() => Array.isArray(HP["25/26"])).then(() => page.waitForTimeout(100));
     await ruhig();
     await page.locator("[data-hcap='25/26']").fill("Siegerfoto");
-    await page.locator("[data-hup='25/26']").setInputFiles(file);
+    await page.locator("[data-hup='25/26']:not([data-hkd])").setInputFiles(file);
     await expect(page.locator(".hph img")).toHaveCount(1);
     await expect(page.locator(".hph figcaption")).toHaveText("Siegerfoto");
     const p = await photos(page);
@@ -119,10 +145,67 @@ test.describe("Hall of INTER Fame", () => {
     expect(await photos(page)).toEqual([]);
 
     await ruhig();
-    await page.locator("[data-hup='25/26']").setInputFiles(file);
+    await page.locator("[data-hup='25/26']:not([data-hkd])").setInputFiles(file);
     await expect(page.locator(".hph img")).toHaveCount(1);
     await page.click("[data-hsd='25/26']");
     await expect.poll(() => photos(page)).toEqual([]);
+  });
+
+  test("Spielleitung lädt je ein Bild für Sommermeister, Anwesenheit und Topskorer hoch", async ({ page }) => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hall-")), "sieger.png");
+    fs.writeFileSync(file, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64"));
+    await seed(page, [S2526]);
+    await hall(page, ADMIN);
+    await page.waitForFunction(() => Array.isArray(HP["25/26"]));
+    await page.waitForTimeout(100);
+    await expect(page.locator(".hw figure")).toHaveCount(3);
+    await expect(page.locator(".hw figcaption")).toHaveText([/Sommermeister/, /Anwesenheit/, /Topskorer/]);
+    await expect(page.locator(".hw .hwa")).toHaveCount(3);
+    await page.locator("[data-hcap='25/26']").fill("Nicht für Kacheln");
+
+    await page.locator("[data-hkd=attendance]").setInputFiles(file);
+    await expect(page.locator(".hw img")).toHaveCount(1);
+    await expect(page.locator(".hw .hwa")).toHaveCount(2);
+    await page.locator("[data-hkd=scorer]").setInputFiles(file);
+    await expect(page.locator(".hw img")).toHaveCount(2);
+    await page.locator("[data-hkd=sommer]").setInputFiles(file);
+    await expect(page.locator(".hw img")).toHaveCount(3);
+    await expect(page.locator(".hw [data-hup]")).toHaveCount(0); // pro Titel nur ein Bild
+    await expect(page.locator(".hph img")).toHaveCount(0); // nicht in der Fotogalerie
+    const p = await photos(page);
+    expect(p.map((x) => x.kind).sort()).toEqual(["attendance", "scorer", "sommer"]);
+    expect(p.every((x) => x.season == "25/26" && x.caption == null && x.data.startsWith("data:image/jpeg;base64,"))).toBe(true);
+
+    await page.locator(".hw figure", { hasText: "Anwesenheit" }).locator("[data-hpd]").click();
+    await expect(page.locator(".hw img")).toHaveCount(2);
+    await expect(page.locator(".hw figure", { hasText: "Anwesenheit" }).locator(".hwa")).toBeVisible();
+    expect((await photos(page)).map((x) => x.kind).sort()).toEqual(["scorer", "sommer"]);
+  });
+
+  test("Bilder der Titel: Mitglieder sehen und vergrössern, öffentlich niemand", async ({ page }) => {
+    const ph = [{ id: 1, season: "25/26", kind: "attendance", caption: null, data: PIXEL }];
+    await seed(page, [S2526], ph);
+    await hall(page);
+    await expect(page.locator(".hw")).toHaveCount(0);
+
+    await hall(page, SPIELER);
+    await expect(page.locator(".hw figure")).toHaveCount(1);
+    await expect(page.locator(".hw figcaption")).toContainText("Anwesenheit");
+    await expect(page.locator(".hw [data-hup],.hw [data-hpd]")).toHaveCount(0);
+    await page.click(".hw .hpb");
+    await expect(page.locator(".hlb img")).toBeVisible();
+    const r = await page.evaluate(() => sb.from("hall_photos").insert({ season: "25/26", kind: "scorer", data: "x" }));
+    expect(r.error.message).toContain("row-level security");
+  });
+
+  test("Bild-Kacheln passen aufs Handy", async ({ page, isMobile }) => {
+    test.skip(!isMobile);
+    await seed(page, [S2526]);
+    await hall(page, ADMIN);
+    await expect(page.locator(".hw figure")).toHaveCount(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const y = await page.locator(".hw figure").evaluateAll((L) => L.map((x) => x.getBoundingClientRect().y));
+    expect(new Set(y).size).toBe(1); // alle drei auf einer Zeile
   });
 
   test("Sechs Tabs passen aufs Handy", async ({ page, isMobile }) => {

@@ -24,6 +24,12 @@ const choose = async (page, s) => {
   await first(page).locator("[data-abw]").click();
   await mine(page).locator(`[data-stt$='|${s}']`).click();
 };
+const grund = async (page, g) => {
+  const f = mine(page).locator("form#abf");
+  await f.locator("input[name=g]").fill(g);
+  await f.locator("button").first().click();
+  await expect(f).toHaveCount(0);
+};
 
 test.describe("Status pro Training", () => {
   test("Unsicher und Verspätet: zählt als angemeldet, sichtbar für alle", async ({ page }) => {
@@ -33,6 +39,7 @@ test.describe("Status pro Training", () => {
     await expect(btn).toHaveText("✓ angemeldet");
 
     await choose(page, "u");
+    await grund(page, "Vielleicht Ferien");
     await expect(btn).toHaveText("❔ unsicher");
     await expect(btn).toHaveClass(/\bun\b/);
     await expect(page.locator("#toast")).toContainText("unsicher");
@@ -79,6 +86,97 @@ test.describe("Status pro Training", () => {
     await inp.blur();
     await expect.poll(async () => (await db(page)).m[2].tr[1].st).toEqual({ "Silvan Neu": "u" });
     expect((await db(page)).evt.ab).toEqual(["Silvan Neu"]);
+  });
+});
+
+test.describe("Grund bei Unsicher", () => {
+  test("Ohne Grund kein Unsicher; mit Grund sichtbar für Mitglieder, nicht in den öffentlichen Daten", async ({ page }) => {
+    await seed(page);
+    await open(page);
+    await choose(page, "u");
+    const f = mine(page).locator("form#abf");
+    await expect(f.locator("input[name=g]")).toBeFocused();
+    await expect(f.locator("input[name=g]")).toHaveAttribute("placeholder", "Grund, warum du unsicher bist");
+    await expect(f.locator("button").first()).toHaveText("Unsicher melden");
+
+    await f.locator("input[name=g]").fill("x");
+    await f.locator("button").first().click();
+    await expect(f).toBeVisible();
+    expect((await db(page)).m[2].tr[1].st).toBeUndefined();
+    expect(await reasons(page)).toEqual([]);
+
+    await grund(page, "Knie zwickt");
+    await expect(first(page).locator("[data-abw]")).toHaveText("❔ unsicher");
+    await expect(first(page)).toContainText("Grund: Knie zwickt");
+    await expect.poll(async () => (await db(page)).m[2].tr[1].st).toEqual({ "Silvan Frey": "u" });
+    expect(await reasons(page)).toMatchObject([{ d: "2026-10-28", player: "Silvan Frey", reason: "Knie zwickt" }]);
+    expect(JSON.stringify(await db(page))).not.toContain("Knie zwickt");
+    await expect(overview(page).locator(".abr")).toContainText("❔ Silvan Frey: Knie zwickt");
+  });
+
+  test("Abbrechen lässt den Status unverändert", async ({ page }) => {
+    await seed(page);
+    await open(page);
+    await choose(page, "u");
+    await mine(page).locator("form#abf [data-stt$='|x']").click();
+    await expect(mine(page).locator("form#abf")).toHaveCount(0);
+    await expect(first(page).locator("[data-abw]")).toHaveText("✓ angemeldet");
+    expect((await db(page)).m[2].tr[1].st).toBeUndefined();
+  });
+
+  test("Grund ändern; Dabei und Verspätet entfernen ihn", async ({ page }) => {
+    await seed(page);
+    await open(page);
+    await choose(page, "u");
+    await grund(page, "Knie zwickt");
+    await expect(first(page)).toContainText("Grund: Knie zwickt");
+
+    await choose(page, "u");
+    await expect(mine(page).locator("form#abf input[name=g]")).toHaveValue("Knie zwickt");
+    await grund(page, "Termin offen");
+    await expect(first(page)).toContainText("Grund: Termin offen");
+    expect(await reasons(page)).toHaveLength(1);
+
+    await choose(page, "v");
+    await expect(first(page).locator("[data-abw]")).toHaveText("⏰ verspätet");
+    await expect.poll(() => reasons(page)).toEqual([]);
+    await expect(first(page)).not.toContainText("Grund:");
+
+    await choose(page, "u");
+    await grund(page, "Knie zwickt");
+    await choose(page, "on");
+    await expect(first(page).locator("[data-abw]")).toHaveText("✓ angemeldet");
+    await expect.poll(() => reasons(page)).toEqual([]);
+  });
+
+  test("Wechsel zwischen Abgemeldet und Unsicher behält den neuen Grund", async ({ page }) => {
+    await seed(page);
+    await open(page);
+    await choose(page, "off");
+    await grund(page, "Ferien");
+    await expect(first(page).locator("[data-abw]")).toHaveText("✗ abgemeldet");
+
+    await choose(page, "u");
+    await grund(page, "Evtl. doch zurück");
+    await expect(first(page).locator("[data-abw]")).toHaveText("❔ unsicher");
+    await expect.poll(async () => (await db(page)).m[2].tr[1].ab || []).toEqual([]);
+    await page.waitForTimeout(200); // kein verspätetes Löschen
+    expect(await reasons(page)).toMatchObject([{ reason: "Evtl. doch zurück" }]);
+
+    await choose(page, "off");
+    await grund(page, "Doch Ferien");
+    await expect(first(page).locator("[data-abw]")).toHaveText("✗ abgemeldet");
+    await expect.poll(async () => (await db(page)).m[2].tr[1].st).toBeUndefined();
+    expect(await reasons(page)).toMatchObject([{ reason: "Doch Ferien" }]);
+  });
+
+  test("Nach der 23-h-Frist geht Unsicher mit Grund weiter", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-27T20:00:00"));
+    await seed(page);
+    await open(page);
+    await choose(page, "u");
+    await grund(page, "Zug hat Verspätung");
+    await expect(first(page).locator("[data-abw]")).toHaveText("❔ unsicher");
   });
 });
 
