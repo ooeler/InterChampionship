@@ -111,6 +111,7 @@ Callback-URL für alle Anbieter: `https://bxzywtpddgtfgghyiduf.supabase.co/auth/
 - **Sicherheitspatches gehen automatisch live**: Dependabot prüft täglich die Pakete. Bei einer Sicherheitslücke erstellt er einen Pull Request, die Tests laufen, danach wird **automatisch gemergt und deployt**. Normale Versions-Updates der Pakete sind abgeschaltet; Updates der GitHub Actions werden gemergt, aber nicht deployt.
 - **Alles andere geht nur mit deinem Go live**: Auf GitHub → *Releases → Draft a new release* → Version (z. B. `v1.0.0`) → **Publish**. Dann laufen die Tests nochmals, danach werden App und Edge Function deployt.
 - **Wartungsseite während des Updates**: Der Release-Workflow schaltet vor den Migrationen `public.app_status.maintenance` ein. Offene Apps zeigen dann „Update wird eingespielt“ und speichern nichts. Danach schaltet er sie wieder aus, auch wenn ein Schritt fehlschlägt, und die Apps laden die neue Version von selbst. Falls sie doch einmal hängen bleibt: im Supabase SQL Editor `update public.app_status set maintenance = false;`
+- **Mailvorlagen**: Die Texte der Supabase-Mails (Passwort zurücksetzen usw.) liegen deutsch in `supabase/mail-vorlagen.json`. Der Release-Workflow spielt sie bei jedem Deployment ein.
 
 ## UI-Test durch einen Agenten
 

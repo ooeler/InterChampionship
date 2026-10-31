@@ -112,6 +112,13 @@ jobs:
             supabase functions deploy "$fn" $flags --use-api --project-ref "$REF"
           done
 
+      - name: Mailvorlagen auf Deutsch (Passwort zurücksetzen usw.)
+        # Die Standardvorlagen von Supabase sind englisch. Ein Fehler hier stoppt das Deployment nicht, wird aber gemeldet.
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @supabase/mail-vorlagen.json)
+          if [ "$code" = "200" ]; then echo "Mailvorlagen aktuell"; else echo "::warning::Mailvorlagen nicht aktualisiert (HTTP $code)"; fi
+
   pages:
     needs: backend
     runs-on: ubuntu-latest

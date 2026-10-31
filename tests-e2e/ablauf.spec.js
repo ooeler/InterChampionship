@@ -232,3 +232,21 @@ test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async
   await page.evaluate(() => maint());
   await expect(page.locator("#wart")).toBeHidden();
 });
+
+test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder, Pflege nur Spielleitung", async () => {
+  const r = await admin.evaluate(async () => {
+    const a = await sb.from("hall_seasons").upsert({ season: "25/26", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
+    const b = await sb.from("hall_photos").insert({ season: "25/26", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
+    const c = await sb.from("hall_photos").insert({ season: "25/26", data: "<script>" });
+    return [a.error, b.error, c.error && c.error.message];
+  });
+  expect(r[0]).toBeNull();
+  expect(r[1]).toBeNull();
+  expect(r[2]).toContain("hall_photos_data_check");
+  expect((await rest("/rest/v1/hall_seasons?select=season,sommer", { key: ANON })).data).toEqual([{ season: "25/26", sommer: "SpVgg Nieder" }]);
+  expect((await rest("/rest/v1/hall_photos?select=id", { key: ANON })).status).not.toBe(200);
+  expect((await rest("/rest/v1/hall_seasons", { key: ANON, method: "POST", body: { season: "x" } })).status).not.toBe(201);
+  // Saison löschen nimmt die Fotos mit
+  await admin.evaluate(() => sb.from("hall_seasons").delete().eq("season", "25/26"));
+  expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
+});

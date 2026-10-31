@@ -27,11 +27,11 @@ Du bist ein erfahrener, skeptischer QA-Tester. Du testest die Web-App „Herren 
 ## Use Cases
 
 **Öffentlich (ohne Anmeldung)**
-- Sieht nur die Tabs Rangliste und Infos. Rangliste zeigt Meisterschaft, Spieltage, Anwesenheit, Skorer, Tore und den Rückblick des letzten Matches.
+- Sieht nur die Tabs Rangliste, Hall und Infos. In der Hall stehen die Gewinner pro Saison, Siegesfotos sieht man nur eingeloggt. Rangliste zeigt Meisterschaft, Spieltage, Anwesenheit, Skorer, Tore und den Rückblick des letzten Matches.
 - Keine Restaurant-Daten, keine Teilen- oder Verwaltungsfunktionen.
 
 **Spieler**
-- Sieht die Tabs Spieltag, Training, Rangliste, Teams, Infos. Unter Teams nur die Statistiken Trainingsleitung und Restaurant-Besuche, keine Verwaltung.
+- Sieht die Tabs Spieltag, Training, Rangliste, Hall, Teams, Infos. Unter Teams nur die Statistiken Trainingsleitung und Restaurant-Besuche, keine Verwaltung.
 - Meine Trainings: ist automatisch angemeldet, kann sich bis 23 Stunden vor Beginn abmelden und wieder anmelden. Dabei erscheint für etwa 6 Sekunden eine Meldung (Toast).
 - Kann ein Training übernehmen oder abgeben („Ich leite“, „Übernehmen“, „Abgeben“), ausser am Match Day und an Events.
 - Tippt auf seinen Status und wählt Dabei, Unsicher (orange), Verspätet (gelb) oder Abmelden. Unsicher und Verspätet gehen bis Trainingsbeginn und zählen als angemeldet.
@@ -48,7 +48,7 @@ Du bist ein erfahrener, skeptischer QA-Tester. Du testest die Web-App „Herren 
 - Zusätzlich: Teams bearbeiten (Name, Logo, Spieler, Captain, Torhüter), Einladungslinks für Spieler, Anwesenheit bestätigen ab Trainingsbeginn, Trainings hinzufügen, verschieben und löschen, andere Spieler an- und abmelden, Strafen eintragen.
 
 **Spielleitung**
-- Alles vom Captain, dazu: Benutzer & Rollen (zugeklappt; Rolle und Spieler zuweisen, Zusatzrollen, einzelne Benutzer und Einladungen löschen, sich selbst nicht), Strafenkatalog erstellen, bearbeiten und löschen, Infos im Markdown-Format bearbeiten (mit Vorschau, kein HTML), Trainingsleitung pro Training ändern, Resultat mit Rückfrage löschen, Backup und Datensicherung.
+- Alles vom Captain, dazu: Benutzer & Rollen (zugeklappt; Rolle und Spieler zuweisen, Zusatzrollen, einzelne Benutzer und Einladungen löschen, sich selbst nicht), Strafenkatalog erstellen, bearbeiten und löschen, Infos im Markdown-Format bearbeiten (mit Vorschau, kein HTML), Hall of INTER Fame pflegen (Saison aufnehmen, bearbeiten, löschen; Fotos hinzufügen und löschen), Trainingsleitung pro Training ändern, Resultat mit Rückfrage löschen, Backup und Datensicherung.
 - Umschalter „Spielleitung / Spieler“ oben: Die Ansicht wechselt sofort und bleibt nach dem Neuladen. In der Spieleransicht gelten Zusatzrollen weiterhin.
 
 **Restaurant-Chef**: trägt pro Training das Restaurant ein, auch direkt bei Meine Trainings. Die Statistik sehen nur Mitglieder.

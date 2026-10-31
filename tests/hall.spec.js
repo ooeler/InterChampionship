@@ -1,0 +1,155 @@
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { test, expect, login } = require("./fixtures");
+
+const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
+const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
+const PIXEL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
+const hallDb = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_hall") || "[]"));
+const photos = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_hallph") || "[]"));
+
+async function seed(page, seasons = [], ph = []) {
+  await page.goto("/");
+  await page.evaluate(({ seasons, ph }) => {
+    localStorage.setItem("__mock_hall", JSON.stringify(seasons));
+    localStorage.setItem("__mock_hallph", JSON.stringify(ph));
+  }, { seasons, ph });
+}
+const S2526 = { season: "25/26", sommer: "SpVgg Nieder", winter: "Lochball Legenden", attendance: "Beat Rentsch", scorer: "Silvan Frey", goals: "Silvan Frey", note: null };
+const hall = async (page, user) => {
+  if (user) await login(page, user); else await page.reload();
+  await page.click("nav [data-tab=hall]");
+};
+
+test.describe("Hall of INTER Fame", () => {
+  test("Öffentlich: Gewinner sichtbar, keine Fotos und keine Verwaltung", async ({ page }) => {
+    await seed(page, [S2526], [{ id: 1, season: "25/26", caption: "Pokal", data: PIXEL }]);
+    await hall(page);
+    const c = page.locator(".card", { has: page.locator("h3", { hasText: "Saison 25/26" }) });
+    await expect(c).toContainText("Jahres-Intermeister");
+    await expect(c).toContainText("SpVgg Nieder");
+    await expect(c).toContainText("Beat Rentsch");
+    await expect(page.locator(".hph")).toHaveCount(0);
+    await expect(page.locator("[data-hse]")).toHaveCount(0);
+  });
+
+  test("Leer: freundlicher Hinweis", async ({ page }) => {
+    await seed(page);
+    await hall(page);
+    await expect(page.locator("main")).toContainText("Noch keine Saison aufgenommen.");
+  });
+
+  test("Mitglieder sehen die Fotos und können sie vergrössern, aber nichts ändern", async ({ page }) => {
+    await seed(page, [S2526], [{ id: 1, season: "25/26", caption: "Pokal", data: PIXEL }]);
+    await hall(page, SPIELER);
+    await expect(page.locator(".hph img")).toHaveCount(1);
+    await expect(page.locator(".hph figcaption")).toHaveText("Pokal");
+    await expect(page.locator("[data-hse],[data-hsd],[data-hpd],[data-hup]")).toHaveCount(0);
+    await page.click(".hpb");
+    await expect(page.locator(".hlb img")).toBeVisible();
+    await page.click(".hlb");
+    await expect(page.locator(".hlb")).toHaveCount(0);
+    const r = await page.evaluate(() => sb.from("hall_seasons").upsert({ season: "x" }));
+    expect(r.error.message).toContain("row-level security");
+  });
+
+  test("Spielleitung nimmt eine Saison mit Vorschlag auf, bearbeitet und löscht sie", async ({ page }) => {
+    await seed(page);
+    await hall(page, ADMIN);
+    await page.click("[data-hse='new']");
+    const f = page.locator("form#hsf");
+    await expect(f.locator("input[name=season]")).toHaveValue("26/27");
+    await expect(f.locator("input[name=attendance]")).not.toHaveValue(""); // Vorschlag aus der Rangliste
+    await f.locator("input[name=sommer]").fill("SpVgg Nieder");
+    await f.locator("button.add", { hasText: "Speichern" }).click();
+    await expect(f).toHaveCount(0);
+    await expect(page.locator("#toast")).toContainText("Saison gespeichert.");
+    const c = page.locator(".card", { has: page.locator("h3", { hasText: "Saison 26/27" }) });
+    await expect(c).toContainText("SpVgg Nieder");
+
+    await page.click("[data-hse='26/27']");
+    await expect(f.locator("input[name=season]")).toHaveAttribute("readonly", "");
+    await f.locator("input[name=sommer]").fill("Lochball Legenden");
+    await f.locator("button.add", { hasText: "Speichern" }).click();
+    await expect(c).toContainText("Lochball Legenden");
+    expect((await hallDb(page)).length).toBe(1);
+
+    await page.click("[data-hse='new']");
+    await f.locator("button.add", { hasText: "Speichern" }).click(); // gleiche Saison nochmals
+    await expect(f).toBeVisible();
+    expect((await hallDb(page)).length).toBe(1);
+    await f.locator("[data-hse='']").click();
+
+    await page.click("[data-hsd='26/27']"); // Rückfrage wird bestätigt
+    await expect(c).toHaveCount(0);
+    expect(await hallDb(page)).toEqual([]);
+  });
+
+  test("Frühere Saison nachtragen; ungültige Bezeichnung wird abgelehnt", async ({ page }) => {
+    await seed(page);
+    await hall(page, ADMIN);
+    await page.click("[data-hse='new']");
+    const f = page.locator("form#hsf");
+    await f.locator("input[name=season]").fill("<b>x</b>");
+    await f.locator("button.add", { hasText: "Speichern" }).click();
+    expect(await hallDb(page)).toEqual([]);
+    await f.locator("input[name=season]").fill("24/25");
+    await f.locator("button.add", { hasText: "Speichern" }).click();
+    await expect(page.locator("h3", { hasText: "Saison 24/25" })).toBeVisible();
+  });
+
+  test("Spielleitung lädt ein Foto hoch und löscht es, Saison löschen nimmt Fotos mit", async ({ page }) => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hall-")), "sieg.png"); // Pfad ohne Umlaute
+    fs.writeFileSync(file, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64"));
+    await seed(page, [S2526]);
+    await hall(page, ADMIN);
+    // Fotos werden nachgeladen und ersetzen die Karte: erst danach bedienen
+    const ruhig = () => page.waitForFunction(() => Array.isArray(HP["25/26"])).then(() => page.waitForTimeout(100));
+    await ruhig();
+    await page.locator("[data-hcap='25/26']").fill("Siegerfoto");
+    await page.locator("[data-hup='25/26']").setInputFiles(file);
+    await expect(page.locator(".hph img")).toHaveCount(1);
+    await expect(page.locator(".hph figcaption")).toHaveText("Siegerfoto");
+    const p = await photos(page);
+    expect(p[0].season).toBe("25/26");
+    expect(p[0].data).toMatch(/^data:image\/jpeg;base64,/);
+    await page.click("[data-hpd]");
+    await expect(page.locator(".hph img")).toHaveCount(0);
+    expect(await photos(page)).toEqual([]);
+
+    await ruhig();
+    await page.locator("[data-hup='25/26']").setInputFiles(file);
+    await expect(page.locator(".hph img")).toHaveCount(1);
+    await page.click("[data-hsd='25/26']");
+    await expect.poll(() => photos(page)).toEqual([]);
+  });
+
+  test("Sechs Tabs passen aufs Handy", async ({ page, isMobile }) => {
+    test.skip(!isMobile);
+    await seed(page);
+    await login(page, SPIELER);
+    await expect(page.locator("nav button")).toHaveCount(6);
+    const b = await page.locator("nav button").evaluateAll((L) => L.map((x) => x.getBoundingClientRect().right));
+    const w = await page.evaluate(() => innerWidth);
+    expect(Math.max(...b)).toBeLessThanOrEqual(w);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+});
+
+test("Abgemeldet ist nur grau, nicht durchgestrichen", async ({ page }) => {
+  await page.goto("/");
+  const r = await page.evaluate(() => { const b = document.createElement("button"); b.className = "pb off"; document.body.append(b); const c = getComputedStyle(b); return [c.textDecorationLine, c.backgroundColor] });
+  expect(r).toEqual(["none", "rgb(75, 85, 99)"]);
+});
+
+test("Mailvorlagen: alle deutsch, mit Link oder Code", () => {
+  const v = JSON.parse(fs.readFileSync("supabase/mail-vorlagen.json", "utf8"));
+  const keys = Object.keys(v);
+  for (const k of ["recovery", "confirmation", "invite", "magic_link", "email_change", "reauthentication"]) {
+    expect(keys).toContain(`mailer_subjects_${k}`);
+    expect(v[`mailer_templates_${k}_content`]).toMatch(k == "reauthentication" ? /\{\{ \.Token \}\}/ : /\{\{ \.ConfirmationURL \}\}/);
+  }
+  expect(Object.values(v).join(" ")).not.toMatch(/\b(your|please|confirm your|reset password|follow this link)\b/i);
+  expect(fs.readFileSync(".github/workflows/release.yml", "utf8")).toContain("--data @supabase/mail-vorlagen.json");
+});
