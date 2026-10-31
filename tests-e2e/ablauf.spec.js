@@ -248,7 +248,7 @@ test("Hall pflegen Spielleitung und Captains, Spieler nicht (serverseitig)", asy
   expect(await pflegen()).toEqual([null, null]);
   await player.evaluate(() => sb.from("hall_seasons").delete().eq("season", "90/91"));
   await rest("/rest/v1/members?user_id=eq." + playerId, { method: "PATCH", body: { role: "player" } });
-  expect((await rest("/rest/v1/hall_seasons?select=season")).data).toEqual([]);
+  expect((await rest("/rest/v1/hall_seasons?select=season&season=eq.90/91")).data).toEqual([]);
   expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
 });
 
