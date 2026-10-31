@@ -57,6 +57,11 @@ test.describe("Alter Stand überschreibt nichts", () => {
     await expect.poll(() => page.evaluate(() => S.m[2].tr[0].r)).toBe("Rössli");
   });
 
+  test("Zusammenführen: verschachtelte Listen bleiben pro Stelle getrennt", async ({ page }) => {
+    await page.goto("/");
+    expect(await page.evaluate(() => merge3([null, null], [["A"], null], [null, ["B"]]))).toEqual([["A"], ["B"]]);
+  });
+
   test("Zusammenführen: beide Änderungen bleiben, eigenes Löschen gilt", async ({ page }) => {
     await page.goto("/");
     const r = await page.evaluate(() => {
