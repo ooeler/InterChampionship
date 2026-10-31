@@ -158,12 +158,33 @@ var SV=2,NEWER=false;
 function migrate(s){var v=+s.v||1;if(v>SV){NEWER=true;return s}
 if(v<2){v=2}/* 1→2: Versionsfeld eingeführt, Inhalte unverändert */
 s.v=v;return s}
-function load(){try{var j=localStorage.getItem("ic_state");if(j)S=fix(JSON.parse(j))}catch(e){}}
+// BASE = letzter Stand vom Server. Gespeichert wird nur, was sich gegenüber BASE geändert hat: Änderungen anderer bleiben erhalten,
+// auch wenn dieses Gerät lange einen alten Stand offen hatte. Ohne BASE (Backup laden) gilt der eigene Stand.
+var BASE=null;
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function same(a,b){return JSON.stringify(a)==JSON.stringify(b)}
+function isObj(x){return !!x&&typeof x=="object"&&!Array.isArray(x)}
+function mgList(b,m,t,id){var B=Array.isArray(b)?b:[],has=function(L,x){return L.some(function(y){return id(y)==id(x)})},get=function(L,x){return L.filter(function(y){return id(y)==id(x)})[0]},r=[];t.forEach(function(x){if(!has(B,x)||has(m,x))r.push(has(m,x)?merge3(get(B,x),get(m,x),x):x)});m.forEach(function(x){if(!has(r,x)&&!has(B,x))r.push(x)});return r}
+function merge3(b,m,t){if(same(m,b))return t;if(same(t,b)||same(m,t))return m;
+if(Array.isArray(m)&&Array.isArray(t)){var A=m.concat(t);if(A.every(function(x){return !isObj(x)}))return mgList(b,m,t,function(x){return x});
+var k=["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]});return k=="d"?r.sort(function(x,y){return x.d<y.d?-1:1}):r}
+if(m.length==t.length)return m.map(function(x,i){return merge3(Array.isArray(b)?b[i]:undefined,x,t[i])});return m}
+if(isObj(m)&&isObj(t)){var o={},B=isObj(b)?b:{};Object.keys(m).concat(Object.keys(t)).forEach(function(q){var v=merge3(B[q],m[q],t[q]);if(v!==undefined)o[q]=v});return o}
+return m}
+function load(){try{var j=localStorage.getItem("ic_state");if(j)S=fix(JSON.parse(j));var q=localStorage.getItem("ic_base");BASE=q?JSON.parse(q):null}catch(e){}}
 function store(){try{localStorage.setItem("ic_state",JSON.stringify(S))}catch(e){}}
+function setBase(d){BASE=clone(d);try{localStorage.setItem("ic_base",JSON.stringify(BASE))}catch(e){}}
+function adopt(d){S=fix(d);setBase(S);store()}
+function idle(){return !document.activeElement||!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)}
 function save(){store();sq++;try{localStorage.setItem("ic_dirty","1")}catch(e){}clearTimeout(tm);tm=setTimeout(push,400)}
-function push(){tm=null;if(!sb||!me||NEWER||MAINT)return Promise.resolve({});var s=sq;return sb.from("league_state").upsert({id:"main",data:S,client:CID,updated_by:me.id,updated_at:new Date().toISOString()}).then(function(r){if(!r.error&&s==sq)try{localStorage.removeItem("ic_dirty")}catch(e){}
+function push(n){tm=null;if(!sb||!me||NEWER||MAINT)return Promise.resolve({});var s=sq,mine=clone(S);return sb.from("league_state").select("data,updated_at").eq("id","main").maybeSingle().then(function(q){if(q.error)return q;
+var sv=q.data,cas=sv&&sv.updated_at,d=sv?fix(merge3(BASE||sv.data,mine,sv.data)):mine,row={data:d,client:CID,updated_by:me.id,updated_at:new Date().toISOString()};
+return (cas?sb.from("league_state").update(row).eq("id","main").eq("updated_at",sv.updated_at).select("id"):sb.from("league_state").upsert(Object.assign({id:"main"},row))).then(function(r){
 // Vom Server abgelehnt (fehlende Rechte): nicht endlos neu versuchen, sondern den gültigen Stand laden
-if(r.error&&/Nur Admins/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return r})}
+if(r.error){if(/Nur Admins/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return r}
+// Jemand anderes war schneller: mit dem neuen Stand nochmals zusammenführen
+if(cas&&!(r.data&&r.data.length))return (n||0)<3?push((n||0)+1):r;
+var more=s!=sq,neu=!same(d,mine);setBase(d);S=fix(more?merge3(mine,S,d):clone(d));store();if(!more)try{localStorage.removeItem("ic_dirty")}catch(e){}if(neu&&idle())render();return r})})}
 function isDirty(){try{return!!localStorage.getItem("ic_dirty")}catch(e){return false}}
 var TD=(function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})(new Date());
 function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.tr.length-1:i}
@@ -540,7 +561,7 @@ var HIST=null;
 function backups(){if(ROLE!="admin")return "";if(HIST==null){HIST=[];sb.from("league_state_history").select("id,saved_at,reason").order("saved_at",{ascending:false}).limit(15).then(function(r){HIST=r.data||[];render()})}
 var f=function(t){var d=new Date(t);return d.toLocaleDateString("de-CH")+" "+d.toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})};
 return ''+acc("ds","Datensicherung")+'<div class="sp">Jede Änderung, jede Nacht und jedes Release wird automatisch gesichert. Beim Wiederherstellen wird der aktuelle Stand vorher ebenfalls gesichert.</div><button class="add" data-snap="1">Jetzt sichern</button>'+(HIST.length?HIST.map(function(h){return '<div class="row"><span class="nm">'+f(h.saved_at)+' <span class="sp">· '+esc(h.reason)+'</span></span><button class="x" style="font-size:13px" data-restore="'+h.id+'">Wiederherstellen</button></div>'}).join(""):'<div class="sp" style="margin-top:8px">Noch keine Sicherungen.</div>')+'</div>'}
-function reloadState(){return sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.data&&r.data.data){S=fix(r.data.data);store();try{localStorage.removeItem("ic_dirty")}catch(e){}}HIST=null;render()})}
+function reloadState(){return sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.data&&r.data.data){adopt(r.data.data);try{localStorage.removeItem("ic_dirty")}catch(e){}}HIST=null;render()})}
 function loadMem(){MEM=[];sb.from("members").select("user_id,email,role,player,resto,strafen").order("email").then(function(r){MEM=r.data||[];render()})}
 function users(){if(ROLE!="admin")return "";if(MEM==null){setTimeout(loadMem,0);return ""}var all=S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.localeCompare(b,"de")});
 return acc("us","Benutzer &amp; Rollen <span class=\"sp\">· "+MEM.length+"</span>")+'<div class="sp">Neue Mitglieder lädst du oben unter „Mitglied einladen“ per Link ein; sie erscheinen hier, sobald sie ihr Konto erstellt haben.</div>'+MEM.map(function(u){return '<div class="sk"><b class="nm" style="display:block">'+esc(u.email)+'</b><div class="two" style="margin-top:6px"><select class="t" data-mrole="'+u.user_id+'">'+["player","captain","admin"].map(function(r){return '<option value="'+r+'"'+(u.role==r?" selected":"")+'>'+RL[r]+'</option>'}).join("")+'</select><select class="t" data-mpl="'+u.user_id+'"><option value="">– kein Spieler –</option>'+all.map(function(p){return '<option'+(u.player==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">🍽️ Restaurant-Chef</span><input type="checkbox" data-mresto="'+u.user_id+'"'+(u.resto?" checked":"")+'></label><label class="row" style="border:0;padding:4px 0 0"><span class="nm sp">⚖️ Strafenchef</span><input type="checkbox" data-mstraf="'+u.user_id+'"'+(u.strafen?" checked":"")+'></label>'+(u.user_id==me.id?'':'<button class="add del" data-mdel="'+u.user_id+'">🗑 Benutzer löschen</button>')+'</div>'}).join("")+invList()+'</div>'}
@@ -599,7 +620,7 @@ if(D.hlb!=null){HLB=D.hlb||null}else if(D.hse!=null){HE=D.hse||null;render();scr
 if(D.recap){recapShare();return}
 if(D.view!=null){VIEW=D.view=="player"?"player":"";try{VIEW?localStorage.setItem("ic_view",VIEW):localStorage.removeItem("ic_view")}catch(e){}applyRole();render();scrollTo(0,0);return}
 if(D.mdel){var du=(MEM||[]).filter(function(x){return x.user_id==D.mdel})[0];if(!du||!confirm("Benutzer „"+du.email+"“ endgültig löschen?\n\nDas Konto wird entfernt und kann sich nicht mehr anmelden. Spieler, Statistik und Strafen bleiben erhalten."))return;d.disabled=true;sb.rpc("delete_member",{uid:D.mdel}).then(function(r){if(r.error){d.disabled=false;alert(r.error.message);return}MEM=null;render()});return}
-if(D.lo){if(confirm("Abmelden?")){stop();ROLE="player";PLAYER=null;MEM=null;PEN=null;CAT=null;CATE=null;ABS=null;TCH=null;ABF=null;HS=null;HP={};AP={};HE=null;HLB=null;STRAF=false;RESTO=false;REAL={role:"player",resto:false,strafen:false};HIST=null;SM=false;tab="rang";try{localStorage.removeItem("ic_state");localStorage.removeItem("ic_dirty")}catch(e){}S=fix(def());var so=function(){sb.auth.signOut()};
+if(D.lo){if(confirm("Abmelden?")){stop();ROLE="player";PLAYER=null;MEM=null;PEN=null;CAT=null;CATE=null;ABS=null;TCH=null;ABF=null;HS=null;HP={};AP={};HE=null;HLB=null;STRAF=false;RESTO=false;REAL={role:"player",resto:false,strafen:false};HIST=null;SM=false;tab="rang";try{localStorage.removeItem("ic_state");localStorage.removeItem("ic_base");localStorage.removeItem("ic_dirty")}catch(e){}BASE=null;S=fix(def());var so=function(){sb.auth.signOut()};
 if(PUSH===true)navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription()}).then(function(s){return s&&sb.from("push_subscriptions").delete().eq("endpoint",s.endpoint).then(function(){return s.unsubscribe()})}).then(so,so);else so();PUSH=null;PREV=null}return}
 if(D.sm){SM=!SM}
 else if(D.tab){if(D.tab=="train"&&tab!="train"){PEN=null;ABS=null}if(D.tab=="hall"&&tab!="hall"){HS=null;HP={};HLB=null}tab=D.tab;scrollTo(0,0)}else if(D.c){cur=+D.c;ot=nxt(S.m[cur])}
@@ -666,7 +687,7 @@ if(D.mrole!=null){setMem(D.mrole,"role",e.target.value);return}
 if(D.mpl!=null){setMem(D.mpl,"player",e.target.value);return}
 if(D.smimg!=null){var sf=e.target.files[0],si=+D.smimg;if(!sf)return;var im=new Image();im.onload=function(){SMI[si]=im;render()};im.src=URL.createObjectURL(sf);return}
 if(D.smt!=null){SMT=e.target.value;render();return}
-if(D.imp!=null){var f=e.target.files[0];e.target.value="";if(!f)return;f.text().then(function(t){var x=JSON.parse(t);if(!x||!x.t||!x.m)throw 0;if(!confirm("Backup laden? Die aktuellen Daten auf diesem Gerät werden ersetzt."))return;S=fix(x);save();goNow();render();alert("Backup geladen.")}).catch(function(){alert("Diese Datei ist kein gültiges Backup.")});return}if(D.img!=null){var f=e.target.files[0],k=D.img;if(f)rs(f,function(u){if(k=="club")S.logo=u;else if(k=="sp")S.sp=u;else S.t[+k].img=u;save();render()},k=="sp"?360:160,k=="sp");return}if(D.sn!=null){S.sn=v;save();render();return}if(D.ref!=null){S.m[cur].ref=v;save();return}if(!v)return;if(D.dt!=null){var T=S.m[cur].tr;T[+D.dt].d=v;T.sort(function(a,b){return a.d<b.d?-1:1});ot=-1;save();render();return}
+if(D.imp!=null){var f=e.target.files[0];e.target.value="";if(!f)return;f.text().then(function(t){var x=JSON.parse(t);if(!x||!x.t||!x.m)throw 0;if(!confirm("Backup laden? Die aktuellen Daten auf diesem Gerät werden ersetzt."))return;S=fix(x);BASE=null;save();goNow();render();alert("Backup geladen.")}).catch(function(){alert("Diese Datei ist kein gültiges Backup.")});return}if(D.img!=null){var f=e.target.files[0],k=D.img;if(f)rs(f,function(u){if(k=="club")S.logo=u;else if(k=="sp")S.sp=u;else S.t[+k].img=u;save();render()},k=="sp"?360:160,k=="sp");return}if(D.sn!=null){S.sn=v;save();render();return}if(D.ref!=null){S.m[cur].ref=v;save();return}if(!v)return;if(D.dt!=null){var T=S.m[cur].tr;T[+D.dt].d=v;T.sort(function(a,b){return a.d<b.d?-1:1});ot=-1;save();render();return}
 if(D.tn!=null){S.t[+D.tn].n=v}else if(D.pn!=null){var P=S.t[+D.pn].p,o=P[+D.j];P[+D.j]=v;var rnT=function(x){var q=x.p.indexOf(o);if(q>=0)x.p[q]=v;q=(x.ab||[]).indexOf(o);if(q>=0)x.ab[q]=v;if(x.lead==o)x.lead=v;if(x.st&&x.st[o]){x.st[v]=x.st[o];delete x.st[o]}};S.m.forEach(function(m){["base","g","a"].forEach(function(k){if(o in m[k]){m[k][v]=m[k][o];delete m[k][o]}});m.tr.forEach(rnT)});rnT(evTr());if(S.t[+D.pn].c==o)S.t[+D.pn].c=v;var GK=S.t[+D.pn].gk||[];if(GK.indexOf(o)>=0)GK[GK.indexOf(o)]=v;S.m.forEach(function(m){m.tr.forEach(function(x){(x.gs||[]).forEach(function(g){if(g.n==o)g.n=v})})});fix(S);if(sb)sb.rpc("rename_player",{old_name:o,new_name:v});if(PLAYER==o)PLAYER=v;if(MEM)MEM.forEach(function(u){if(u.player==o)u.player=v})}else return;save();render()});
 var H=location.hash,INV=/type=(invite|recovery)/.test(H),HERR=(H.match(/error_description=([^&]+)/)||[])[1],OA={google:"Google",azure:"Microsoft",github:"GitHub"},JOIN=(H.match(/einladung=([A-Za-z0-9_-]+)/)||[])[1]||null;
 function aerr(m){return /signups? not allowed|not allowed for this instance/i.test(m)?"Diese Adresse ist nicht eingeladen. Bitte beim Captain melden.":m}
@@ -704,12 +725,14 @@ function watchMaint(){maint();try{sb.channel("status").on("postgres_changes",{ev
 var PUB=false;
 function showPublic(){PUB=true;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();render();
 sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.data&&r.data.data){S=fix(r.data.data);render()}})}
-function start(){PUB=false;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();goNow();render();
+function start(){PUB=false;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();if(!BASE)try{localStorage.removeItem("ic_dirty")}catch(e){}goNow();render();
 setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};REAL={role:d.role||"player",resto:!!d.resto,strafen:!!d.strafen};applyRole();PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;render();fbDone();act()});pushState();
-sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){S=fix(r.data.data);store();goNow();render()}else push()});
-stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;S=fix(n.data);store();if(!document.activeElement||!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))render()}).subscribe()},0)}
+sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){adopt(r.data.data);goNow();render()}else push()});
+stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;adopt(n.data);if(idle())render()}).subscribe()},0)}
 function stop(){if(live){sb.removeChannel(live);live=null}}
 addEventListener("online",function(){if(isDirty())push()});
+// Zurück in der App: Hintergrund-Verbindungen brechen auf dem Handy ab, darum den Stand frisch holen
+document.addEventListener("visibilitychange",function(){if(document.hidden||!sb||!me||PUB||tm||isDirty())return;sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(!r.error&&r.data&&r.data.data&&!tm&&!isDirty()){adopt(r.data.data);if(idle())render()}})});
 (function(){var C=window.IM_CONFIG||{};if(!C.url||!C.key||!window.supabase){ascr("cfg");return}
 sb=supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});watchMaint();
 sb.auth.onAuthStateChange(function(ev,s){var u=s&&s.user;if(ev=="PASSWORD_RECOVERY")INV=true;if(ev=="USER_UPDATED")return;

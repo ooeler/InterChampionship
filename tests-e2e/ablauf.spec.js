@@ -233,6 +233,25 @@ test("App-Aktivität: nur eigene Einträge, Mitglieder sehen nur Punkte, Spielle
   expect((await rest("/rest/v1/rpc/log_activity", { key: ANON, method: "POST", body: {} })).status).not.toBe(200);
 });
 
+test("Restaurants: Wiederherstellung aus dem Verlauf, ein Spieler kann sie nicht überschreiben", async () => {
+  const s = await state();
+  s.m[0].tr[0].r = "Rössli";
+  expect((await rest("/rest/v1/league_state_history", { method: "POST", body: { state_id: "main", data: s, reason: "Test" } })).status).toBe(201);
+  const r = await rest("/rest/v1/rpc/restore_restaurants", { method: "POST", body: {} });
+  expect(r.data).toBeGreaterThan(0);
+  expect((await state()).m[0].tr[0].r).toBe("Rössli");
+  expect((await rest("/rest/v1/rpc/restore_restaurants", { key: ANON, method: "POST", body: {} })).status).not.toBe(200);
+
+  await player.evaluate(async () => {
+    const cur = (await sb.from("league_state").select("data").eq("id", "main").single()).data.data;
+    delete cur.m[0].tr[0].r;
+    await sb.from("league_state").update({ data: cur }).eq("id", "main");
+  });
+  expect((await state()).m[0].tr[0].r).toBe("Rössli");
+  delete s.m[0].tr[0].r;
+  await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: s } });
+});
+
 test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleiben", async () => {
   // der Spieler hat zuletzt gespeichert (updated_by) – das darf das Löschen nicht blockieren
   await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { updated_by: playerId } });
