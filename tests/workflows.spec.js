@@ -66,3 +66,12 @@ test("Auto-Merge: Entwurfs-Läufe brechen echte Läufe nicht ab", () => {
   // bei #6 brach ein übersprungener Entwurfs-Lauf den echten Lauf nach "ready for review" ab
   expect(wf("auto-merge.yml")).toContain("group: auto-merge-${{ github.event.pull_request.number }}-${{ github.event.pull_request.draft }}");
 });
+
+test("Vollsicherung: nur lokal und verschlüsselt, Probe nur mit Testdaten", () => {
+  const s = fs.readFileSync(path.join(__dirname, "..", "scripts", "vollsicherung.sh"), "utf8");
+  expect(s).toContain("--symmetric --cipher-algo AES256");
+  expect(s).toContain("--schema=auth");
+  expect(s).toContain("trap");
+  expect(fs.readFileSync(path.join(__dirname, "..", ".gitignore"), "utf8")).toContain("*.sql.gpg");
+  expect(wf("vollsicherung-probe.yml")).not.toMatch(/secrets.|--linked|upload-artifact/); // nie gegen Produktion, keine Daten ins Repository
+});

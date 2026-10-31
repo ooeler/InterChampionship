@@ -105,6 +105,30 @@ Callback-URL für alle Anbieter: `https://bxzywtpddgtfgghyiduf.supabase.co/auth/
 4. **Settings → Code security**: *Dependabot alerts* und *Dependabot security updates* einschalten, *CodeQL* läuft über den Workflow.
 5. Optional **Settings → Environments → github-pages → Required reviewers**: dich eintragen, dann fragt GitHub vor jedem Deploy zusätzlich nach.
 
+### 6. Vollsicherung auf den eigenen Rechner
+
+Die Datensicherung in der App umfasst nur die Saison-Daten. Die Vollsicherung holt alles auf den eigenen Rechner: Konten mit Passwort-Hashes, Rollen, Saison-Daten, Strafen, Hall und Gründe. Die Datei ist verschlüsselt und gehört nie ins Repository.
+
+Einmalig die PostgreSQL-Werkzeuge installieren (Version wie die Datenbank oder neuer):
+
+```bash
+winget install PostgreSQL.PostgreSQL.17
+```
+
+Sichern in Git Bash. Das Skript fragt nach der Datenbank-Adresse (Supabase → Connect → Session pooler) und einem Passwort, das du im Passwort-Manager ablegst:
+
+```bash
+bash scripts/vollsicherung.sh
+```
+
+Wiederherstellen: neues Supabase-Projekt anlegen, die Variablen in GitHub anpassen und einen Release starten, damit Schema und Funktionen stehen. Dann die Daten zurückspielen. Das ersetzt alle Daten dieser Datenbank, die Passwörter bleiben gültig:
+
+```bash
+bash scripts/wiederherstellung.sh ~/Herren-Inter-Sicherung/vollsicherung-JJJJ-MM-TT.sql.gpg
+```
+
+Der Ablauf **Vollsicherung Probe** prüft beides monatlich mit Testdaten und meldet sich danach mit dem alten Passwort an.
+
 ## Ablauf im Alltag
 
 - **Jeder Push / Pull Request** → alle Tests laufen (Android-, iPhone- und Desktop-Browser) + CodeQL-Sicherheitsscan.

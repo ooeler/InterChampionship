@@ -1,0 +1,72 @@
+# Probe mit Testdaten: sichern, Datenbank wegwerfen, leer neu aufbauen, zurückspielen,
+# dann mit dem alten Passwort anmelden. Läuft monatlich und wenn sich die Skripte ändern, nie gegen Produktion.
+name: Vollsicherung Probe
+
+on:
+  pull_request:
+    paths:
+      - scripts/vollsicherung.sh
+      - scripts/wiederherstellung.sh
+      - .github/workflows/vollsicherung-probe.yml
+  schedule:
+    - cron: "0 4 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3
+        with:
+          version: 2.122.0  # gleiche Version wie im Release
+      - name: PostgreSQL-Werkzeuge in der Version der Datenbank
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Lokale Supabase wie in Produktion aufbauen
+        run: |
+          # Eigener Ordner ohne migrations/, wie in ci.yml
+          mkdir -p /tmp/sb/supabase
+          cp supabase/config.toml /tmp/sb/supabase/
+          (cd /tmp/sb && supabase start -x studio,imgproxy,logflare,vector,supavisor,postgres-meta,storage-api,edge-runtime)
+          (cd /tmp/sb && supabase status -o env) | sed 's/"//g' | sed -n -e 's/^API_URL=/API=/p' -e 's/^ANON_KEY=/ANON=/p' -e 's/^SERVICE_ROLE_KEY=/SERVICE=/p' -e 's/^DB_URL=/SUPABASE_DB_URL=/p' >> "$GITHUB_ENV"
+          . <((cd /tmp/sb && supabase status -o env) | sed 's/"//g' | grep '^DB_URL=')
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/setup.sql
+          for f in $(ls supabase/migrations/*.sql | sort); do psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Testkonto anlegen und sichern
+        run: |
+          pw=$(openssl rand -base64 18)
+          pass=$(openssl rand -base64 32)
+          echo "::add-mask::$pw"
+          echo "::add-mask::$pass"
+          echo "PW=$pw" >> "$GITHUB_ENV"
+          echo "BACKUP_PASSPHRASE=$pass" >> "$GITHUB_ENV"
+          curl -sf -o /dev/null -X POST "$API/auth/v1/admin/users" -H "apikey: $SERVICE" -H "Authorization: Bearer $SERVICE" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg p "$pw" '{email: "probe@e2e.test", password: $p, email_confirm: true}')"
+          echo "ZAHL=$(psql "$SUPABASE_DB_URL" -tA -c "select (select count(*) from auth.users) || '/' || (select count(*) from public.members) || '/' || (select count(*) from public.league_state)")" >> "$GITHUB_ENV"
+          BACKUP_PASSPHRASE=$pass bash scripts/vollsicherung.sh /tmp/sicherung
+      - name: Datenbank wegwerfen und leer neu aufbauen
+        run: |
+          (cd /tmp/sb && supabase stop --no-backup)
+          (cd /tmp/sb && supabase start -x studio,imgproxy,logflare,vector,supavisor,postgres-meta,storage-api,edge-runtime)
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/setup.sql
+          for f in $(ls supabase/migrations/*.sql | sort); do psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Wiederherstellen
+        run: bash scripts/wiederherstellung.sh /tmp/sicherung/vollsicherung-*.sql.gpg
+      - name: Prüfen
+        run: |
+          nach=$(psql "$SUPABASE_DB_URL" -tA -c "select (select count(*) from auth.users) || '/' || (select count(*) from public.members) || '/' || (select count(*) from public.league_state)")
+          echo "Konten/Mitglieder/Saisons vorher $ZAHL, nachher $nach"
+          [ "$ZAHL" = "$nach" ]
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API/auth/v1/token?grant_type=password" -H "apikey: $ANON" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg p "$PW" '{email: "probe@e2e.test", password: $p}')")
+          echo "Anmelden mit dem alten Passwort: HTTP $code"
+          [ "$code" = "200" ]
+          [ "$(curl -s "$API/rest/v1/league_state?select=id" -H "apikey: $ANON" | jq -r '.[0].id')" = "main" ]
+          [ "$(curl -s "$API/rest/v1/members?select=email" -H "apikey: $ANON" | jq 'length')" = "0" ]
