@@ -120,6 +120,40 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect(r).toContain("row-level security");
 });
 
+test("Saison-Zeile: ungültige Daten und fremde Zeilen werden abgelehnt (serverseitig)", async () => {
+  const vorher = await state();
+  const r = await player.evaluate(async () => {
+    const get = async () => (await sb.from("league_state").select("data").eq("id", "main").single()).data.data;
+    const send = async (patch, spalten) => {
+      const d = await get();
+      patch(d);
+      return (await sb.from("league_state").update({ data: d, ...spalten }).eq("id", "main")).error?.message;
+    };
+    return {
+      html: await send((d) => { d.m[1].res = ['<img src="x">', 1] }),
+      kaputt: await send((d) => { d.m[1].res = null }),
+      version: await send((d) => { d.v = 999 }),
+      zeit: await send((d) => { d.m[1].tr[0].t = "<b>" }),
+      gross: await send((d) => { d.pad = "x".repeat(3100000) }),
+      zeile: await send(() => {}, { id: "andere" }),
+      neu: (await sb.from("league_state").insert({ id: "andere", data: await get() })).error?.message,
+      ohneZahl: await send((d) => { d.m[1].g.x = "y" }),
+      gefaelscht: await send(() => {}, { updated_by: "00000000-0000-0000-0000-000000000000", client: "x".repeat(99) }),
+      erlaubt: await send((d) => { d.m[1].res = [4, 3]; d.m[1].g.x = 1; delete d.m[1].g.x }),
+      ich: me.id,
+    };
+  });
+  for (const k of ["html", "kaputt", "version", "zeit", "gross", "zeile", "neu", "ohneZahl"]) expect(r[k], k).toContain("Ungültige Daten");
+  expect(r.gefaelscht).toBeUndefined();
+  expect(r.erlaubt).toBeUndefined();
+  const z = (await rest("/rest/v1/league_state?id=eq.main&select=updated_by,client,data")).data[0];
+  expect(z.updated_by).toBe(r.ich);
+  expect(z.client.length).toBeLessThanOrEqual(40);
+  expect(z.data.m[1].res).toEqual([4, 3]);
+  expect((await rest("/rest/v1/league_state?id=neq.main&select=id")).data).toEqual([]);
+  await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: vorher } });
+});
+
 test("Spieler darf Teams, Rollen und Strafen nicht ändern (serverseitig)", async () => {
   const r = await player.evaluate(async () => {
     const pen = await sb.from("penalties").insert({ d: "2026-10-28", player: "Tobias Keller", reason: "x", amount: 1 });

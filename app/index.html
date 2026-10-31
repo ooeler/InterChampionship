@@ -151,7 +151,19 @@ var A=[[[4,4,3,3,0,3,0,3],[3,1,4,4,3,2,3,4]],[[5,5,4,5,2,5,4,4],[3,3,6,4,5,4,3,4
 A.forEach(function(r,i){[L,N].forEach(function(P,k){P.forEach(function(p,j){s.m[i].base[p]=r[k][j]})})});
 s.m[0].pre=[1,3];s.m[0].res=[3,11];s.m[1].pre=[3,1];s.m[1].res=[9,5];s.m.forEach(function(m,i){m.tr=DT[i].map(function(d){return{d:d,p:[]}})});return s}
 var S=fix(def()),cl={},tab="rang",cur=1,ot=-1,tm=null,sq=0,sb=null,me=null,live=null,ROLE="player",PLAYER=null,PREV=null,PUSH=null,CID=Math.random().toString(36).slice(2);
-function fix(s){if(s.sn==null)s.sn="26/27";var all=s.t[0].p.concat(s.t[1].p);s.t.forEach(function(t){if(!t.c)t.c=t.p[0];t.p.sort(function(a,b){return a.localeCompare(b,"de")})});s.m.forEach(function(m,i){if(!m.tr){m.base=i<2?(m.att||{}):{};m.tr=DT[i].map(function(d){return{d:d,p:[]}});delete m.att}if(!m.ref)m.ref="";if(!m.gs)m.gs=[];m.tr.forEach(function(x){if(x.abs){x.p=x.abs.length?all.filter(function(q){return x.abs.indexOf(q)<0}):[];delete x.abs}})});return migrate(s)}
+// Daten vom Server gelten als fremd: Zahlen und Formatfelder werden hier in ihre Form gebracht, damit sie ohne esc() dargestellt werden dürfen.
+function nu(x){x=typeof x=="number"||typeof x=="string"?+x:0;return isFinite(x)?x:0}
+function nuL(a,n){a=Array.isArray(a)?a:[];var r=[];for(var i=0;i<n;i++)r.push(a[i]==null?null:nu(a[i]));return r}
+function nuM(o){var r={};if(o&&typeof o=="object"&&!Array.isArray(o))Object.keys(o).forEach(function(k){r[k]=nu(o[k])});return r}
+function strs(a){return (Array.isArray(a)?a:[]).filter(function(x){return typeof x=="string"})}
+function isTr(x){return !!x&&typeof x=="object"&&!Array.isArray(x)&&/^\d{4}-\d{2}-\d{2}$/.test(x.d)}
+function cleanTr(x){x.p=strs(x.p);if(x.ab!=null)x.ab=strs(x.ab);if(x.t!=null&&!/^\d{2}:\d{2}$/.test(x.t))delete x.t;["r","lead"].forEach(function(k){if(x[k]!=null&&typeof x[k]!="string")delete x[k]});
+if(x.st!=null){var st={};if(typeof x.st=="object")Object.keys(x.st).forEach(function(p){if(x.st[p]=="u"||x.st[p]=="v")st[p]=x.st[p]});x.st=st}
+if(x.gs!=null)x.gs=(Array.isArray(x.gs)?x.gs:[]).filter(function(g){return g&&typeof g.n=="string"})}
+function clean(s){s.sn=String(s.sn);s.t.forEach(function(t){t.n=String(t.n);t.p=strs(t.p);if(t.gk!=null)t.gk=strs(t.gk);if(t.c!=null&&typeof t.c!="string")delete t.c});
+s.m.forEach(function(m){m.res=nuL(m.res,2);m.pre=nuL(m.pre,2).map(nu);m.g=nuM(m.g);m.a=nuM(m.a);m.base=nuM(m.base);m.ref=typeof m.ref=="string"?m.ref:"";m.gs=(Array.isArray(m.gs)?m.gs:[]).filter(function(g){return g&&typeof g.n=="string"&&typeof g.k=="string"&&(g.t===0||g.t===1)});if(m.ff!==0&&m.ff!==1)delete m.ff;if(m.kp!=null)m.kp=Array.isArray(m.kp)?m.kp.map(function(L){return L==null?null:strs(L)}):[null,null];m.tr.forEach(cleanTr)});
+if(isTr(s.evt))cleanTr(s.evt);else delete s.evt;return s}
+function fix(s){if(s.sn==null)s.sn="26/27";s.t.forEach(function(t){t.p=strs(t.p)});var all=s.t[0].p.concat(s.t[1].p);s.t.forEach(function(t){if(!t.c)t.c=t.p[0];t.p.sort(function(a,b){return a.localeCompare(b,"de")})});s.m.forEach(function(m,i){if(!m.tr){m.base=i<2?(m.att||{}):{};m.tr=DT[i].map(function(d){return{d:d,p:[]}});delete m.att}m.tr=(Array.isArray(m.tr)?m.tr:[]).filter(isTr);if(!m.ref)m.ref="";if(!m.gs)m.gs=[];m.tr.forEach(function(x){if(x.abs){x.p=x.abs.length?all.filter(function(q){return x.abs.indexOf(q)<0}):[];delete x.abs}})});return migrate(clean(s))}
 // Datenformat-Version. Bei jeder Format-Änderung SV erhöhen und hier migrieren – alte Daten bleiben erhalten.
 // Daten einer neueren App-Version werden nie mit einem älteren Format überschrieben (NEWER → nur lesen).
 var SV=2,NEWER=false;
@@ -181,7 +193,7 @@ function push(n){tm=null;if(!sb||!me||NEWER||MAINT)return Promise.resolve({});va
 var sv=q.data,cas=sv&&sv.updated_at,d=sv?fix(merge3(BASE||sv.data,mine,sv.data)):mine,row={data:d,client:CID,updated_by:me.id,updated_at:new Date().toISOString()};
 return (cas?sb.from("league_state").update(row).eq("id","main").eq("updated_at",sv.updated_at).select("id"):sb.from("league_state").upsert(Object.assign({id:"main"},row))).then(function(r){
 // Vom Server abgelehnt (fehlende Rechte): nicht endlos neu versuchen, sondern den gültigen Stand laden
-if(r.error){if(/Nur Admins/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return r}
+if(r.error){if(/Nur Admins|Ungültige Daten/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return r}
 // Jemand anderes war schneller: mit dem neuen Stand nochmals zusammenführen
 if(cas&&!(r.data&&r.data.length))return (n||0)<3?push((n||0)+1):r;
 var more=s!=sq,neu=!same(d,mine);setBase(d);S=fix(more?merge3(mine,S,d):clone(d));store();if(!more)try{localStorage.removeItem("ic_dirty")}catch(e){}if(neu&&idle())render();return r})})}
