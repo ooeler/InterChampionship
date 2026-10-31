@@ -129,7 +129,7 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect(await admin.evaluate(`(async () => ${lesen})()`)).toEqual(["Geschäftsreise", "fremd", "ganz alt"]);
   expect((await rest("/rest/v1/rpc/purge_absence_reasons", { key: ANON, method: "POST", body: {} })).status).not.toBe(200);
   expect((await rest("/rest/v1/rpc/purge_absence_reasons", { method: "POST", body: {} })).data).toBe(1);
-  expect((await rest("/rest/v1/absence_reasons?select=reason&order=reason")).data.map((x) => x.reason)).toEqual(["Geschäftsreise", "fremd"]);
+  expect((await rest("/rest/v1/absence_reasons?select=reason")).data.map((x) => x.reason).sort()).toEqual(["Geschäftsreise", "fremd"]);
   await rest("/rest/v1/absence_reasons?reason=eq.fremd", { method: "DELETE" });
   // fremde Gründe schreiben geht nicht
   const r = await player.evaluate(async () => (await sb.from("absence_reasons").insert({ d: "2026-12-16", player: "Tobias Keller", reason: "erfunden" })).error.message);
