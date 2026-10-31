@@ -214,10 +214,10 @@ test.describe("Begrüssung", () => {
   test("Am Trainingstag: vorher, während und danach", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
     await login(page);
-    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training! 🏒");
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training! 🏑");
     await page.clock.setFixedTime(new Date("2026-10-28T18:30:00"));
     await page.evaluate(() => render());
-    await expect(page.locator("#hi")).toHaveText("Gutes Training Captain! 🏒");
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Captain! 🏑");
     await page.clock.setFixedTime(new Date("2026-10-28T20:45:00"));
     await page.evaluate(() => render());
     await expect(page.locator("#hi")).toHaveText(/^(Viel Spass beim Bier|Prost|Zum Wohl) Captain! 🍺$/);

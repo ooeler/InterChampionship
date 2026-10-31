@@ -103,7 +103,7 @@ export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
       out.push({
         key: `training-soon:${x.d}`,
         tag: `training-soon-${x.d}`,
-        title: md ? "⚑ Morgen ist Match Day" : "🏒 Morgen ist Training",
+        title: md ? "⚑ Morgen ist Match Day" : "🏑 Morgen ist Training",
         body: `${wd(x.d)}, ${t} Uhr. Kannst du nicht? Abmelden bis 23 h vorher in der App.`,
       });
     });

@@ -53,7 +53,7 @@ test.describe("Torhüter-Statistik", () => {
   test("Spielbericht: vorausgewählt, abwählen, anderer Spieler, zählt für beide", async ({ page }) => {
     await seed(page);
     await login(page, ADMIN);
-    const zweiter = await page.evaluate(() => S.t[0].p.find((p) => p != "Silvan Frey"));
+    const zweiter = await page.evaluate(() => S.t[0].p.find((p) => p != "Silvan Frey" && p != "Andreas Scherrer"));
     await page.click("nav [data-tab=spiel]");
     await page.locator("[data-c='2']").click();
     const b = card(page, "Spielbericht");
@@ -108,4 +108,22 @@ test("Schiedsrichter ist ein freies Textfeld", async ({ page }) => {
   await r.fill("Gast Schiri, Hans Muster");
   await r.blur();
   await expect.poll(async () => (await db(page)).m[2].ref).toBe("Gast Schiri, Hans Muster");
+});
+
+test("Training zeigt in der Navigation den Unihockey-Ball", async ({ page }) => {
+  await page.goto("/");
+  await login(page, SPIELER);
+  await expect(page.locator("nav [data-tab=train] i svg")).toBeVisible();
+  await expect(page.locator("nav")).not.toContainText("🏒");
+});
+
+test("Rückblick: auf dem Handy stehen die Angaben unter dem Titel", async ({ page, isMobile }) => {
+  await seed(page);
+  await page.reload();
+  await page.click("nav [data-tab=rang]");
+  const z = page.locator(".recap .rcr").first();
+  const [t, w] = await z.evaluate((e) => [e.children[0], e.children[1]].map((x) => x.getBoundingClientRect().toJSON()));
+  if (isMobile) expect(w.y).toBeGreaterThanOrEqual(t.y + t.height - 1);
+  else expect(w.x).toBeGreaterThan(t.x);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

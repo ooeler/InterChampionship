@@ -147,7 +147,7 @@ test("Toast nutzt den Unihockey-Ball, kein Eishockey-Icon", async ({ page }) => 
     }
     await expect(btn).toHaveText(i % 2 ? "✓ angemeldet" : "✗ abgemeldet");
     await expect(page.locator("#toast")).toBeVisible();
-    expect(await page.locator("#toast").textContent()).not.toContain("🏒");
+    expect(await page.locator("#toast").textContent()).not.toContain("🏑");
     svg = svg || (await page.locator("#toast svg").count()) > 0;
   }
   expect(svg).toBe(true);

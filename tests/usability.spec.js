@@ -4,12 +4,14 @@ const titles = (page) => page.locator("main .card > h3").allTextContents();
 const card = (page, t) => page.locator(".card", { has: page.locator("h3", { hasText: t }) });
 
 test.describe("Usability", () => {
-  test("Teams: Einladen oben, C und 🗑 erklärt, Sicherung am Ende", async ({ page }) => {
-    await login(page);
+  test("Teams: Einladen direkt über den Rollen, C und 🗑 erklärt, Sicherung am Ende", async ({ page }) => {
+    await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
     await page.click("nav [data-tab=team]");
+    await expect(page.locator("h3", { hasText: "Benutzer & Rollen" })).toBeVisible(); // Liste wird nachgeladen
     const t = await titles(page);
-    expect(t.slice(0, 2)).toEqual(["Allgemein", "Mitglied einladen"]);
-    expect(t.at(-1)).toBe("Backup");
+    expect(t[0]).toBe("Allgemein");
+    expect(t[t.findIndex((x) => x.startsWith("Benutzer")) - 1]).toBe("Mitglied einladen");
+    expect(t.at(-1)).toBe("Datensicherung");
     await expect(card(page, "Team 1")).toContainText("C = Captain · 🧤 = Torhüter · 🗑 = Spieler entfernen");
     await expect(page.locator("[data-rm]").first()).toHaveAttribute("aria-label", /entfernen$/);
   });
