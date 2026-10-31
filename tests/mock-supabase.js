@@ -96,7 +96,7 @@
             eq: function (col, val) {
               if (table == "hall_photos") return { order: function () { return ok(get(SESS) ? (get(HPH) || []).filter(function (x) { return x[col] == val }) : []) } }; // RLS: nur Mitglieder
               if (table == "app_status") return { maybeSingle: function () { return ok({ maintenance: localStorage.getItem("__mock_maint") == "1" }) } };
-              return { maybeSingle: function () { var r = get(DB); return ok(r && r[col] == val ? { data: r.data } : null) } };
+              return { maybeSingle: function () { var r = get(DB); return ok(r && r[col] == val ? { data: r.data, updated_at: r.updated_at } : null) } };
             },
             order: function () {
               var res;
@@ -153,6 +153,14 @@
           var L = get(PEN) || []; L.push(Object.assign({ id: L.length + 1, paid: false }, row)); set(PEN, L); log({ op: "insert", table: table, row: row }); return ok();
         },
         update: function (patch) {
+          if (table == "league_state") { // bedingtes Speichern: nur wenn der Stand noch derselbe ist
+            var w = {}, q = { eq: function (k, v) { w[k] = v; return q }, select: function () {
+              var old = get(DB);
+              if (!old || old.updated_at != w.updated_at) return ok([]);
+              return from(table).upsert(Object.assign({ id: "main" }, patch)).then(function (r) { return r.error ? r : { data: [{ id: "main" }], error: null } });
+            } };
+            return q;
+          }
           return { eq: function (c, v) {
             if (table == "absence_reasons") { var A = get(ABS) || []; A.forEach(function (x) { if (x[c] == v && canAbs(x)) Object.assign(x, patch) }); set(ABS, A); return ok(); }
             if (table == "penalties" && !canFine()) return ok(); // RLS: still keine Zeile geändert
