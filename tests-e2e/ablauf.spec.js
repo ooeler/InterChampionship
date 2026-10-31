@@ -200,6 +200,24 @@ test("Jede Änderung wird automatisch gesichert (Datensicherung)", async () => {
   expect(h).toContain("Änderung");
 });
 
+test("Hall pflegen Spielleitung und Captains, Spieler nicht (serverseitig)", async () => {
+  const pflegen = () => player.evaluate(async () => {
+    const a = await sb.from("hall_seasons").upsert({ season: "24/25", sommer: "SpVgg Nieder" });
+    const b = await sb.from("hall_photos").insert({ season: "24/25", kind: "sommer", data: "data:image/jpeg;base64,AAAA" });
+    return [a.error && a.error.message, b.error && b.error.message];
+  });
+  const r = await pflegen();
+  expect(r[0]).toContain("row-level security");
+  expect(r[1]).toContain("row-level security");
+
+  await rest("/rest/v1/members?user_id=eq." + playerId, { method: "PATCH", body: { role: "captain" } });
+  expect(await pflegen()).toEqual([null, null]);
+  await player.evaluate(() => sb.from("hall_seasons").delete().eq("season", "24/25"));
+  await rest("/rest/v1/members?user_id=eq." + playerId, { method: "PATCH", body: { role: "player" } });
+  expect((await rest("/rest/v1/hall_seasons?select=season")).data).toEqual([]);
+  expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
+});
+
 test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleiben", async () => {
   // der Spieler hat zuletzt gespeichert (updated_by) – das darf das Löschen nicht blockieren
   await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { updated_by: playerId } });
@@ -233,16 +251,23 @@ test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async
   await expect(page.locator("#wart")).toBeHidden();
 });
 
-test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder, Pflege nur Spielleitung", async () => {
+test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder", async () => {
   const r = await admin.evaluate(async () => {
     const a = await sb.from("hall_seasons").upsert({ season: "25/26", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
     const b = await sb.from("hall_photos").insert({ season: "25/26", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
     const c = await sb.from("hall_photos").insert({ season: "25/26", data: "<script>" });
-    return [a.error, b.error, c.error && c.error.message];
+    const bild = { season: "25/26", kind: "scorer", data: "data:image/jpeg;base64,AAAA" };
+    const d = await sb.from("hall_photos").insert(bild);
+    const e = await sb.from("hall_photos").insert(bild);
+    const f = await sb.from("hall_photos").insert({ ...bild, kind: "falsch" });
+    return [a.error, b.error, c.error && c.error.message, d.error, e.error && e.error.message, f.error && f.error.message];
   });
   expect(r[0]).toBeNull();
   expect(r[1]).toBeNull();
   expect(r[2]).toContain("hall_photos_data_check");
+  expect(r[3]).toBeNull();
+  expect(r[4]).toContain("hall_photos_kind"); // nur ein Bild pro Titel
+  expect(r[5]).toContain("hall_photos_kind_check");
   expect((await rest("/rest/v1/hall_seasons?select=season,sommer", { key: ANON })).data).toEqual([{ season: "25/26", sommer: "SpVgg Nieder" }]);
   expect((await rest("/rest/v1/hall_photos?select=id", { key: ANON })).status).not.toBe(200);
   expect((await rest("/rest/v1/hall_seasons", { key: ANON, method: "POST", body: { season: "x" } })).status).not.toBe(201);
