@@ -218,6 +218,21 @@ test("Hall pflegen Spielleitung und Captains, Spieler nicht (serverseitig)", asy
   expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
 });
 
+test("App-Aktivität: nur eigene Einträge, Mitglieder sehen nur Punkte, Spielleitung ist markiert", async () => {
+  const r = await player.evaluate(async () => {
+    for (let i = 0; i < 5; i++) await sb.rpc("log_activity", { aktion: true }); // höchstens 3 pro Tag
+    const t = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+    const a = await sb.rpc("activity_points", { von: t(-1), bis: t(1) });
+    const b = await sb.from("app_activity").select("player");
+    return [a.data, b.error && b.error.message];
+  });
+  expect(r[0]).toContainEqual({ player: "Silvan Frey", punkte: 1, spielleitung: false });
+  expect(r[0].find((x) => x.player == "Othmar Oeler").spielleitung).toBe(true);
+  expect(r[1]).toContain("permission denied");
+  expect((await rest("/rest/v1/rpc/activity_points", { key: ANON, method: "POST", body: { von: "2026-01-01", bis: "2027-01-01" } })).status).not.toBe(200);
+  expect((await rest("/rest/v1/rpc/log_activity", { key: ANON, method: "POST", body: {} })).status).not.toBe(200);
+});
+
 test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleiben", async () => {
   // der Spieler hat zuletzt gespeichert (updated_by) – das darf das Löschen nicht blockieren
   await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { updated_by: playerId } });

@@ -14,7 +14,18 @@ test.describe("Saison-Effekte", () => {
     await expect(page.locator("#spook")).toHaveCount(0, { timeout: 10000 }); // räumt sich weg
   });
 
-  test("Nur an Halloween", async ({ page }) => {
+  test("Samichlaus fliegt am 6. Dezember", async ({ page }) => {
+    await am(page, "2026-12-06");
+    await expect(page.locator("#spook span")).toHaveText(/🎅|🎁/);
+  });
+
+  test("Besondere Tage: Weihnachten, Neujahr, Drei Könige, Ostern", async ({ page }) => {
+    await page.goto("/");
+    const r = await page.evaluate(() => Object.fromEntries(["2026-12-25", "2026-12-31", "2027-01-01", "2027-01-06", "2027-02-14", "2027-03-25", "2027-03-26", "2027-03-28", "2027-03-29", "2027-03-30", "2028-04-16", "2026-11-11"].map((d) => [d, (fxDay(d) || [""])[0]])));
+    expect(r).toEqual({ "2026-12-25": "🎄", "2026-12-31": "🎆", "2027-01-01": "🎆", "2027-01-06": "👑", "2027-02-14": "❤️", "2027-03-25": "", "2027-03-26": "🐰", "2027-03-28": "🐰", "2027-03-29": "🐰", "2027-03-30": "", "2028-04-16": "🐰", "2026-11-11": "" });
+  });
+
+  test("Nur an besonderen Tagen", async ({ page }) => {
     await am(page, "2026-10-30");
     await page.waitForTimeout(3000);
     await expect(page.locator("#spook")).toHaveCount(0);

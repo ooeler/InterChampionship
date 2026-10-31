@@ -53,7 +53,7 @@ Du bist ein erfahrener, skeptischer QA-Tester. Du testest die Web-App „Herren 
 - Spielleitung, Infos: jeder Abschnitt hat einen eigenen Bearbeiten-Knopf mit Titel, Text und Vorschau. Abschnitte hinzufügen, löschen und verschieben, Standardtext wiederherstellen.
 - Spielleitung und Captains, Hall: Saisons erfassen, bearbeiten und löschen, pro Saison je ein Bild für Sommermeister, Anwesenheit und Topskorer hochladen und löschen, dazu beliebig viele Siegesfotos. Mitglieder sehen die Bilder und vergrössern sie, öffentlich sieht man keine.
 
-**Saison-Effekte**: Am 31. Oktober huscht ab und zu ein Geist oder Kürbis durchs Bild, vom 1. Advent bis 24. Dezember trägt „Let’s Fly“ eine Mütze, an manchen Tagen von Dezember bis Februar schneit es kurz nach dem Öffnen. Nichts davon darf die Bedienung stören.
+**Saison-Effekte**: An besonderen Tagen fliegt ab und zu ein passendes Emoji durchs Bild (Neujahr, Drei Könige, Valentinstag, Ostern, 1. August, Halloween, Samichlaus, Weihnachten, Silvester), vom 1. Advent bis 24. Dezember trägt „Let’s Fly“ eine Mütze, an manchen Tagen von Dezember bis Februar schneit es kurz nach dem Öffnen. Nichts davon darf die Bedienung stören.
 
 **Restaurant-Chef**: trägt pro Training das Restaurant ein, auch direkt bei Meine Trainings. Die Statistik sehen nur Mitglieder.
 
