@@ -715,12 +715,15 @@ sb=supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken
 sb.auth.onAuthStateChange(function(ev,s){var u=s&&s.user;if(ev=="PASSWORD_RECOVERY")INV=true;if(ev=="USER_UPDATED")return;
 setTimeout(function(){if(!u){me=null;stop();if(JOIN){ascr("join");return}if(!HERR){showPublic();return}ascr("login",HERR&&aerr(decodeURIComponent(HERR.replace(/\+/g," "))));HERR=null;if(/error/.test(location.hash))history.replaceState(null,"",location.pathname);return}
 if(JOIN)endJoin();var nw=!me||me.id!=u.id;me=u;if(INV)ascr("setpw");else if(nw)start()},0)})})();
-// Saison-Effekte: Halloween (Geist oder Kürbis huscht durchs Bild), Advent (Mütze auf Let’s Fly), Schnee an manchen Wintertagen
+// Saison-Effekte: an besonderen Tagen fliegt ab und zu ein Emoji durchs Bild, Advent (Mütze auf Let’s Fly), Schnee an manchen Wintertagen
+var FX={"01-01":["🎆","🥂"],"01-06":["👑","🐫"],"02-14":["❤️","💘"],"08-01":["🇨🇭","🎆"],"10-31":["👻","🎃"],"12-06":["🎅","🎁"],"12-24":["🎄","🎁"],"12-25":["🎄","🎁"],"12-26":["🎄","⭐"],"12-31":["🎆","🥂"]};
+function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),n=h+l-7*m+114;return new Date(y,Math.floor(n/31)-1,n%31+1)}
+function fxDay(d){var x=new Date(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8)),t=Math.round((x-easter(x.getFullYear()))/864e5);return t>=-2&&t<=1?["🐰","🥚"]:FX[d.slice(5)]}
 function isAdvent(d){var y=+d.slice(0,4),a=new Date(y,11,24-new Date(y,11,24).getDay()-21);return new Date(y,+d.slice(5,7)-1,+d.slice(8))>=a&&d.slice(5)<="12-24"}
 function isSnow(d){return /^(12|01|02)/.test(d.slice(5))&&pick([1,0,0],d+"schnee")==1}
-function spook(){if(document.hidden)return;var b=document.createElement("div"),e=document.createElement("span");b.id="spook";if(Math.random()<.5)b.className="rv";b.setAttribute("aria-hidden","true");e.style.top=12+Math.random()*60+"%";e.textContent=Math.random()<.5?"👻":"🎃";b.append(e);document.body.append(b);e.addEventListener("animationend",function(){b.remove()})}
+function spook(L){if(document.hidden)return;var b=document.createElement("div"),e=document.createElement("span");b.id="spook";if(Math.random()<.5)b.className="rv";b.setAttribute("aria-hidden","true");e.style.top=12+Math.random()*60+"%";e.textContent=L[Math.random()<.5?0:1];b.append(e);document.body.append(b);e.addEventListener("animationend",function(){b.remove()})}
 function snow(){var b=document.createElement("div");b.id="snow";b.setAttribute("aria-hidden","true");for(var i=0;i<40;i++){var f=document.createElement("i"),z=3+Math.random()*5;f.style.cssText="left:"+Math.random()*100+"%;width:"+z+"px;height:"+z+"px;animation-duration:"+(6+Math.random()*5)+"s;animation-delay:"+Math.random()*9+"s";b.append(f)}document.body.append(b);setTimeout(function(){b.remove()},21e3)}
-(function(){document.querySelector("header .tag").classList.toggle("xm",isAdvent(TD));if(calm())return;if(TD.slice(5)=="10-31"){var go=function(){spook();setTimeout(go,4e4+Math.random()*5e4)};setTimeout(go,2500)}if(isSnow(TD))setTimeout(snow,1500)})();
+(function(){document.querySelector("header .tag").classList.toggle("xm",isAdvent(TD));if(calm())return;var F=fxDay(TD);if(F){var go=function(){spook(F);setTimeout(go,4e4+Math.random()*5e4)};setTimeout(go,2500)}if(isSnow(TD))setTimeout(snow,1500)})();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
 </script></body></html>
