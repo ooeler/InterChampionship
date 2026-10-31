@@ -115,6 +115,22 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect((await rest("/rest/v1/absence_reasons?select=player,reason")).data).toEqual([{ player: "Silvan Frey", reason: "Geschäftsreise" }]);
   expect((await rest("/rest/v1/absence_reasons?select=reason", { key: ANON })).status).not.toBe(200);
   expect(JSON.stringify(await state())).not.toContain("Geschäftsreise");
+  // Besucher: Saison nur über die eingeschränkte Sicht
+  expect((await rest("/rest/v1/league_state?select=data", { key: ANON })).data).toEqual([]);
+  const pub = (await rest("/rest/v1/rpc/public_league", { key: ANON, method: "POST", body: {} }));
+  expect(pub.status).toBe(200);
+  expect(pub.data.t[0].p.length).toBeGreaterThan(0);
+  expect(pub.data.m.flatMap((m) => m.tr).length).toBe((await state()).m.flatMap((m) => m.tr).length);
+  expect(pub.data.m.flatMap((m) => m.tr).every((x) => Object.keys(x).every((k) => ["d", "t", "p"].includes(k)))).toBe(true);
+  // Gründe: fremde sind für Spieler unsichtbar, die Spielleitung sieht alle, alte werden gelöscht
+  await rest("/rest/v1/absence_reasons", { method: "POST", body: [{ d: "2020-01-01", player: "Tobias Keller", reason: "ganz alt" }, { d: "2099-01-01", player: "Tobias Keller", reason: "fremd" }] });
+  const lesen = "(await sb.from('absence_reasons').select('reason')).data.map((x) => x.reason).sort()";
+  expect(await player.evaluate(`(async () => ${lesen})()`)).toEqual(["Geschäftsreise"]);
+  expect(await admin.evaluate(`(async () => ${lesen})()`)).toEqual(["Geschäftsreise", "fremd", "ganz alt"]);
+  expect((await rest("/rest/v1/rpc/purge_absence_reasons", { key: ANON, method: "POST", body: {} })).status).not.toBe(200);
+  expect((await rest("/rest/v1/rpc/purge_absence_reasons", { method: "POST", body: {} })).data).toBe(1);
+  expect((await rest("/rest/v1/absence_reasons?select=reason")).data.map((x) => x.reason).sort()).toEqual(["Geschäftsreise", "fremd"]);
+  await rest("/rest/v1/absence_reasons?reason=eq.fremd", { method: "DELETE" });
   // fremde Gründe schreiben geht nicht
   const r = await player.evaluate(async () => (await sb.from("absence_reasons").insert({ d: "2026-12-16", player: "Tobias Keller", reason: "erfunden" })).error.message);
   expect(r).toContain("row-level security");

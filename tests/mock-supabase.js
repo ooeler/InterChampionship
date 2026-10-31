@@ -96,14 +96,14 @@
             eq: function (col, val) {
               if (table == "hall_photos") return { order: function () { return ok(get(SESS) ? (get(HPH) || []).filter(function (x) { return x[col] == val }) : []) } }; // RLS: nur Mitglieder
               if (table == "app_status") return { maybeSingle: function () { return ok({ maintenance: localStorage.getItem("__mock_maint") == "1" }) } };
-              return { maybeSingle: function () { var r = get(DB); return ok(r && r[col] == val ? { data: r.data, updated_at: r.updated_at } : null) } };
+              return { maybeSingle: function () { var r = get(SESS) ? get(DB) : null; return ok(r && r[col] == val ? { data: r.data, updated_at: r.updated_at } : null) } };
             },
             order: function () {
               var res;
               if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
               else if (table == "penalties") res = get(SESS) ? (get(PEN) || []) : []; // alle Mitglieder lesen
               else if (table == "hall_seasons") res = (get(HSE) || []).slice().sort(function (a, b) { return a.season < b.season ? 1 : -1 }); // öffentlich lesbar
-              else if (table == "absence_reasons") res = get(SESS) ? (get(ABS) || []) : []; // RLS: alle Mitglieder lesen
+              else if (table == "absence_reasons") res = get(SESS) ? (get(ABS) || []).filter(canAbs) : []; // RLS: Person selbst, Captains, Spielleitung
               else if (table == "penalty_catalog") res = get(SESS) ? (get(CAT) || []).slice().sort(function (a, b) { return a.reason.localeCompare(b.reason, "de") }) : [];
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
@@ -185,7 +185,17 @@
       var h = get(HIST) || []; h.push({ id: h.length + 1, data: data, reason: reason, saved_at: new Date().toISOString() }); set(HIST, h); return h.length;
     }
 
+    // Spiegelt public_league() aus supabase/migrations
+    function only(o, K) { var r = {}; K.forEach(function (k) { if (o && o[k] !== undefined) r[k] = o[k] }); return r }
+    function publicLeague() {
+      var r = get(DB); if (!r) return null; var d = r.data;
+      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: d.evt ? only(d.evt, ["d", "t"]) : null, m: d.m.map(function (m) {
+        return Object.assign(only(m, ["res", "pre", "g", "a", "base", "gs", "ff"]), { tr: m.tr.map(function (x) { return only(x, ["d", "t", "p"]) }) });
+      }) });
+    }
+
     function rpc(fn, a) {
+      if (fn == "public_league") return ok(publicLeague());
       var s = get(SESS);
       if (!s) return fail("JWT expired");
       if (fn == "me") {
