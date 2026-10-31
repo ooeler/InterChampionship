@@ -185,6 +185,8 @@
         return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1", strafen: !!me.strafen || localStorage.getItem("__mock_strafen") == "1" });
       }
       log({ op: "rpc", fn: fn, args: a });
+      if (fn == "log_activity") return ok(null);
+      if (fn == "activity_points") return ok(get("__mock_act") || []); // spiegelt die Funktion: Rohdaten bleiben auf dem Server
       if (fn == "set_resto") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
         USERS[a.uid.slice(2)].resto = a.on_resto; return ok(null);

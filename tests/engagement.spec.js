@@ -193,7 +193,7 @@ test.describe("Monats-Rückblick", () => {
     const c = card(page, "Rückblick November");
     await expect(c).toContainText("Lochball Legenden 5 : 3 SpVgg Nieder");
     await expect(c).toContainText("Sieger: Lochball Legenden");
-    await expect(c).toContainText("Silvan Frey (4 Punkte)");
+    await expect(c).not.toContainText("Spieler des Monats"); // App-Punkte sind nicht öffentlich
     await expect(c).toContainText("Silvan Frey (3)");
     await expect(c).not.toContainText("Rössli");
     await expect(c.locator("[data-recap]")).toHaveCount(0);
@@ -206,6 +206,48 @@ test.describe("Monats-Rückblick", () => {
     const s = await page.evaluate(() => window.__s);
     expect(s.title).toBe("Rückblick November");
     expect(s.text.split("\n")[1]).toBe("Lochball Legenden 5 : 3 SpVgg Nieder – Sieger: Lochball Legenden");
+  });
+
+  const zeile = async (page, L) => {
+    await seed(page, PATCH);
+    const w = await page.evaluate((L) => {
+      localStorage.setItem("__mock_act", JSON.stringify(L));
+      const m = JSON.parse(localStorage.getItem("__mock_db")).data.m[2];
+      return { silvan: an(m, "Silvan Frey") + 4, beat: an(m, "Beat Rentsch") + 3 };
+    }, L);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=rang]");
+    return { r: card(page, "Rückblick November").locator(".rcr", { hasText: "Spieler des Monats" }), w };
+  };
+
+  test("Spieler des Monats: Mix aus Anwesenheit und Skorerpunkten", async ({ page }) => {
+    const { r, w } = await zeile(page, []);
+    await expect(r).toContainText(`Silvan Frey (${w.silvan} Punkte)`);
+    await expect(card(page, "Rückblick November")).toContainText("Die Spielleitung ist ausgeschlossen.");
+  });
+
+  test("Spieler des Monats: App-Punkte zählen mit", async ({ page }) => {
+    const { r, w } = await zeile(page, [{ player: "Beat Rentsch", punkte: 10, spielleitung: false }]);
+    expect(w.beat + 10).toBeGreaterThan(w.silvan);
+    await expect(r).toContainText(`Beat Rentsch (${w.beat + 10} Punkte)`);
+    await expect(r).not.toContainText("Silvan Frey");
+  });
+
+  test("Spieler des Monats: Spielleitung ist ausgeschlossen", async ({ page }) => {
+    const { r } = await zeile(page, [{ player: "Silvan Frey", punkte: 10, spielleitung: true }]);
+    await expect(r).toBeVisible();
+    await expect(r).not.toContainText("Silvan Frey");
+  });
+
+  test("Aktivität: Statuswechsel zählt als Aktion", async ({ page }) => {
+    await seed(page, PATCH);
+    await login(page, SPIELER);
+    await expect.poll(() => page.evaluate(() => typeof act)).toBe("function");
+    await page.evaluate(() => { window.__a = []; const o = sb.rpc.bind(sb); sb.rpc = (f, a) => { if (f == "log_activity") window.__a.push(a.aktion); return o(f, a) } });
+    await page.click("nav [data-tab=train]");
+    await mine(page).locator("[data-abw]").first().click();
+    await mine(page).locator("[data-stt$='|v']").click();
+    await expect.poll(() => page.evaluate(() => window.__a)).toEqual([true]);
   });
 
   test("ohne Resultat kein Rückblick", async ({ page }) => {
