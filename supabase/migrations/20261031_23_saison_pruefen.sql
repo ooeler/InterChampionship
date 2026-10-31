@@ -103,7 +103,7 @@ begin
     if new.id <> 'main' or (tg_op = 'UPDATE' and new.id <> old.id) then raise exception 'Ungültige Daten: Zeile'; end if;
     p := public.league_problem(new.data);
     if p is not null then raise exception 'Ungültige Daten: %', p; end if;
-    -- nicht vom Client übernehmen; null bleibt, delete_member löst so die Verknüpfung zum gelöschten Konto
+    -- nicht vom Client übernehmen; null bleibt: so löst "on delete set null" die Verknüpfung zum gelöschten Konto
     if new.updated_by is not null then new.updated_by := auth.uid(); end if;
     new.client := left(new.client, 40);
   end if;
