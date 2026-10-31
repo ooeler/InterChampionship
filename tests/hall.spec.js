@@ -28,7 +28,7 @@ test.describe("Hall of INTER Fame", () => {
     await seed(page, [S2526], [{ id: 1, season: "25/26", caption: "Pokal", data: PIXEL }]);
     await hall(page);
     const c = page.locator(".card", { has: page.locator("h3", { hasText: "Saison 25/26" }) });
-    await expect(c).toContainText("Jahres-Intermeister");
+    await expect(c).toContainText("Intermeister");
     await expect(c).toContainText("SpVgg Nieder");
     await expect(c).toContainText("Beat Rentsch");
     await expect(c).not.toContainText("Wintermeister");
@@ -84,7 +84,7 @@ test.describe("Hall of INTER Fame", () => {
     expect((await hallDb(page)).length).toBe(1);
     await f.locator("[data-hse='']").click();
 
-    await page.click("[data-hsd='26/27']"); // Rückfrage wird bestätigt
+    await page.locator("[data-hsd='26/27']").dispatchEvent("click"); // Rückfrage wird bestätigt; der Hinweis kann den Knopf kurz überdecken
     await expect(c).toHaveCount(0);
     expect(await hallDb(page)).toEqual([]);
   });
@@ -159,7 +159,7 @@ test.describe("Hall of INTER Fame", () => {
     await page.waitForFunction(() => Array.isArray(HP["25/26"]));
     await page.waitForTimeout(100);
     await expect(page.locator(".hw figure")).toHaveCount(3);
-    await expect(page.locator(".hw figcaption")).toHaveText([/Sommermeister/, /Anwesenheit/, /Topskorer/]);
+    await expect(page.locator(".hw figcaption")).toHaveText([/Intermeister/, /Anwesenheit/, /Topskorer/]);
     await expect(page.locator(".hw .hwa")).toHaveCount(3);
     await page.locator("[data-hcap='25/26']").fill("Nicht für Kacheln");
 
@@ -235,4 +235,51 @@ test("Mailvorlagen: alle deutsch, mit Link oder Code", () => {
   }
   expect(Object.values(v).join(" ")).not.toMatch(/\b(your|please|confirm your|reset password|follow this link)\b/i);
   expect(fs.readFileSync(".github/workflows/release.yml", "utf8")).toContain("--data @supabase/mail-vorlagen.json");
+});
+
+test.describe("Hall: Teams, Intermeister", () => {
+  const png = { name: "logo.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") };
+  const admin = { email: "admin@flyingpenguins.test", password: "admin123" };
+
+  test("Teamnamen und Logos erfassen; Vorschlag aus dem aktuellen Stand; andere Eingaben bleiben", async ({ page }) => {
+    await login(page, admin);
+    await page.click("nav [data-tab=hall]");
+    await page.click("[data-hse=new]");
+    const f = page.locator("#hsf");
+    await expect(f.locator("label", { hasText: "Intermeister" })).toBeVisible();
+    await expect(f).not.toContainText("Sommermeister");
+    await expect(f).not.toContainText("Meiste Tore");
+    await expect(f.locator("input[name=team_a]")).toHaveValue("Lochball Legenden");
+    await f.locator("input[name=sommer]").fill("SpVgg Nieder");
+    await f.locator("input[name=team_b]").fill("Alte Füchse");
+    await f.locator("[data-hlg=b]").setInputFiles(png);
+    await expect(f.locator("#hlgb")).toBeVisible();
+    await expect(f.locator("input[name=team_b]")).toHaveValue("Alte Füchse");
+    await f.locator("button.add", { hasText: "Speichern" }).click();
+    const t = page.locator(".hte").first();
+    await expect(t).toContainText("Lochball Legenden");
+    await expect(t).toContainText("Alte Füchse");
+    await expect(t.locator("img")).toHaveCount(1);
+    const c = page.locator(".card", { hasText: "Alte Füchse" }).first();
+    await expect(c).toContainText("Intermeister");
+    await expect(c).not.toContainText("Sommermeister");
+
+    await c.locator("[data-hse]").first().click();
+    await page.locator("[data-hlx=b]").click();
+    await expect(page.locator("#hlgb")).toBeHidden();
+    await page.locator("#hsf button.add", { hasText: "Speichern" }).click();
+    await expect(page.locator(".hte img")).toHaveCount(0);
+  });
+
+  test("Meiste Tore wird nicht mehr angezeigt, auch bei alten Einträgen", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate((s) => localStorage.setItem("__mock_hall", JSON.stringify([s])), { season: "25/26", sommer: "SpVgg Nieder", goals: "Silvan Frey", team_a: "A-Team", team_b: "B-Team" });
+    await page.reload();
+    await page.click("nav [data-tab=hall]");
+    const c = page.locator(".card", { hasText: "Saison 25/26" });
+    await expect(c).toContainText("A-Team");
+    await expect(c).toContainText("Intermeister");
+    await expect(c).not.toContainText("Meiste Tore");
+    await expect(c).not.toContainText("Silvan Frey");
+  });
 });

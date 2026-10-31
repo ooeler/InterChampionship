@@ -252,8 +252,8 @@ test("Jede Änderung wird automatisch gesichert (Datensicherung)", async () => {
 
 test("Hall pflegen Spielleitung und Captains, Spieler nicht (serverseitig)", async () => {
   const pflegen = () => player.evaluate(async () => {
-    const a = await sb.from("hall_seasons").upsert({ season: "24/25", sommer: "SpVgg Nieder" });
-    const b = await sb.from("hall_photos").insert({ season: "24/25", kind: "sommer", data: "data:image/jpeg;base64,AAAA" });
+    const a = await sb.from("hall_seasons").upsert({ season: "90/91", sommer: "SpVgg Nieder", team_a: "Alte Füchse", logo_a: "data:image/webp;base64,AAAA" });
+    const b = await sb.from("hall_photos").insert({ season: "90/91", kind: "sommer", data: "data:image/jpeg;base64,AAAA" });
     return [a.error && a.error.message, b.error && b.error.message];
   });
   const r = await pflegen();
@@ -262,9 +262,9 @@ test("Hall pflegen Spielleitung und Captains, Spieler nicht (serverseitig)", asy
 
   await rest("/rest/v1/members?user_id=eq." + playerId, { method: "PATCH", body: { role: "captain" } });
   expect(await pflegen()).toEqual([null, null]);
-  await player.evaluate(() => sb.from("hall_seasons").delete().eq("season", "24/25"));
+  await player.evaluate(() => sb.from("hall_seasons").delete().eq("season", "90/91"));
   await rest("/rest/v1/members?user_id=eq." + playerId, { method: "PATCH", body: { role: "player" } });
-  expect((await rest("/rest/v1/hall_seasons?select=season")).data).toEqual([]);
+  expect((await rest("/rest/v1/hall_seasons?select=season&season=eq.90/91")).data).toEqual([]);
   expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
 });
 
@@ -337,10 +337,10 @@ test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async
 
 test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder", async () => {
   const r = await admin.evaluate(async () => {
-    const a = await sb.from("hall_seasons").upsert({ season: "25/26", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
-    const b = await sb.from("hall_photos").insert({ season: "25/26", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
-    const c = await sb.from("hall_photos").insert({ season: "25/26", data: "<script>" });
-    const bild = { season: "25/26", kind: "scorer", data: "data:image/jpeg;base64,AAAA" };
+    const a = await sb.from("hall_seasons").upsert({ season: "91/92", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
+    const b = await sb.from("hall_photos").insert({ season: "91/92", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
+    const c = await sb.from("hall_photos").insert({ season: "91/92", data: "<script>" });
+    const bild = { season: "91/92", kind: "scorer", data: "data:image/jpeg;base64,AAAA" };
     const d = await sb.from("hall_photos").insert(bild);
     const e = await sb.from("hall_photos").insert(bild);
     const f = await sb.from("hall_photos").insert({ ...bild, kind: "falsch" });
@@ -352,10 +352,11 @@ test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder", asyn
   expect(r[3]).toBeNull();
   expect(r[4]).toContain("hall_photos_kind"); // nur ein Bild pro Titel
   expect(r[5]).toContain("hall_photos_kind_check");
-  expect((await rest("/rest/v1/hall_seasons?select=season,sommer", { key: ANON })).data).toEqual([{ season: "25/26", sommer: "SpVgg Nieder" }]);
+  expect((await rest("/rest/v1/hall_seasons?select=season,sommer&season=eq.91/92", { key: ANON })).data).toEqual([{ season: "91/92", sommer: "SpVgg Nieder" }]);
+  expect((await rest("/rest/v1/hall_seasons?select=team_a&season=eq.23/24", { key: ANON })).data).toEqual([{ team_a: "Kox Fillers" }]);
   expect((await rest("/rest/v1/hall_photos?select=id", { key: ANON })).status).not.toBe(200);
   expect((await rest("/rest/v1/hall_seasons", { key: ANON, method: "POST", body: { season: "x" } })).status).not.toBe(201);
   // Saison löschen nimmt die Fotos mit
-  await admin.evaluate(() => sb.from("hall_seasons").delete().eq("season", "25/26"));
+  await admin.evaluate(() => sb.from("hall_seasons").delete().eq("season", "91/92"));
   expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
 });
