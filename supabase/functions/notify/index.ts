@@ -87,10 +87,13 @@ Deno.serve(async (req) => {
     if (member?.role !== "admin") return json({ error: "Nur die Spielleitung darf Test-Mails verschicken" }, 403);
     const m = testLeadMail(row.data, Date.now(), APP_URL);
     if (!m) return json({ error: "Kein kommendes Training gefunden" }, 400);
-    const { error } = await db.from("push_log").insert({ key: `testmail:${user.id}:${Math.floor(Date.now() / 6e5)}` });
+    const key = `testmail:${user.id}:${Math.floor(Date.now() / 6e5)}`;
+    const { error } = await db.from("push_log").insert({ key });
     if (error) return json({ error: "Bitte ein paar Minuten warten und dann nochmals versuchen" }, 429);
     const r = await brevo([{ email: user.email }], m.subject, m.text);
-    return r.ok ? json({ ok: true, to: user.email }) : json({ error: r.error }, 502);
+    if (r.ok) return json({ ok: true, to: user.email });
+    await db.from("push_log").delete().eq("key", key); // Fehlversuch zählt nicht: sonst verdeckt die Sperre die echte Meldung
+    return json({ error: r.error }, 502);
   } else if (body.type === "signup") {
     const { data: { user } } = await db.auth.getUser(token);
     if (!user) return json({ error: "unauthorized" }, 401);
