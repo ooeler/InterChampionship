@@ -118,7 +118,9 @@ test.describe("Training-Tab", () => {
     await page.reload();
     await page.click("nav [data-tab=train]");
     const before = await page.evaluate(() => an(S.m[2], "Tobias Keller"));
-    await overview(page).locator("[data-allc]").click();
+    await overview(page).locator("[data-allc='0']").click();
+    expect(await page.evaluate(() => S.m[2].tr[1].p.every((p) => S.t[0].p.includes(p)))).toBe(true); // nur dieses Team
+    await overview(page).locator("[data-allc='1']").click();
     await expect(team(page, "SpVgg Nieder")).toContainText("7 bestätigt");
     expect(await page.evaluate(() => an(S.m[2], "Tobias Keller"))).toBe(before + 1);
     expect(await page.evaluate(() => S.m[2].tr[1].p.includes("Beat Rentsch"))).toBe(false); // abgemeldet → nicht bestätigt
@@ -222,7 +224,7 @@ test.describe("Push-Texte Training (Edge Function)", () => {
     const at = (iso) => L.trainingSoonMessages(state, Date.parse(iso));
     expect(at("2026-10-27T15:40:00Z")).toEqual([]); // 26 h 05 min vorher
     const [m] = at("2026-10-27T15:45:00Z"); // genau 26 h vorher
-    expect(m).toMatchObject({ key: "training-soon:2026-10-28", title: "🏒 Morgen ist Training", body: "Mi, 28.10.2026, 18:45 Uhr. Kannst du nicht? Abmelden bis 23 h vorher in der App." });
+    expect(m).toMatchObject({ key: "training-soon:2026-10-28", title: "🏑 Morgen ist Training", body: "Mi, 28.10.2026, 18:45 Uhr. Kannst du nicht? Abmelden bis 23 h vorher in der App." });
     expect(at("2026-10-27T16:30:00Z")).toHaveLength(1);
     expect(at("2026-10-27T16:45:00Z")).toEqual([]); // Fenster vorbei
     expect(at("2026-11-03T16:00:00Z")[0].title).toBe("⚑ Morgen ist Match Day");

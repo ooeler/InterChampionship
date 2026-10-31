@@ -4,7 +4,7 @@ test.describe("Login", () => {
   test("Ohne Login nur die öffentliche Rangliste und die Infos", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("main")).toContainText("Meisterschaft");
-    expect(await page.locator("nav button").allTextContents()).toEqual(["🏆Rangliste", "🏛️Hall", "ℹ️Infos"]);
+    expect(await page.locator("nav button").allTextContents()).toEqual(["🏆Rangliste", "ℹ️Infos", "🏛️Hall"]);
     await page.click("nav [data-tab=info]");
     await expect(page.locator("main")).toContainText("Die interne Flying Penguins Meisterschaft.");
     await expect(page.locator("main")).not.toContainText("Verbesserungsvorschlag"); // braucht ein Konto
