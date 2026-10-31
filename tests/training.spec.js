@@ -339,3 +339,25 @@ test.describe("Engagement", () => {
     expect(g).toEqual(["mw", "normal"]);
   });
 });
+
+test.describe("Meine Trainings auf dem Handy", () => {
+  test("Hinweis und Übernehmen stehen auf einer eigenen Zeile", async ({ page, isMobile }) => {
+    await seed(page, { patch: "d.m.forEach((m) => m.tr.slice(0, -1).forEach((x) => { if (x.d > '2026-10-27') x.lead = 'Jemand Anderes' }))" });
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=train]");
+    const z = page.locator(".row.tm", { has: page.locator("[data-leadme]") }).filter({ hasText: "Übernehmen" }).first();
+    const box = (l) => l.boundingBox();
+    const [d, i, b, s] = [await box(z.locator(".td")), await box(z.locator(".ti")), await box(z.locator("[data-leadme]")), await box(z.locator("[data-abw]"))];
+    if (isMobile) {
+      expect(i.y).toBeGreaterThanOrEqual(d.y + d.height - 1);
+      expect(b.y).toBeGreaterThanOrEqual(s.y + s.height - 1);
+      expect(i.x).toBeLessThan(d.x + 1);
+      await expect(z.locator(".tsep")).toBeHidden();
+      expect(await z.locator(".ti").innerText()).toMatch(/^Leitung/);
+    } else {
+      expect(Math.abs(b.y + b.height / 2 - (s.y + s.height / 2))).toBeLessThan(3);
+      await expect(z.locator(".tsep")).toBeVisible();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+});

@@ -9,13 +9,24 @@ test.describe("Animationen", () => {
     expect(anim).toBe("tabin");
   });
 
-  test("Aufklappen einer Karte animiert den Inhalt", async ({ page }) => {
+  test("Auf- und Zuklappen: dieselbe Höhen-Animation, ohne zusätzliches Einblenden", async ({ page }) => {
     await page.goto("/");
+    await page.evaluate(() => {
+      window.__an = [];
+      const o = Element.prototype.animate;
+      Element.prototype.animate = function (k, t) { window.__an.push({ von: parseInt(k[0].height), bis: parseInt(k[1].height), dauer: t.duration, kurve: t.easing }); return o.call(this, k, t) };
+    });
     const h = page.locator(".card h3", { hasText: "Spieltage" });
     await h.click(); // zu
     await expect(page.locator(".card.cl")).toHaveCount(1);
+    await page.waitForTimeout(400); // Zuklappen fertig: sonst startet das Aufklappen mitten in der Animation
     await h.click(); // auf
-    await expect(page.locator(".card", { hasText: "Spieltage" })).toHaveClass(/\bop\b/);
+    await expect(page.locator(".card.cl")).toHaveCount(0);
+    const [zu, auf, ...rest] = await page.evaluate(() => window.__an);
+    expect(rest).toEqual([]);
+    expect(zu.bis).toBeLessThan(zu.von);
+    expect([auf.von, auf.bis, auf.dauer, auf.kurve]).toEqual([zu.bis, zu.von, zu.dauer, zu.kurve]);
+    expect(await page.locator(".card", { hasText: "Spieltage" }).evaluate((c) => [...c.children].filter((e) => getComputedStyle(e).animationName != "none").length)).toBe(0);
   });
 
   test("Am Match Day fliegt ein Unihockey-Ball über den Bildschirm", async ({ page }) => {
