@@ -43,8 +43,6 @@ jobs:
         run: |
           pw=$(openssl rand -base64 18)
           pass=$(openssl rand -base64 32)
-          echo "::add-mask::$pw"
-          echo "::add-mask::$pass"
           echo "PW=$pw" >> "$GITHUB_ENV"
           echo "BACKUP_PASSPHRASE=$pass" >> "$GITHUB_ENV"
           curl -sf -o /dev/null -X POST "$API/auth/v1/admin/users" -H "apikey: $SERVICE" -H "Authorization: Bearer $SERVICE" -H "Content-Type: application/json" \
