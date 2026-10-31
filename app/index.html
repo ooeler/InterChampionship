@@ -51,7 +51,7 @@ input.t,textarea.t{width:100%;border:1px solid var(--ln);background:var(--bg);co
 .bar{height:8px;border-radius:9px;background:var(--bg);flex:1;overflow:hidden;margin:0 8px}.bar div{height:100%;background:var(--ac)}
 .rk{width:22px;color:var(--mu);font-weight:700}
 .sy{font-size:12px;color:var(--mu);text-align:center;padding:6px}.sp{font-size:11px;color:var(--mu)}.fl{color:var(--ac)}.tr{border-top:1px solid var(--ln);padding:6px 0}.pt{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pb{border:0;border-radius:99px;padding:9px 13px;font:600 13px Arial,Helvetica,sans-serif;background:var(--bg);color:var(--mu)}.pb.on{background:var(--ok);color:#fff}.ld{color:var(--mu);font-size:13px}.row.lme{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:8px;padding-left:6px}.card.upd{border-left-color:#d97706}
-.ev{color:#7c3aed}.row.evr{background:color-mix(in srgb,#7c3aed 8%,transparent);border-radius:8px;padding-left:6px}.pb.in{background:var(--card);color:var(--tx);box-shadow:inset 0 0 0 1px var(--ln)}.pb.dis{opacity:.55}
+.ev{color:#7c3aed}@media(max-width:719px){.row.tm{display:grid;grid-template-columns:minmax(0,1fr) auto}.row.tm .nm{display:contents}.row.tm .td{grid-area:1/1}.row.tm [data-abw]{grid-area:1/2}.row.tm .ti{grid-area:2/1}.row.tm [data-leadme]{grid-area:2/2}.row.tm .tsep,.row.tm .ti>br:first-child{display:none}.row.tm .ti:empty{display:none}}.row.evr{background:color-mix(in srgb,#7c3aed 8%,transparent);border-radius:8px;padding-left:6px}.pb.in{background:var(--card);color:var(--tx);box-shadow:inset 0 0 0 1px var(--ln)}.pb.dis{opacity:.55}
 table.mt{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13px}table.mt th,table.mt td{padding:5px 4px;border-top:1px solid var(--ln);text-align:center}table.mt th:first-child,table.mt td:first-child{text-align:left}
 .pb.off{background:#4b5563;color:#fff}.lg{width:72px;height:72px;object-fit:contain;margin-bottom:4px}.logo{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--bg);border-radius:8px;overflow:hidden}.logo img{max-width:100%;max-height:100%}.sl{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:6px}header{display:flex;align-items:center;gap:12px}#clogo{width:88px;height:66px;object-fit:contain;background:#fff;padding:4px;align-self:flex-start;margin:-16px 0 0 -16px;box-shadow:0 2px 6px rgba(0,0,0,.3)}.sk{border-top:1px solid var(--ln);padding:10px 0}.big{display:flex;flex-direction:column;align-items:center;gap:2px}.big .st{gap:6px}.big .st button{width:46px;height:46px;font-size:24px}.big .st span{min-width:34px;font-size:20px}.card.cl>:not(h3){display:none!important}.card h3[data-tg],.card h3[data-acc]{cursor:pointer;display:flex;justify-content:space-between}.card h3[data-tg]:after,.card h3[data-acc]:after{content:"▾"}.card.cl h3[data-tg],.card.cl h3[data-acc]{margin-bottom:0}.card.cl h3[data-tg]:after,.card.cl h3[data-acc]:after{content:"▸"}
 
@@ -101,7 +101,7 @@ main{max-width:1180px;display:grid;grid-template-columns:1fr 1fr;align-items:sta
 /* Feine Animationen beim Bedienen */
 #app.fx{animation:tabin .22s ease-out}
 @keyframes tabin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.card.op>:not(h3),.row.nw{animation:fold .24s ease-out}
+.row.nw{animation:fold .24s ease-out}
 @keyframes fold{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .card h3[data-tg]:after{transition:transform .2s}
 button,.chip,.pb,nav button{transition:background-color .2s,color .2s,box-shadow .2s,transform .12s}
@@ -110,7 +110,7 @@ nav button.on i{animation:pop .3s ease-out}
 @keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
 /* Match Day: fliegende Unihockey-Bälle */
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;z-index:25;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
-@media(prefers-reduced-motion:reduce){#splash *,#app.fx,.card.op>*,.row.nw,nav button.on i{animation:none!important}button,.chip,.pb{transition:none!important}.ball{display:none!important}}
+@media(prefers-reduced-motion:reduce){#splash *,#app.fx,.row.nw,nav button.on i{animation:none!important}button,.chip,.pb{transition:none!important}.ball{display:none!important}}
 /* Toast */
 #toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:35;max-width:480px;margin:0 auto;background:#14161c;color:#fff;border-left:4px solid #B9001B;border-radius:12px;padding:12px 14px;font:600 14px/1.4 Arial,Helvetica,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer}#toast[hidden]{display:none}#toast.in{animation:tin .3s ease-out}@keyframes tin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){#toast.in{animation:none}}
@@ -389,7 +389,8 @@ L.sort(function(a,b){return a.x.d<b.x.d?-1:1});if(!L.length)return "";var shown=
 var sk=streak(PLAYER);return '<div class="card"><h3>Meine Trainings</h3>'+(sk.b?'<div class="kv strk"><span>'+(sk.n?'🔥 '+sk.n+(sk.n==1?' Training':' Trainings')+' in Folge':'Neue Serie starten?')+'</span><span class="sp">Rekord: '+sk.b+'</span></div>':'')+'<div class="sp" style="margin-bottom:4px">Du bist automatisch angemeldet. Tippe auf deinen Status, um ihn zu ändern. Abmelden geht bis 23 Stunden vor Trainingsbeginn.</div>'+shown.map(function(r){
 if(r.ev)return '<div class="row evr"><span class="nm">'+wd(r.x.d)+' · <b class="ev">🎉 '+r.ev.n+'</b></span></div>';
 var x=r.x,o=isOff(x,PLAYER),st=stOf(x,PLAYER),ar=(o||st=="u")&&absOf(x.d,PLAYER),nl=noLead(r),me=!nl&&x.lead==PLAYER,k=trKey(r),late=!o&&!canOff(x);
-return '<div class="row'+(me?' lme':'')+'"><span class="nm wr">'+wd(x.d)+' <span class="sp">'+tstart(x)+'</span>'+marks(r)+(nl?'':me?' · <b class="fl">Du leitest das Training</b>':leadTxt(x))+(late?'<br><span class="sp">Abmelden nicht mehr möglich (23 h vorher)</span>':'')+(ar?'<br><span class="sp">Grund: '+esc(ar.reason)+'</span>':'')+'</span>'
+var inf=(marks(r)+(nl?'':me?' · <b class="fl">Du leitest das Training</b>':leadTxt(x))).replace(/^ · /,"");
+return '<div class="row tm'+(me?' lme':'')+'"><span class="nm wr"><span class="td">'+wd(x.d)+' <span class="sp">'+tstart(x)+'</span></span><span class="ti">'+(inf?'<span class="tsep"> · </span>'+inf:'')+(late?'<br><span class="sp">Abmelden nicht mehr möglich (23 h vorher)</span>':'')+(ar?'<br><span class="sp">Grund: '+esc(ar.reason)+'</span>':'')+'</span></span>'
 +(nl?'':'<button class="x" style="font-size:12px" data-leadme="'+k+'">'+(me?'Abgeben':x.lead?'Übernehmen':'Ich leite')+'</button>')
 +'<button class="pb'+(o?" off":st=="u"?" un":st=="v"?" ve":" on")+(late?" lt":"")+'" data-abw="'+k+'" aria-expanded="'+(TCH==k)+'">'+(o?"✗ abgemeldet":st=="u"?"❔ unsicher":st=="v"?"⏰ verspätet":"✓ angemeldet")+'</button></div>'+(TCH==k?stChoose(k,x):'')
 +(RESTO&&!r.xe?'<div class="rsr"><input class="t" list="restos" data-restok="'+k+'" placeholder="🍽️ Restaurant nach dem Training" aria-label="Restaurant am '+wd(x.d)+'" value="'+esc(x.r||"")+'"></div>':'')}).join("")
@@ -581,7 +582,7 @@ var REAL={role:"player",resto:false,strafen:false},VIEW=(function(){try{return l
 function applyRole(){var pv=REAL.role=="admin"&&VIEW=="player";ROLE=pv?"player":REAL.role;RESTO=REAL.resto;STRAF=REAL.strafen}
 function viewBar(){if(PUB||REAL.role!="admin")return "";var pv=VIEW=="player";return '<div class="vw'+(pv?" pv":"")+'" role="group" aria-label="Ansicht"><span class="sp">'+(pv?"Du siehst die App als Spieler":"Ansicht")+'</span><button class="chip'+(pv?"":" on")+'" data-view="admin" aria-pressed="'+!pv+'">🛠 Spielleitung</button><button class="chip'+(pv?" on":"")+'" data-view="player" aria-pressed="'+pv+'">👤 Spieler</button></div>'}
 // ── Animationen ──
-var LTAB=null,OPEN=null,MOREN=null,BALLT=null;
+var LTAB=null,MOREN=null,BALLT=null;
 var BALL='<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#fff" stroke="#d4d4d4" stroke-width="1.5"/>'+[[20,8],[10,14],[30,14],[20,20],[8,26],[32,26],[14,32],[26,32],[20,30],[13,22],[27,22]].map(function(p){return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.6" fill="#c9c9c9"/>'}).join("")+'</svg>';
 function calm(){return window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches}
 // Am Match Day fliegt ab und zu ein Unihockey-Ball über den Bildschirm
@@ -597,7 +598,7 @@ var nh=c.offsetHeight;if(Math.abs(nh-s.h)<2)return;c.style.overflow="hidden";c.s
 a.onfinish=a.oncancel=function(){c.style.overflow="";c.style.boxSizing=""}}
 function render(){CRW=null;SK=null;if(PUB&&tab!="info"&&tab!="hall")tab="rang";if(tab=="team"&&!me)tab="rang";var h=viewBar()+(NEWER?'<div class="card upd"><h3>Neue Version verfügbar</h3><div class="sp">Die Daten wurden mit einer neueren App-Version gespeichert. Bitte neu laden, damit nichts verloren geht. Bis dahin werden keine Änderungen gespeichert.</div><button class="add" data-reload="1">Jetzt neu laden</button></div>':'')+(tab=="spiel"?spiel():tab=="rang"?rang():tab=="info"?info():tab=="train"?training():tab=="hall"?hall():teams());
 var app=document.getElementById("app");app.innerHTML=h;if(tab!=LTAB){app.classList.remove("fx");void app.offsetWidth;app.classList.add("fx");LTAB=tab}
-if(OPEN!=null){var oc=app.querySelectorAll(".card")[OPEN];if(oc)oc.classList.add("op");OPEN=null}if(MOREN!=null){app.querySelectorAll(".card").forEach(function(c){var h3=c.querySelector("h3");if(h3&&h3.textContent==MOREN)c.querySelectorAll(".row").forEach(function(r,i){if(i>=5)r.classList.add("nw")})});MOREN=null}
+if(MOREN!=null){app.querySelectorAll(".card").forEach(function(c){var h3=c.querySelector("h3");if(h3&&h3.textContent==MOREN)c.querySelectorAll(".row").forEach(function(r,i){if(i>=5)r.classList.add("nw")})});MOREN=null}
 balls();var smc=document.getElementById("smc");if(smc)drawSM(smc,S.m[cur]);if(tab=="rang")document.querySelectorAll("#app .card").forEach(function(c,i){c.querySelector("h3").dataset.tg=i;if(cl[i])c.classList.add("cl")});slide();
 document.getElementById("hi").textContent=hello();document.getElementById("lo").title=me&&me.email?"Angemeldet als "+me.email:"";
 document.getElementById("lo").hidden=PUB;document.getElementById("li").hidden=!PUB;document.getElementById("hi").hidden=PUB;document.getElementById("nav").hidden=false;document.body.classList.toggle("nonav",false);
@@ -637,7 +638,7 @@ else if(D.ab!=null){var ab=S.m[cur].tr[+D.ab].p,q=ab.indexOf(D.p);q<0?ab.push(D.
 else if(D.dtr!=null){if(confirm("Training löschen?")){S.m[cur].tr.splice(+D.dtr,1);ot=-1;save()}}
 else if(D.atr){var T=S.m[cur].tr,l=T.length?new Date(T[T.length-1].d):new Date();l.setDate(l.getDate()+7);T.push({d:l.toISOString().slice(0,10),p:[]});ot=T.length-1;save()}
 else if(D.clrb){S.m[cur].base={};save()}
-else if(D.tg!=null){SLIDE={q:'h3[data-tg="'+D.tg+'"]',h:d.closest(".card").offsetHeight};cl[D.tg]=!cl[D.tg];if(!cl[D.tg])OPEN=+D.tg}
+else if(D.tg!=null){SLIDE={q:'h3[data-tg="'+D.tg+'"]',h:d.closest(".card").offsetHeight};cl[D.tg]=!cl[D.tg]}
 else if(D.rmimg!=null){var rk=D.rmimg;if(rk=="club")delete S.logo;else if(rk=="sp")delete S.sp;else delete S.t[+rk].img;save()}
 else if(D.rs!=null){var l2=lead(S.m[cur]);S.m[cur].res=[l2[0]+gsum(S.m[cur],0),l2[1]+gsum(S.m[cur],1)];save()}
 else if(D.all!=null){S.m[cur].tr[+D.all].p=S.t[0].p.concat(S.t[1].p);save()}
