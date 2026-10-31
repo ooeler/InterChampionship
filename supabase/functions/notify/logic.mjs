@@ -66,7 +66,7 @@ export function trainingLeadMessages(state, today, daysBefore = 2) {
 
 export function resultMessage(state, i) {
   const m = state.m[i];
-  if (!m || m.res[0] == null || m.res[1] == null) return null;
+  if (!m || !Number.isInteger(m.res[0]) || !Number.isInteger(m.res[1])) return null;
   const [a, b] = m.res;
   const dbl = DBL.includes(i);
   const verdict = a === b
@@ -109,6 +109,11 @@ export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
     });
   });
   return out;
+}
+
+// Für andere melden dürfen nur Spielleitung und Captains
+export function mayNotifyFor(member, player) {
+  return ["admin", "captain"].includes(member?.role) || (!!player && member?.player === player);
 }
 
 // Nachricht, wenn sich jemand an- oder abmeldet
