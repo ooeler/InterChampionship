@@ -23,7 +23,8 @@
   // Strafenkatalog pflegen: Spielleitung oder Strafenchef (spiegelt can_edit_catalog)
   function canCat() { var s = get(SESS); return !!s && (role() == "admin" || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
   function canFine() { var s = get(SESS); return !!s && (["admin", "captain"].indexOf(role()) >= 0 || !!(USERS[s.user.email] || {}).strafen || localStorage.getItem("__mock_strafen") == "1") }
-  var ABS = "__mock_abs";
+  var ABS = "__mock_abs", HSE = "__mock_hall", HPH = "__mock_hallph";
+  var RLS = function (t) { return fail("new row violates row-level security policy for table \"" + t + "\"") };
   function myPlayer() { var s = get(SESS); return s && (localStorage.getItem("__mock_player") || (USERS[s.user.email] || {}).player) }
   function canAbs(x) { return ["admin", "captain"].indexOf(role()) >= 0 || x.player == myPlayer() }
   function role() { var s = get(SESS); return s && (USERS[s.user.email] || { role: "player" }).role }
@@ -91,6 +92,7 @@
         select: function () {
           return {
             eq: function (col, val) {
+              if (table == "hall_photos") return { order: function () { return ok(get(SESS) ? (get(HPH) || []).filter(function (x) { return x[col] == val }) : []) } }; // RLS: nur Mitglieder
               if (table == "app_status") return { maybeSingle: function () { return ok({ maintenance: localStorage.getItem("__mock_maint") == "1" }) } };
               return { maybeSingle: function () { var r = get(DB); return ok(r && r[col] == val ? { data: r.data } : null) } };
             },
@@ -98,6 +100,7 @@
               var res;
               if (table == "feedback") res = (get("__mock_feedback") || []).slice().reverse(); // eigene Vorschläge (RLS)
               else if (table == "penalties") res = get(SESS) ? (get(PEN) || []) : []; // alle Mitglieder lesen
+              else if (table == "hall_seasons") res = (get(HSE) || []).slice().sort(function (a, b) { return a.season < b.season ? 1 : -1 }); // öffentlich lesbar
               else if (table == "absence_reasons") res = get(SESS) ? (get(ABS) || []) : []; // RLS: alle Mitglieder lesen
               else if (table == "penalty_catalog") res = get(SESS) ? (get(CAT) || []).slice().sort(function (a, b) { return a.reason.localeCompare(b.reason, "de") }) : [];
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
@@ -109,6 +112,10 @@
         },
         upsert: function (row) {
           if (!get(SESS)) return fail("JWT expired");
+          if (table == "hall_seasons") {
+            if (role() != "admin") return RLS(table);
+            var H = (get(HSE) || []).filter(function (x) { return x.season != row.season }); H.push(row); set(HSE, H); log({ op: "upsert", table: table, row: row }); return ok();
+          }
           if (table == "absence_reasons") {
             if (!canAbs(row)) return fail("new row violates row-level security policy for table \"absence_reasons\"");
             var R = (get(ABS) || []).filter(function (x) { return !(x.d == row.d && x.player == row.player) }); R.push(row); set(ABS, R); log({ op: "upsert", table: table, row: row }); return ok();
@@ -127,6 +134,10 @@
         },
         // Strafen: spiegelt die RLS-Policies (Strafenchef, Captains, Spielleitung)
         insert: function (row) {
+          if (table == "hall_photos") {
+            if (role() != "admin") return RLS(table);
+            var Q = get(HPH) || []; Q.push(Object.assign({ id: Q.length ? Math.max.apply(null, Q.map(function (x) { return x.id })) + 1 : 1 }, row)); set(HPH, Q); log({ op: "insert", table: table, season: row.season, caption: row.caption }); return ok();
+          }
           if (table == "penalty_catalog") {
             if (!canCat()) return fail("new row violates row-level security policy for table \"penalty_catalog\"");
             var C = get(CAT) || [];
@@ -149,6 +160,8 @@
           set(ABS, (get(ABS) || []).filter(function (x) { return !(x.d == q.d && x.player == q.player && canAbs(x)) })); return ok();
         }, eq: function (c, v) {
           log({ op: "delete", table: table, value: v });
+          if (table == "hall_seasons" && role() == "admin") { set(HSE, (get(HSE) || []).filter(function (x) { return x[c] != v })); set(HPH, (get(HPH) || []).filter(function (x) { return x.season != v })) } // on delete cascade
+          if (table == "hall_photos" && role() == "admin") set(HPH, (get(HPH) || []).filter(function (x) { return x[c] != v }));
           if (table == "penalties" && canFine()) set(PEN, (get(PEN) || []).filter(function (x) { return x[c] != v }));
           if (table == "penalty_catalog" && canCat()) set(CAT, (get(CAT) || []).filter(function (x) { return x[c] != v }));
           return ok();

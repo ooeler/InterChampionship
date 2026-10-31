@@ -57,7 +57,7 @@ test.describe("Rangliste", () => {
     await login(page);
     await expect(board(page, "Anwesenheit Saison").locator(".row")).toHaveCount(5);
     await expect(page.locator("#li")).toBeHidden();
-    await expect(page.locator("nav button")).toHaveCount(5);
+    await expect(page.locator("nav button")).toHaveCount(6);
   });
 });
 
