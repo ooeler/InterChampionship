@@ -181,7 +181,16 @@ jobs:
         run: |
           # GitHub Pages braucht nach dem Deployment einen Moment, bis die neue Version überall ausgeliefert wird
           [ "${{ needs.pages.result }}" = "success" ] && sleep 30
-          supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin if to_regclass('public.app_status') is not null then
+          # Bleibt die Wartungsseite an, ist die App für alle gesperrt: kurze Störungen bei Supabase nochmals versuchen
+          for i in 1 2 3 4 5 6; do
+            if supabase db query --agent no --linked --project-ref "$REF"             "do \$\$ begin if to_regclass('public.app_status') is not null then
                update public.app_status set maintenance = false, since = null where id = 'main';
-             end if; end \$\$" > /dev/null
-          echo "Wartungsseite aus"
+             end if; end \$\$" > /dev/null; then
+              echo "Wartungsseite aus"
+              exit 0
+            fi
+            echo "Versuch $i fehlgeschlagen"
+            sleep 30
+          done
+          echo "::error::Wartungsseite konnte nicht ausgeschaltet werden. Die App bleibt gesperrt, bis dieser Job erneut läuft."
+          exit 1
