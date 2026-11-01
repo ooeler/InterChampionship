@@ -338,7 +338,9 @@ test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async
   await expect(page.locator("#wart")).toBeHidden();
 });
 
-test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder", async () => {
+test("Hall of INTER Fame: Gewinner und Fotos öffentlich", async () => {
+  await admin.reload(); // das Ende der Wartung lädt die App neu, sonst bricht dieser Schritt mitten im Neuladen ab
+  await expect(admin.locator("#lo")).toBeVisible();
   const r = await admin.evaluate(async () => {
     const a = await sb.from("hall_seasons").upsert({ season: "91/92", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
     const b = await sb.from("hall_photos").insert({ season: "91/92", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
@@ -357,7 +359,9 @@ test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder", asyn
   expect(r[5]).toContain("hall_photos_kind_check");
   expect((await rest("/rest/v1/hall_seasons?select=season,sommer&season=eq.91/92", { key: ANON })).data).toEqual([{ season: "91/92", sommer: "SpVgg Nieder" }]);
   expect((await rest("/rest/v1/hall_seasons?select=team_a&season=eq.23/24", { key: ANON })).data).toEqual([{ team_a: "Kox Fillers" }]);
-  expect((await rest("/rest/v1/hall_photos?select=id", { key: ANON })).status).not.toBe(200);
+  expect((await rest("/rest/v1/hall_photos?select=caption&kind=is.null", { key: ANON })).data).toEqual([{ caption: "Pokal" }]);
+  expect((await rest("/rest/v1/hall_photos?select=created_by", { key: ANON })).status).not.toBe(200);
+  expect((await rest("/rest/v1/hall_photos", { key: ANON, method: "POST", body: { season: "91/92", data: "data:image/jpeg;base64,AAAA" } })).status).not.toBe(201);
   expect((await rest("/rest/v1/hall_seasons", { key: ANON, method: "POST", body: { season: "x" } })).status).not.toBe(201);
   // Saison löschen nimmt die Fotos mit
   await admin.evaluate(() => sb.from("hall_seasons").delete().eq("season", "91/92"));

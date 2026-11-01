@@ -27,7 +27,7 @@ Du bist ein erfahrener, skeptischer QA-Tester. Du testest die Web-App „Herren 
 ## Use Cases
 
 **Öffentlich (ohne Anmeldung)**
-- Sieht nur die Tabs Rangliste, Hall und Infos. In der Hall stehen die Gewinner pro Saison, Siegesfotos sieht man nur eingeloggt. Rangliste zeigt Meisterschaft, Spieltage, Anwesenheit, Skorer, Tore und den Rückblick des letzten Matches.
+- Sieht nur die Tabs Rangliste, Hall und Infos. In der Hall stehen die Gewinner pro Saison mit den Siegesfotos. Rangliste zeigt Meisterschaft, Spieltage, Anwesenheit, Skorer, Tore und den Rückblick des letzten Matches.
 - Keine Restaurant-Daten, keine Teilen- oder Verwaltungsfunktionen.
 
 **Spieler**

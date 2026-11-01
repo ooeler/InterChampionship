@@ -24,7 +24,7 @@ const hall = async (page, user) => {
 };
 
 test.describe("Hall of INTER Fame", () => {
-  test("Öffentlich: Gewinner sichtbar, keine Fotos und keine Verwaltung", async ({ page }) => {
+  test("Öffentlich: Gewinner und Fotos sichtbar, keine Verwaltung", async ({ page }) => {
     await seed(page, [S2526], [{ id: 1, season: "25/26", caption: "Pokal", data: PIXEL }]);
     await hall(page);
     const c = page.locator(".card", { has: page.locator("h3", { hasText: "Saison 25/26" }) });
@@ -32,8 +32,9 @@ test.describe("Hall of INTER Fame", () => {
     await expect(c).toContainText("SpVgg Nieder");
     await expect(c).toContainText("Beat Rentsch");
     await expect(c).not.toContainText("Wintermeister");
-    await expect(page.locator(".hph")).toHaveCount(0);
-    await expect(page.locator("[data-hse]")).toHaveCount(0);
+    await expect(page.locator(".hph img")).toHaveCount(1);
+    await expect(page.locator(".hph")).toContainText("Pokal");
+    await expect(page.locator("[data-hse], [data-hpd], [data-hup]")).toHaveCount(0);
   });
 
   test("Leer: freundlicher Hinweis", async ({ page }) => {
@@ -182,11 +183,11 @@ test.describe("Hall of INTER Fame", () => {
     expect((await photos(page)).map((x) => x.kind).sort()).toEqual(["scorer", "sommer"]);
   });
 
-  test("Bilder der Titel: Mitglieder sehen und vergrössern, öffentlich niemand", async ({ page }) => {
+  test("Bilder der Titel: alle sehen und vergrössern sie", async ({ page }) => {
     const ph = [{ id: 1, season: "25/26", kind: "attendance", caption: null, data: PIXEL }];
     await seed(page, [S2526], ph);
     await hall(page);
-    await expect(page.locator(".hw")).toHaveCount(0);
+    await expect(page.locator(".hw")).toHaveCount(1);
 
     await hall(page, SPIELER);
     await expect(page.locator(".hw figure")).toHaveCount(1);
@@ -328,4 +329,15 @@ test.describe("Hall: Ehrentafel", () => {
     await expect(t).toContainText("<img id=pwn src=x>");
     await expect(page.locator("#pwn")).toHaveCount(0);
   });
+});
+
+test("Hall auf dem Handy: Angaben stehen unter dem Titel", async ({ page, isMobile }) => {
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("__mock_hall", JSON.stringify([{ season: "25/26", sommer: "SpVgg Nieder", attendance: "Stefan Keller, Cornel Eberle", scorer: "Beat Rentsch" }])));
+  await page.reload();
+  await page.click("nav [data-tab=hall]");
+  const z = page.locator(".rcr.hr").first();
+  const [t, w] = await z.evaluate((e) => [e.children[0], e.children[1]].map((x) => x.getBoundingClientRect().toJSON()));
+  if (isMobile) expect(w.y).toBeGreaterThanOrEqual(t.y + t.height - 1);
+  else expect(w.x).toBeGreaterThan(t.x);
 });
