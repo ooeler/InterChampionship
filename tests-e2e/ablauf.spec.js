@@ -335,7 +335,9 @@ test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async
   await expect(page.locator("#wart")).toBeHidden();
 });
 
-test("Hall of INTER Fame: Gewinner öffentlich, Fotos nur für Mitglieder", async () => {
+test("Hall of INTER Fame: Gewinner und Fotos öffentlich", async () => {
+  await admin.reload(); // das Ende der Wartung lädt die App neu, sonst bricht dieser Schritt mitten im Neuladen ab
+  await expect(admin.locator("#lo")).toBeVisible();
   const r = await admin.evaluate(async () => {
     const a = await sb.from("hall_seasons").upsert({ season: "91/92", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
     const b = await sb.from("hall_photos").insert({ season: "91/92", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
