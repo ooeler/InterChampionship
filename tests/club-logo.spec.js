@@ -40,6 +40,22 @@ test.describe("Club-Logo", () => {
     await expect(page.locator("link[rel=icon]")).toHaveAttribute("href", u);
   });
 
+  test("Hochgeladene Logos bleiben gross genug für den Ladebildschirm", async ({ page }) => {
+    await page.goto("/");
+    const b = await page.evaluate(async () => {
+      const c = document.createElement("canvas");
+      c.width = 1000; c.height = 750;
+      c.getContext("2d").fillRect(0, 0, 500, 300);
+      const f = new File([await new Promise((r) => c.toBlob(r, "image/png"))], "logo.png", { type: "image/png" });
+      const u = await new Promise((r) => rs(f, r, LOGOPX));
+      const i = new Image();
+      i.src = u;
+      await i.decode();
+      return i.naturalWidth;
+    });
+    expect(b).toBe(640);
+  });
+
   test("Ein unsicherer gemerkter Wert wird nicht verwendet", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => localStorage.setItem("ic_logo", 'x" onerror="alert(1)'));
