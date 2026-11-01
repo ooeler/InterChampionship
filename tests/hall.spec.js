@@ -283,3 +283,49 @@ test.describe("Hall: Teams, Intermeister", () => {
     await expect(c).not.toContainText("Silvan Frey");
   });
 });
+
+test.describe("Hall: Ehrentafel", () => {
+  const SAISONS = [
+    { season: "25/26", sommer: "Unentschieden", attendance: "Stefan Keller, Cornel Eberle", scorer: "Cornel Eberle" },
+    { season: "24/25", sommer: "Unentschieden", attendance: "Tobias Keller", scorer: "Cornel Eberle" },
+    { season: "23/24", sommer: "Kox Fillers", attendance: "Tobias Keller, Othmar Oeler", scorer: "Michael Süess" },
+  ];
+  const zeig = async (page, L = SAISONS) => {
+    await page.goto("/");
+    await page.evaluate((L) => localStorage.setItem("__mock_hall", JSON.stringify(L)), L);
+    await page.reload();
+    await page.click("nav [data-tab=hall]");
+    return page.locator(".hb");
+  };
+
+  test("Älteste Saison zuerst, laufende Saison offen, Rekorde ohne Unentschieden", async ({ page }) => {
+    const t = await zeig(page);
+    await expect(t).toContainText("The Inter Championships");
+    const c = t.locator(".hbc > div").first();
+    await expect(c.locator("h3")).toHaveText("Intermeister");
+    await expect(c.locator(".hbr span:first-child")).toHaveText(["23/24", "24/25", "25/26", "26/27"]);
+    await expect(c.locator(".hbr").first()).toContainText("Kox Fillers");
+    await expect(t.locator(".hbf")).toContainText("Cornel Eberle · 2 × Topskorer");
+    await expect(t.locator(".hbf")).toContainText("Tobias Keller · 2 × Anwesenheit");
+    await expect(t.locator(".hbf")).not.toContainText("Unentschieden");
+  });
+
+  test("Zeile öffnet die Saisonkarte; auf dem Handy untereinander", async ({ page, isMobile }) => {
+    const t = await zeig(page);
+    const karte = page.locator(".card", { has: page.locator("h3", { hasText: "Saison 23/24" }) });
+    await expect(karte).toHaveClass(/\bcl\b/);
+    await t.locator(".hbr", { hasText: "23/24" }).first().click();
+    await expect(karte).not.toHaveClass(/\bcl\b/);
+    const [a, b] = await t.locator(".hbc > div").evaluateAll((E) => E.slice(0, 2).map((e) => e.getBoundingClientRect().toJSON()));
+    if (isMobile) expect(b.y).toBeGreaterThan(a.y);
+    else expect(b.x).toBeGreaterThan(a.x);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
+  test("Ohne Saisons keine Tafel, Texte werden maskiert", async ({ page }) => {
+    await expect(await zeig(page, [])).toHaveCount(0);
+    const t = await zeig(page, [{ season: "23/24", sommer: "<img id=pwn src=x>", scorer: "<b>x</b>" }]);
+    await expect(t).toContainText("<img id=pwn src=x>");
+    await expect(page.locator("#pwn")).toHaveCount(0);
+  });
+});
