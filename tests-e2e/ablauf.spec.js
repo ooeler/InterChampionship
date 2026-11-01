@@ -121,7 +121,10 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect(pub.status).toBe(200);
   expect(pub.data.t[0].p.length).toBeGreaterThan(0);
   expect(pub.data.m.flatMap((m) => m.tr).length).toBe((await state()).m.flatMap((m) => m.tr).length);
-  expect(pub.data.m.flatMap((m) => m.tr).every((x) => Object.keys(x).every((k) => ["d", "t", "p"].includes(k)))).toBe(true);
+  expect(pub.data.m.flatMap((m) => m.tr).every((x) => Object.keys(x).every((k) => ["d", "t", "p", "r"].includes(k)))).toBe(true);
+  const apOffen = await rest("/rest/v1/rpc/public_app_points", { key: ANON, method: "POST", body: { monat: 7 } });
+  expect(apOffen.status).toBe(200);
+  expect(apOffen.data).toEqual([]); // noch nicht gespielt: keine Punkte
   // Gründe: fremde sind für Spieler unsichtbar, die Spielleitung sieht alle, alte werden gelöscht
   await rest("/rest/v1/absence_reasons", { method: "POST", body: [{ d: "2020-01-01", player: "Tobias Keller", reason: "ganz alt" }, { d: "2099-01-01", player: "Tobias Keller", reason: "fremd" }] });
   const lesen = "(await sb.from('absence_reasons').select('reason')).data.map((x) => x.reason).sort()";

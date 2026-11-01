@@ -22,13 +22,13 @@ async function seed(page, patch = "") {
 const stats = (page) => page.evaluate(() => { const l = lead(S.m[2]); return { l, gk: gkStats(S.m.map((m, i) => i)) } });
 
 test.describe("Torhüter-Statistik", () => {
-  test("Gegentore ohne Bonustore, Rangliste und Rückblick nur für Mitglieder", async ({ page }) => {
+  test("Gegentore ohne Bonustore, Rangliste und Rückblick auch für Besucher", async ({ page }) => {
     await seed(page);
     await page.reload();
     await page.click("nav [data-tab=rang]");
     await expect(card(page, "Rückblick November")).toBeVisible();
-    await expect(page.locator("main")).not.toContainText("Wenigste Gegentore");
-    await expect(card(page, "Torhüter")).toHaveCount(0);
+    await expect(page.locator("main")).toContainText("Wenigste Gegentore");
+    await expect(card(page, "Torhüter")).toBeVisible();
 
     await login(page, SPIELER);
     await page.click("nav [data-tab=rang]");

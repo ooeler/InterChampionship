@@ -66,7 +66,7 @@ jobs:
       - name: Sicherheitsprüfung Datenbank (wie im Release)
         run: |
           f=$(psql "$E2E_DB_URL" -tA -c "select coalesce(string_agg(p.proname, ', '), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype and p.proname <> 'public_league' and has_function_privilege('anon', p.oid, 'EXECUTE')")
+                where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype and p.proname not in ('public_league', 'public_app_points') and has_function_privilege('anon', p.oid, 'EXECUTE')")
           t=$(psql "$E2E_DB_URL" -tA -c "select coalesce(string_agg(c.relname, ', '), '') from pg_class c join pg_namespace n on n.oid = c.relnamespace
                 where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity")
           [ -z "$f" ] || { echo "::error::Ohne Login ausführbare Funktionen: $f"; exit 1; }

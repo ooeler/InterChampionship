@@ -138,8 +138,11 @@ test.describe("Spieler ohne Konto", () => {
     await c.locator("[data-invp]").first().click();
     await expect(page.locator("#inv select[name=player]")).toHaveValue(name.trim());
     await page.locator("#inv button.add").click();
-    await expect(c.locator(".row").first()).toContainText("eingeladen, gültig bis");
-    await expect(c.locator(".row").first().locator("[data-invp]")).toHaveCount(0);
+    const e = c.locator(".row", { hasText: name.trim() });
+    await expect(e).toContainText("eingeladen, gültig bis");
+    await expect(e.locator("[data-invp]")).toHaveCount(0);
+    await expect(c.locator(".row").last()).toContainText(name.trim()); // Eingeladene stehen unten
+    await expect(c).toContainText((zahl - 1) + " noch ohne Einladung, 1 mit offener Einladung");
   });
 
   test("Captains sehen die Liste nicht", async ({ page }) => {
