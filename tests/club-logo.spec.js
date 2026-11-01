@@ -1,4 +1,4 @@
-const { test, expect } = require("./fixtures");
+const { test, expect, login } = require("./fixtures");
 
 const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
@@ -26,6 +26,18 @@ test.describe("Club-Logo", () => {
     expect(await page.evaluate(() => document.querySelector("#splash img")?.src ?? "weg")).toMatch(/^(data:image|weg)/);
     await page.click("#li");
     await expect(page.locator("#auth .alogo")).toHaveAttribute("src", PIXEL);
+  });
+
+  test("Neues Club-Logo erscheint nach dem Hochladen sofort oben links", async ({ page }) => {
+    await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator("#clogo")).toBeHidden();
+    await page.locator("input[data-img=club]").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: Buffer.from(PIXEL.split(",")[1], "base64") });
+    await expect(page.locator("#clogo")).toBeVisible();
+    await expect(page.locator("#clogo")).toHaveAttribute("src", /^data:image/);
+    const u = await page.locator("#clogo").getAttribute("src");
+    expect(await page.evaluate(() => S.logo)).toBe(u);
+    await expect(page.locator("link[rel=icon]")).toHaveAttribute("href", u);
   });
 
   test("Ein unsicherer gemerkter Wert wird nicht verwendet", async ({ page }) => {

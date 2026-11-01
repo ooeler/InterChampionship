@@ -190,12 +190,13 @@
     function publicLeague() {
       var r = get(DB); if (!r) return null; var d = r.data;
       return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: d.evt ? only(d.evt, ["d", "t"]) : null, m: d.m.map(function (m) {
-        return Object.assign(only(m, ["res", "pre", "g", "a", "base", "gs", "ff"]), { tr: m.tr.map(function (x) { return only(x, ["d", "t", "p"]) }) });
+        return Object.assign(only(m, ["res", "pre", "g", "a", "base", "gs", "ff", "kp"]), { tr: m.tr.map(function (x) { return only(x, ["d", "t", "p", "r"]) }) });
       }) });
     }
 
     function rpc(fn, a) {
       if (fn == "public_league") return ok(publicLeague());
+      if (fn == "public_app_points") return ok(get("__mock_act") || []);
       var s = get(SESS);
       if (!s) return fail("JWT expired");
       if (fn == "me") {

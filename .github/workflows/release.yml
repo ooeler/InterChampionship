@@ -94,10 +94,10 @@ jobs:
 
       - name: Sicherheitsprüfung Datenbank
         run: |
-          # Ohne Login (anon) darf keine Funktion ausführbar sein (einzige Ausnahme: public_league für die öffentliche Rangliste), und jede Tabelle braucht Row Level Security
+          # Ohne Login (anon) darf keine Funktion ausführbar sein (Ausnahmen für die öffentliche Rangliste: public_league und public_app_points), und jede Tabelle braucht Row Level Security
           q() { supabase db query --agent no --linked --project-ref "$REF" -o json "$1" | jq -r 'if type == "array" then .[0].c else .rows[0].c end'; }
           f=$(q "select coalesce(string_agg(p.proname, ', '), '') as c from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                 where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype and p.proname <> 'public_league' and has_function_privilege('anon', p.oid, 'EXECUTE')")
+                 where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype and p.proname not in ('public_league', 'public_app_points') and has_function_privilege('anon', p.oid, 'EXECUTE')")
           t=$(q "select coalesce(string_agg(c.relname, ', '), '') as c from pg_class c join pg_namespace n on n.oid = c.relnamespace
                  where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity")
           [ -z "$f" ] || { echo "::error::Ohne Login ausführbare Funktionen: $f"; exit 1; }

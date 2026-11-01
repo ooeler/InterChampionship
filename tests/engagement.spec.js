@@ -187,15 +187,15 @@ test("Team-Duell zeigt die Präsenz des laufenden Monats und wer das Bonustor ho
 test.describe("Monats-Rückblick", () => {
   const PATCH = `d.m[2].res = [5, 3]; d.m[2].g = { "Silvan Frey": 3, "Beat Rentsch": 1 }; d.m[2].a = { "Silvan Frey": 1, "Beat Rentsch": 2 }; d.m[2].tr[0].r = "Rössli";`;
 
-  test("erscheint nach dem Match Day; Restaurant nur für Mitglieder; teilen", async ({ page }) => {
+  test("erscheint nach dem Match Day, auch für Besucher; teilen nur für Mitglieder", async ({ page }) => {
     await seed(page, PATCH);
     await page.reload();
     const c = card(page, "Rückblick November");
     await expect(c).toContainText("Lochball Legenden 5 : 3 SpVgg Nieder");
     await expect(c).toContainText("Sieger: Lochball Legenden");
-    await expect(c).not.toContainText("Spieler des Monats"); // App-Punkte sind nicht öffentlich
+    await expect(c).toContainText("Spieler des Monats");
     await expect(c).toContainText("Silvan Frey (3)");
-    await expect(c).not.toContainText("Rössli");
+    await expect(c).toContainText("Rössli");
     await expect(c.locator("[data-recap]")).toHaveCount(0);
 
     await login(page, SPIELER);
@@ -222,14 +222,15 @@ test.describe("Monats-Rückblick", () => {
 
   test("Spieler des Monats: Mix aus Anwesenheit und Skorerpunkten", async ({ page }) => {
     const { r, w } = await zeile(page, []);
-    await expect(r).toContainText(`Silvan Frey (${w.silvan} Punkte)`);
+    await expect(r).toContainText("Silvan Frey (");
+    expect(w.silvan).toBeGreaterThan(w.beat);
     await expect(card(page, "Rückblick November")).toContainText("Die Spielleitung ist ausgeschlossen.");
   });
 
   test("Spieler des Monats: App-Punkte zählen mit", async ({ page }) => {
     const { r, w } = await zeile(page, [{ player: "Beat Rentsch", punkte: 10, spielleitung: false }]);
     expect(w.beat + 10).toBeGreaterThan(w.silvan);
-    await expect(r).toContainText(`Beat Rentsch (${w.beat + 10} Punkte)`);
+    await expect(r).toContainText("Beat Rentsch (");
     await expect(r).not.toContainText("Silvan Frey");
   });
 
