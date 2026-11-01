@@ -94,7 +94,7 @@
         select: function () {
           return {
             eq: function (col, val) {
-              if (table == "hall_photos") return { order: function () { return ok(get(SESS) ? (get(HPH) || []).filter(function (x) { return x[col] == val }) : []) } }; // RLS: nur Mitglieder
+              if (table == "hall_photos") return { order: function () { return ok((get(HPH) || []).filter(function (x) { return x[col] == val })) } }; // öffentlich lesbar
               if (table == "app_status") return { maybeSingle: function () { return ok({ maintenance: localStorage.getItem("__mock_maint") == "1" }) } };
               return { maybeSingle: function () { var r = get(SESS) ? get(DB) : null; return ok(r && r[col] == val ? { data: r.data, updated_at: r.updated_at } : null) } };
             },
