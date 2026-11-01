@@ -122,3 +122,29 @@ test("Spieleransicht berücksichtigt die Zusatzrollen Strafenchef und Restaurant
   await page.click("nav [data-tab=train]"); // Restaurant-Chef: Restaurant eintragen
   await expect(page.locator(".card", { hasText: "Übersicht pro Training" }).locator("input[data-resto]")).toBeVisible();
 });
+
+test.describe("Spieler ohne Konto", () => {
+  test("Spielleitung sieht, wer noch kein Konto hat, und kann direkt einladen", async ({ page }) => {
+    await teams(page);
+    const c = card(page, "na");
+    await expect(c).toContainText("Silvan Frey");
+    await page.evaluate(() => { MEM[0].player = "Silvan Frey"; render() }); // Konto zugeordnet
+    await expect(c).not.toContainText("Silvan Frey");
+    await expect(c).toContainText("Konten sind noch keinem Spieler zugeordnet");
+    const zahl = await page.evaluate(() => allP().length - new Set(MEM.map((u) => u.player).filter(Boolean)).size);
+    await expect(c.locator("h3")).toContainText("· " + zahl);
+    await expect(c.locator(".row")).toHaveCount(zahl);
+    const name = await c.locator(".row .nm").first().innerText();
+    await c.locator("[data-invp]").first().click();
+    await expect(page.locator("#inv select[name=player]")).toHaveValue(name.trim());
+    await page.locator("#inv button.add").click();
+    await expect(c.locator(".row").first()).toContainText("eingeladen, gültig bis");
+    await expect(c.locator(".row").first().locator("[data-invp]")).toHaveCount(0);
+  });
+
+  test("Captains sehen die Liste nicht", async ({ page }) => {
+    await login(page);
+    await page.click("nav [data-tab=team]");
+    await expect(page.locator("h3[data-acc=na]")).toHaveCount(0);
+  });
+});
