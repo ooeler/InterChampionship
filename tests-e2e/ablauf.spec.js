@@ -251,6 +251,16 @@ test("Resultat der Spielleitung erscheint sofort in der öffentlichen Rangliste"
 test("Jede Änderung wird automatisch gesichert (Datensicherung)", async () => {
   const h = (await rest("/rest/v1/league_state_history?select=reason")).data.map((x) => x.reason);
   expect(h).toContain("Änderung");
+  // höchstens 10 Sicherungen, die neuesten bleiben
+  const d = await state();
+  for (let i = 0; i < 12; i++) await rest("/rest/v1/league_state_history", { method: "POST", body: { state_id: "main", data: d, reason: "Limit " + i } });
+  // alles der letzten 7 Tage bleibt; ältere nur, solange sie zu den 10 neuesten gehören
+  expect((await rest("/rest/v1/league_state_history?select=id&reason=like.Limit*")).data.length).toBe(12);
+  await rest("/rest/v1/league_state_history?reason=like.Limit*", { method: "PATCH", body: { saved_at: "2020-01-01T00:00:00Z" } });
+  await rest("/rest/v1/league_state_history", { method: "POST", body: { state_id: "main", data: d, reason: "neu" } });
+  const alt = (await rest("/rest/v1/league_state_history?select=reason&reason=like.Limit*")).data.length;
+  expect(alt).toBeLessThanOrEqual(9);
+  expect((await rest("/rest/v1/league_state_history?select=reason&reason=eq.neu")).data.length).toBe(1);
 });
 
 test("Hall pflegen Spielleitung und Captains, Spieler nicht (serverseitig)", async () => {

@@ -73,7 +73,8 @@ test.describe("Strafenkatalog", () => {
     await seed(page, [{ reason: "zu spät", amount: 5 }, { reason: "Handy im Training", amount: 10 }]);
     await login(page);
     await page.click("nav [data-tab=team]");
-    await expect(katalog(page)).toHaveCount(0);
+    await expect(katalog(page)).toContainText("Handy im Training"); // nur lesen
+    await expect(katalog(page).locator("[data-catedit], [data-catdel], #catf")).toHaveCount(0);
     // Server: Captain darf den Katalog nicht ändern
     const r = await page.evaluate(() => sb.from("penalty_catalog").insert({ reason: "x", amount: 1 }));
     expect(r.error.message).toContain("row-level security");
