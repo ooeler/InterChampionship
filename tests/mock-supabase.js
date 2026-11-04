@@ -196,6 +196,7 @@
 
     function rpc(fn, a) {
       if (fn == "public_league") return ok(publicLeague());
+      if (fn == "recent_feedback") return ok(get(SESS) ? (get("__mock_feedback") || []).slice().reverse().slice(0, 10).map(function (x) { return Object.assign({ mine: x.mine !== false }, x) }) : []);
       if (fn == "public_app_points") return ok(get("__mock_act") || []);
       var s = get(SESS);
       if (!s) return fail("JWT expired");
@@ -242,6 +243,12 @@
     var functions = {
       invoke: function (name, o) {
         log({ op: "invoke", name: name, body: o.body });
+        if (name == "notify" && o.body.type == "testpush") { // spiegelt supabase/functions/notify (testpush)
+          if (role() != "admin") return Promise.resolve({ data: null, error: { message: "non-2xx", context: { json: function () { return Promise.resolve({ error: "Nur die Spielleitung darf Test-Benachrichtigungen verschicken" }) } } } });
+          var n = +(localStorage.getItem("__mock_pushdevs") || 0);
+          if (!n) return Promise.resolve({ data: null, error: { message: "non-2xx", context: { json: function () { return Promise.resolve({ error: "Auf keinem Gerät aktiviert. Zuerst unter Training „Benachrichtigungen aktivieren“ tippen." }) } } } });
+          return Promise.resolve({ data: { sent: n, devices: n, errors: [] }, error: null });
+        }
         if (name == "notify" && o.body.type == "testmail") { // spiegelt supabase/functions/notify (testmail)
           if (role() != "admin") return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: function () { return Promise.resolve({ error: "Nur die Spielleitung darf Test-Mails verschicken" }) } } } });
           if (localStorage.getItem("__mock_brevo") != "1") return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: function () { return Promise.resolve({ error: "BREVO_API_KEY oder MAIL_FROM fehlt (Supabase → Edge Functions → Secrets)" }) } } } });

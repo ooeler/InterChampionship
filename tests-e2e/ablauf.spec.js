@@ -339,9 +339,17 @@ test("Wartungsstatus: öffentlich lesbar, aber nur vom Release änderbar", async
 });
 
 test("Hall of INTER Fame: Gewinner und Fotos öffentlich", async () => {
-  await admin.reload(); // das Ende der Wartung lädt die App neu, sonst bricht dieser Schritt mitten im Neuladen ab
-  await expect(admin.locator("#lo")).toBeVisible();
-  const r = await admin.evaluate(async () => {
+  // Das Ende der Wartung lädt offene Seiten neu – manchmal genau jetzt. Dann einfach nochmals versuchen.
+  const nochmals = async (fn) => {
+    for (let i = 0; ; i++) {
+      try { return await admin.evaluate(fn) } catch (e) {
+        if (i > 3 || !/destroyed|navigation|attached/i.test(e.message)) throw e;
+        await admin.waitForLoadState("load").catch(() => {});
+        await expect(admin.locator("#lo")).toBeVisible();
+      }
+    }
+  };
+  const r = await nochmals(async () => {
     const a = await sb.from("hall_seasons").upsert({ season: "91/92", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
     const b = await sb.from("hall_photos").insert({ season: "91/92", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
     const c = await sb.from("hall_photos").insert({ season: "91/92", data: "<script>" });
