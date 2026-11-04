@@ -6,6 +6,7 @@
 //                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
 //   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
 //                                    (prüft die Brevo-Einrichtung; höchstens eine pro Person und 10 Min.)
+//   { type: "testpush" }           – aus der App, nur Spielleitung: Push an die eigenen Geräte (höchstens eine pro Minute)
 //   { type: "result", month: 0-7 } – aus der App, nur für eingeloggte Mitglieder
 //   { type: "signup", d, player, off } – aus der App: An-/Abmeldung an alle mit notify_changes (ausser der Person selbst);
 //                                    Spieler und Training müssen existieren, max. eine Nachricht pro Person/Training/10 Min.
@@ -94,6 +95,29 @@ Deno.serve(async (req) => {
     if (r.ok) return json({ ok: true, to: user.email });
     await db.from("push_log").delete().eq("key", key); // Fehlversuch zählt nicht: sonst verdeckt die Sperre die echte Meldung
     return json({ error: r.error }, 502);
+  } else if (body.type === "testpush") {
+    const { data: { user } } = await db.auth.getUser(token);
+    if (!user) return json({ error: "unauthorized" }, 401);
+    const { data: member } = await db.from("members").select("role").eq("user_id", user.id).maybeSingle();
+    if (member?.role !== "admin") return json({ error: "Nur die Spielleitung darf Test-Benachrichtigungen verschicken" }, 403);
+    const { error } = await db.from("push_log").insert({ key: `testpush:${user.id}:${Math.floor(Date.now() / 6e4)}` });
+    if (error) return json({ error: "Bitte eine Minute warten und dann nochmals versuchen" }, 429);
+    const { data: subs } = await db.from("push_subscriptions").select("endpoint, sub").eq("user_id", user.id);
+    if (!subs?.length) return json({ error: "Auf keinem Gerät aktiviert. Zuerst unter Training „Benachrichtigungen aktivieren“ tippen." }, 400);
+    let sent = 0;
+    const errors: string[] = [];
+    for (const s of subs) {
+      if (!pushEndpointOk(s.endpoint)) { errors.push("unbekannter Push-Dienst"); continue; }
+      try {
+        await webpush.sendNotification(s.sub, JSON.stringify({ tag: "test", title: "🔔 Test-Benachrichtigung", body: "So kommen Nachrichten von Herren Inter an.", url: "./" }));
+        sent++;
+      } catch (e) {
+        const code = (e as { statusCode?: number }).statusCode;
+        errors.push(code ? `Push-Dienst antwortet ${code}` : String((e as Error).message || e).slice(0, 120));
+        if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+      }
+    }
+    return json({ sent, devices: subs.length, errors });
   } else if (body.type === "signup") {
     const { data: { user } } = await db.auth.getUser(token);
     if (!user) return json({ error: "unauthorized" }, 401);
