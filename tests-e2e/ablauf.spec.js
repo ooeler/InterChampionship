@@ -350,6 +350,7 @@ test("Hall of INTER Fame: Gewinner und Fotos öffentlich", async () => {
     }
   };
   const r = await nochmals(async () => {
+    await sb.from("hall_photos").delete().eq("season", "91/92"); // ein abgebrochener Versuch hinterlässt sonst Bilder
     const a = await sb.from("hall_seasons").upsert({ season: "91/92", sommer: "SpVgg Nieder", attendance: "Beat Rentsch" });
     const b = await sb.from("hall_photos").insert({ season: "91/92", caption: "Pokal", data: "data:image/jpeg;base64,AAAA" });
     const c = await sb.from("hall_photos").insert({ season: "91/92", data: "<script>" });
