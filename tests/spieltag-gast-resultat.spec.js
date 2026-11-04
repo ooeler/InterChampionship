@@ -34,6 +34,7 @@ test.describe("Spielbericht: Resultat löschen", () => {
     await seed(page, `d.m[2].res = [4, 2]; d.m[2].pre = [2, 1]; d.m[2].g = { "Silvan Frey": 2 };`);
     await login(page);
     await page.click("nav [data-tab=spiel]");
+    await page.click("[data-sped]"); // Spieltag mit Resultat zuerst freigeben
     const del = page.locator("[data-resdel]");
     await answer(page, { confirm: false }); // abgebrochen: bleibt
     await del.click();

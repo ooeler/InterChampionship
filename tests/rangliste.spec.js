@@ -90,6 +90,12 @@ test.describe("100% Anwesenheit", () => {
     await expect(page.locator(".fm")).toHaveCount(0);
   });
 
+  test("bestätigter Match Day zählt schon am selben Abend", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-04T21:30:00"));
+    await seed(page, full);
+    await expect(page.locator(".row", { hasText: "Othmar Oeler" }).first().locator(".fm")).toHaveText("💯🎉");
+  });
+
   test("Monatsübersicht zeigt 💯 beim Spieler", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-11-05T10:00:00"));
     await seed(page, full);

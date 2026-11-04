@@ -111,7 +111,7 @@ test.describe("Training-Tab", () => {
   test("Anwesenheit bestätigen erst ab Trainingsbeginn – erst dann zählt sie", async ({ page }) => {
     await seed(page, { patch: `d.m[2].tr[1].ab = ["Beat Rentsch"]` });
     await openTraining(page);
-    await expect(overview(page)).toContainText("ab Trainingsbeginn (Mi, 28.10.2026, 18:45) möglich");
+    await expect(overview(page)).toContainText("ab 6 Stunden vor Trainingsbeginn (Mi, 28.10.2026, 18:45) möglich");
     await expect(overview(page).locator("[data-allc]")).toHaveCount(0);
 
     await page.clock.setFixedTime(new Date("2026-10-28T19:00:00"));

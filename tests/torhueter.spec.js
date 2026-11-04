@@ -57,6 +57,7 @@ test.describe("Torhüter-Statistik", () => {
     await page.click("nav [data-tab=spiel]");
     await page.locator("[data-c='2']").click();
     const b = card(page, "Spielbericht");
+    if (await b.locator("[data-sped]").count()) await b.locator("[data-sped]").click();
     await expect(b.locator("[data-kp='0'][data-p='Silvan Frey']")).toHaveClass(/\bon\b/);
     await b.locator("[data-kpa='0']").selectOption(zweiter);
     await expect(b.locator(`[data-kp="0"][data-p="${zweiter}"]`)).toHaveClass(/\bon\b/);
@@ -102,6 +103,7 @@ test("Schiedsrichter ist ein freies Textfeld", async ({ page }) => {
   await login(page, ADMIN);
   await page.click("nav [data-tab=spiel]");
   await page.locator("[data-c='2']").click();
+  if (await page.locator("[data-sped]").count()) await page.click("[data-sped]");
   const r = page.locator("[data-ref]");
   await expect(r).not.toHaveAttribute("list", /.*/);
   await expect(page.locator("datalist#pl")).toHaveCount(0);
