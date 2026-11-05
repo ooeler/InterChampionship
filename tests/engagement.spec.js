@@ -118,6 +118,7 @@ test.describe("Teams-Tab für alle Mitglieder", () => {
     await seed(page, `d.m[2].tr[1].lead = "Silvan Frey";`);
     await login(page, SPIELER);
     await page.click("nav [data-tab=team]");
+    await page.click("h3[data-acc=lst]");
     const row = page.locator("[data-lst='Silvan Frey']");
     await expect(row.locator(".lf")).toHaveText("+1 geplant");
     const n = await row.locator(".nm").boundingBox(), l = await row.locator(".lf").boundingBox();
