@@ -27,7 +27,9 @@ test.describe("Neuerungen November II", () => {
     await page.click("nav [data-tab=rang]");
     await page.click("nav [data-tab=spiel]");
     await expect(ec.locator("[data-rs]")).toBeDisabled();
-    await expect(page.locator(".card", { has: page.locator("h3[data-acc=sk0]") }).locator("[data-gs]")).toBeDisabled();
+    const sk0 = page.locator(".card", { has: page.locator("h3[data-acc=sk0]") });
+    await expect(sk0.locator("[data-gs], [data-k=g]")).toHaveCount(0); // gesperrt nur als Text
+    await expect(sk0.locator("table.skt tr")).toHaveCount(await page.evaluate(() => S.t[0].p.length + S.m[cur].gs.filter((g) => g.t == 0).length + 1));
     await ec.locator("[data-sped]").click();
     await expect(ec.locator("[data-rs]")).toBeEnabled();
     await expect(ec.locator("[data-sped]")).toHaveText("✓ Fertig bearbeitet");
