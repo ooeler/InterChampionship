@@ -85,7 +85,8 @@ test.describe("Übernahme aus dem PDF", () => {
     await page.fill("#auth input[name=pw]", "geheim123");
     await page.click("#auth form .btn");
     await page.click("nav [data-tab=team]");
-    const c = page.locator(".card", { has: page.locator("h3", { hasText: /^Trainingsleitung$/ }) });
+    await page.click("h3[data-acc=lst]");
+    const c = page.locator(".card", { has: page.locator("h3[data-acc=lst]") });
     // bis 28.10. geleitet (je 1), danach geplant
     for (const p of ["Othmar Oeler", "Michael Süess", "Raphael Germann", "Thomas Allemann"]) await expect(c.locator(`.row[data-lst='${p}'] b`)).toHaveText("1");
     for (const p of ["Cornel Eberle", "Michael Vetter", "Pascal Fröhlich", "Silvan Frey"]) await expect(c.locator(`.row[data-lst='${p}'] .lf`)).toHaveText("+1 geplant");
