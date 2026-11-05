@@ -352,8 +352,11 @@ test("Hall of INTER Fame: Gewinner und Fotos öffentlich", async () => {
   // Das Ende der Wartung lädt offene Seiten neu – manchmal genau jetzt. Dann einfach nochmals versuchen.
   const nochmals = async (fn) => {
     for (let i = 0; ; i++) {
-      try { return await admin.evaluate(fn) } catch (e) {
-        if (i > 3 || !/destroyed|navigation|attached/i.test(e.message)) throw e;
+      try {
+        await admin.waitForFunction(() => typeof sb != "undefined" && !!sb && !!me, null, { timeout: 15000 }); // nach dem Neuladen erst, wenn die App bereit ist
+        return await admin.evaluate(fn);
+      } catch (e) {
+        if (i > 3 || !/destroyed|navigation|attached|is not defined|Timeout/i.test(e.message)) throw e;
         await admin.waitForLoadState("load").catch(() => {});
         await expect(admin.locator("#lo")).toBeVisible();
       }
