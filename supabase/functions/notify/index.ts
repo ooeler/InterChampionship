@@ -34,13 +34,13 @@ webpush.setVapidDetails(
 
 const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampionship/";
 
-// Mail an alle Konten, die dem Spieler zugeordnet sind, Spielleitung in Kopie. Gibt die Anzahl verschickter Mails zurück.
+// Mail an alle Konten, die dem Spieler zugeordnet sind; in Kopie, wer von der Spielleitung das will (members.lead_mail_cc). Gibt die Anzahl verschickter Mails zurück.
 type Mail = { key: string; player: string; subject: string; text: string };
 async function sendLeadMails(db: ReturnType<typeof createClient>, mails: Mail[]) {
   if (!mails.length) return 0;
   if (!mailReady()) { console.log("Mail an Trainingsleitung übersprungen: RESEND_API_KEY/MAIL_FROM fehlen"); return 0; }
   let n = 0;
-  const { data: admins } = await db.from("members").select("email").eq("role", "admin");
+  const { data: admins } = await db.from("members").select("email").eq("role", "admin").eq("lead_mail_cc", true);
   for (const m of mails) {
     const { data: to } = await db.from("members").select("email").eq("player", m.player);
     if (!to?.length) continue;

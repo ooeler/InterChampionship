@@ -214,7 +214,7 @@
       if (!s) return fail("JWT expired");
       if (fn == "me") {
         var me = USERS[s.user.email] || {};
-        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1", strafen: !!me.strafen || localStorage.getItem("__mock_strafen") == "1" });
+        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", lead_cc: localStorage.getItem("__mock_leadcc") != "0", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1", strafen: !!me.strafen || localStorage.getItem("__mock_strafen") == "1" });
       }
       log({ op: "rpc", fn: fn, args: a });
       if (fn == "log_activity") return ok(null);
@@ -227,6 +227,7 @@
         if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
         USERS[a.uid.slice(2)].strafen = a.on_strafen; return ok(null);
       }
+      if (fn == "set_lead_cc") { if (role() != "admin") return fail("Nur für die Spielleitung"); localStorage.setItem("__mock_leadcc", a.on_cc ? "1" : "0"); return ok(null) }
       if (fn == "set_notify") { localStorage.setItem("__mock_notify", a.on_changes ? "1" : "0"); return ok(null) }
       if (fn == "snapshot_league") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Backups anlegen");
