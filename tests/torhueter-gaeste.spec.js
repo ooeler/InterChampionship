@@ -19,6 +19,7 @@ test.describe("Torhüter", () => {
     await seed(page);
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("[data-ted='1']"); // Team bearbeiten
     const b = page.locator("button[data-gkp='1'][data-p='Tobias Keller']");
     await expect(b).toHaveAttribute("aria-pressed", "false");
     await b.click();
@@ -42,6 +43,7 @@ test.describe("Torhüter", () => {
     await seed(page, `d.t[1].gk = ["Tobias Keller"];`);
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("[data-ted='1']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='1'][value='Tobias Keller']");
     await inp.fill("Tobi Keller");
     await inp.blur();

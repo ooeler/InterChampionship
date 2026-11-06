@@ -86,6 +86,7 @@ test.describe("Torhüter-Statistik", () => {
     await page.click("nav [data-tab=rang]");
     await expect(card(page, "Torhüter")).toContainText("Max (Gast)");
     await page.click("nav [data-tab=team]");
+    await page.click(`[data-ted='${await page.evaluate(() => S.t[0].p.includes("Silvan Frey") ? 0 : 1)}']`); // Team bearbeiten
     const inp = page.locator("input[data-pn][value='Silvan Frey']");
     await inp.fill("Silvan Neu");
     await inp.blur();

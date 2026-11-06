@@ -62,6 +62,7 @@ test.describe("Spiellogik", () => {
   test("Spieler umbenennen übernimmt Statistiken", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first();
     const old = await inp.inputValue();
     await inp.fill("Neuer Name");
@@ -77,6 +78,7 @@ test.describe("Daten & Synchronisation", () => {
   test("Änderungen werden ins Backend gespeichert", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("[data-ted='0']"); // Team bearbeiten
     await page.fill("input[data-tn='0']", "Pinguine");
     await page.locator("input[data-tn='0']").blur();
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db") || "{}").data?.t?.[0]?.n)).toBe("Pinguine");

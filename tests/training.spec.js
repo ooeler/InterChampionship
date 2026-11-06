@@ -199,6 +199,7 @@ test.describe("Training-Tab", () => {
     await seed(page, { player: null, patch: `d.m[2].tr[1].lead = "Andreas Scherrer"; d.m[2].tr[1].ab = ["Andreas Scherrer"];` });
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first();
     await inp.fill("Andi Scherrer");
     await inp.blur();
