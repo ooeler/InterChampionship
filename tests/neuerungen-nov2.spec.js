@@ -54,12 +54,13 @@ test.describe("Neuerungen November II", () => {
     await expect(ec.locator(".pt [data-kpa]")).toHaveCount(2);
   });
 
-  test("Datum unter „Meine Trainings“ springt zur Übersicht pro Training", async ({ page }) => {
+  test("Datum unter „Meine Trainings“ öffnet die Kurzübersicht, Details springen zur Übersicht pro Training", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => { localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: fix(def()) })); localStorage.setItem("__mock_player", "Silvan Frey") });
     await login(page, SPIELER);
     await page.click("nav [data-tab=train]");
-    const b = card(page, "Meine Trainings").locator("[data-tjump]").last();
+    await card(page, "Meine Trainings").locator("[data-tsum]").last().click();
+    const b = card(page, "Meine Trainings").locator(".tsum [data-tjump]");
     const k = await b.getAttribute("data-tjump");
     await b.click();
     expect(await page.evaluate(() => TSEL)).toBe(k);
