@@ -16,15 +16,21 @@ test.describe("Trainingsleitung per WhatsApp anfragen", () => {
     expect(t).toContain("Wer leitet ein Training?");
     expect(t).toContain("„Ich leite“ unter Meine Trainings");
     expect(t).toMatch(/\/#trainings$/);
-    const n = await page.evaluate(() => (leadStats().match(/(\d+) ohne Leitung/) || [])[1]);
-    expect(t.split("\n").filter((l) => l.startsWith("• ")).length).toBe(+n);
+    const open = await page.evaluate(() => allTr().filter((r) => !noLead(r) && !started(r.x) && !r.x.lead).map((r) => r.x.d).sort());
+    const lines = t.split("\n").filter((l) => l.startsWith("• "));
+    expect(lines.length).toBe(Math.min(3, open.length));
+    expect(open.length).toBeGreaterThan(0);
+    expect(lines[0]).toContain(await page.evaluate((d) => wd(d), open[0]));
   });
 
-  test("ohne offene Trainings kein Knopf", async ({ page }) => {
+  test("Knopf auch ohne offene Trainings, dann mit Dank", async ({ page }) => {
     await login(page);
     await page.evaluate(() => { allTr().forEach((r) => { if (!noLead(r)) r.x.lead = "Othmar Oeler" }); render() });
     await page.click("nav [data-tab=team]");
-    await expect(page.locator("a[data-wa]")).toHaveCount(0);
+    await page.click("h3[data-acc=lst]");
+    const t = decodeURIComponent((await page.locator("a[data-wa]").getAttribute("href")).slice("https://wa.me/?text=".length));
+    expect(t).toContain("Alle kommenden Trainings haben eine Leitung");
+    expect(t).toMatch(/\/#trainings$/);
   });
 
   test("Link #trainings öffnet nach dem Anmelden Meine Trainings", async ({ page }) => {

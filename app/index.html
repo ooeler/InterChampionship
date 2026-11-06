@@ -357,13 +357,13 @@ function allP(){return S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.loc
 // Statistik Trainingsleitung (Teams-Tab): geleitete und geplante Trainings pro Spieler, Match Days zählen nicht
 // WhatsApp-Aufruf für Trainings ohne Leitung; der Link öffnet direkt „Meine Trainings“
 function trLink(){return location.origin+location.pathname+"#trainings"}
-function leadWa(L){var t="🙋 Wer leitet ein Training?\nFür "+(L.length==1?"dieses Training":"diese Trainings")+" fehlt noch eine Leitung:\n"+L.map(function(r){return "• "+wd(r.x.d)+", "+tstart(r.x)}).join("\n")+"\n\nÜbernimm eines mit „Ich leite“ unter Meine Trainings – danke! 💪\n"+trLink();return "https://wa.me/?text="+encodeURIComponent(t)}
+function leadWa(L){var t=!L.length?"🙌 Alle kommenden Trainings haben eine Leitung – danke!\nWer auch mal leiten möchte: unter Meine Trainings „Ich leite“ tippen.\n"+trLink():"🙋 Wer leitet ein Training?\nFür "+(L.length==1?"dieses Training":"die nächsten "+L.length+" Trainings")+" fehlt noch eine Leitung:\n"+L.map(function(r){return "• "+wd(r.x.d)+", "+tstart(r.x)}).join("\n")+"\n\nÜbernimm eines mit „Ich leite“ unter Meine Trainings – danke! 💪\n"+trLink();return "https://wa.me/?text="+encodeURIComponent(t)}
 function leadStats(){var T=allTr().filter(function(r){return !noLead(r)}),c={},OL;S.t.forEach(function(t,k){t.p.forEach(function(p){c[p]={p:p,k:k,d:0,f:0}})});
 T.forEach(function(r){var z=c[r.x.lead];if(z){if(started(r.x))z.d++;else z.f++}});
 var L=Object.keys(c).map(function(p){return c[p]}).sort(function(a,b){return b.d-a.d||b.f-a.f||a.p.localeCompare(b.p,"de")}),mx=Math.max(1,L[0].d),
-OL=T.filter(function(r){return !started(r.x)&&!r.x.lead&&r.x.d<=addDays(TD,28)}),open=OL.length;
+OL=T.filter(function(r){return !started(r.x)&&!r.x.lead}).sort(function(a,b){return a.x.d<b.x.d?-1:a.x.d>b.x.d?1:0}),open=OL.filter(function(r){return r.x.d<=addDays(TD,28)}).length;
 return acc("lst","Trainingsleitung"+(open?" · ⚠️ "+open+" ohne Leitung":""),0)+'<div class="sp">Geleitete Trainings pro Spieler, dahinter bereits übernommene kommende Trainings. Match Days und Events zählen nicht.</div>'
-+(open?'<div class="uc" style="margin-top:6px">⚠️ '+(open==1?'1 Training':open+' Trainings')+' in den nächsten 4 Wochen noch ohne Leitung</div><a class="add wa" data-wa="1" href="'+esc(leadWa(OL))+'" target="_blank" rel="noopener">💬 Per WhatsApp um Leitung bitten</a>':'')
++(open?'<div class="uc" style="margin-top:6px">⚠️ '+(open==1?'1 Training':open+' Trainings')+' in den nächsten 4 Wochen noch ohne Leitung</div>':'')+'<a class="add wa" data-wa="1" href="'+esc(leadWa(OL.slice(0,3)))+'" target="_blank" rel="noopener">💬 Per WhatsApp um Leitung bitten</a>'
 +L.map(function(r){return '<div class="row" data-lst="'+esc(r.p)+'"><span class="nm wr '+(r.k?"tb":"ta")+'">'+esc(r.p)+tags(r.p)+'</span><div class="bar sm"><div style="width:'+r.d/mx*100+'%"></div></div><b>'+r.d+'</b><span class="sp lf">'+(r.f?'+'+r.f+' geplant':'')+'</span></div>'}).join("")+'</div>'}
 function addDays(d,n){var x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")}
 function leadCard(){if(ROLE!="admin")return "";var L=allTr().filter(function(r){return !noLead(r)&&r.x.d>=TD}),open=L.filter(function(r){return !r.x.lead}).length;if(!L.length)return "";
