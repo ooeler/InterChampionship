@@ -2,7 +2,8 @@
 //   { type: "matchday" }           – täglich per Cron (Header: Authorization: Bearer <CRON_SECRET>):
 //                                    Match Day in 3 Tagen (an alle) + Trainingsleitung in 2 Tagen (nur an den Leiter)
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
-//                                    + Mail an die Trainingsleitung 24 h vorher: Anzahl Feldspieler/Torhüter, Gäste, Abmeldungen
+//                                    + Mail an die Trainingsleitung am Trainingstag nach dem Abmeldeschluss (Spielleitung in Kopie):
+//                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
 //                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
 //   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
 //                                    (prüft die Brevo-Einrichtung; höchstens eine pro Person und 10 Min.)
@@ -33,29 +34,32 @@ webpush.setVapidDetails(
 const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampionship/";
 
 // Eine Mail über die Brevo-API. Ohne BREVO_API_KEY/MAIL_FROM: { ok: false, error }
-async function brevo(to: { email: string; name?: string }[], subject: string, text: string) {
+async function brevo(to: { email: string; name?: string }[], subject: string, text: string, cc: { email: string }[] = []) {
   const apiKey = Deno.env.get("BREVO_API_KEY"), from = Deno.env.get("MAIL_FROM");
   if (!apiKey || !from) return { ok: false, error: "BREVO_API_KEY oder MAIL_FROM fehlt (Supabase → Edge Functions → Secrets)" };
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ sender: { email: from, name: "Herren Inter" }, to, subject, textContent: text }),
+    body: JSON.stringify({ sender: { email: from, name: "Herren Inter" }, to, ...(cc.length ? { cc } : {}), subject, textContent: text }),
   });
   return r.ok ? { ok: true } : { ok: false, error: `Brevo ${r.status}: ${(await r.text()).slice(0, 300)}` };
 }
 
-// Mail an alle Konten, die dem Spieler zugeordnet sind. Gibt die Anzahl verschickter Mails zurück.
+// Mail an alle Konten, die dem Spieler zugeordnet sind, Spielleitung in Kopie. Gibt die Anzahl verschickter Mails zurück.
 type Mail = { key: string; player: string; subject: string; text: string };
 async function sendLeadMails(db: ReturnType<typeof createClient>, mails: Mail[]) {
   if (!mails.length) return 0;
   if (!Deno.env.get("BREVO_API_KEY") || !Deno.env.get("MAIL_FROM")) { console.log("Mail an Trainingsleitung übersprungen: BREVO_API_KEY/MAIL_FROM fehlen"); return 0; }
   let n = 0;
+  const { data: admins } = await db.from("members").select("email").eq("role", "admin");
   for (const m of mails) {
     const { data: to } = await db.from("members").select("email").eq("player", m.player);
     if (!to?.length) continue;
     const { error } = await db.from("push_log").insert({ key: m.key });
     if (error) continue; // bereits verschickt
-    const r = await brevo(to.map((x) => ({ email: x.email, name: m.player })), m.subject, m.text);
+    const own = new Set(to.map((x) => x.email.toLowerCase()));
+    const cc = [...new Set((admins ?? []).map((a) => a.email).filter((e) => e && !own.has(e.toLowerCase())))].map((email) => ({ email }));
+    const r = await brevo(to.map((x) => ({ email: x.email, name: m.player })), m.subject, m.text, cc);
     if (r.ok) n += to.length;
     else { // nochmals versuchen beim nächsten Lauf (alle 15 Min. innerhalb des Fensters)
       console.log("Mail-Fehler", r.error);

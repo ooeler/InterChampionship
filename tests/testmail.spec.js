@@ -36,7 +36,7 @@ test.describe("Test-Mail (Brevo-Einrichtung prüfen)", () => {
     const st = { t: [{ n: "A", p: ["Anna", "Beat"], gk: ["Anna"] }, { n: "B", p: ["Cla"] }],
       m: [{ tr: [{ d: "2026-10-28", p: [] }, { d: "2026-11-11", p: [], lead: "Beat" }, { d: "2026-12-02", p: [] }] }] };
     const m = L.testLeadMail(st, Date.parse("2026-10-30T10:00:00Z"), "https://app");
-    expect(m.subject).toBe("[Test] Training Mi, 11.11.2026: 2 Feldspieler, 1 Torhüter");
+    expect(m.subject).toBe("[Test] Training heute, Mi, 11.11.2026: 2 Feldspieler, 1 Torhüter");
     expect(m.text).toContain("Hallo Beat");
     // ohne kommendes Training (nur noch Match Day): keine Mail
     expect(L.testLeadMail(st, Date.parse("2026-11-20T10:00:00Z"))).toBeNull();
