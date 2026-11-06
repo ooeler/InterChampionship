@@ -84,6 +84,7 @@ test.describe("Verwaltung durch die Spielleitung", () => {
 test("Alle Löschen-Knöpfe sehen gleich aus (roter Knopf)", async ({ page }, info) => {
   await teams(page);
   await page.click("h3[data-acc=us]");
+  await page.click("[data-ted='0']"); // Team bearbeiten
   const sel = "[data-rm],[data-catdel],[data-invdel],[data-mdel],[data-tgdel],[data-rmimg]";
   const st = await page.locator(sel).evaluateAll((L) => L.map((b) => { const c = getComputedStyle(b); return [b.tagName, c.color, c.borderTopColor, c.borderTopStyle].join("|") }));
   expect(st.length).toBeGreaterThan(5);

@@ -104,6 +104,8 @@
               else if (table == "penalties") res = get(SESS) ? (get(PEN) || []) : []; // alle Mitglieder lesen
               else if (table == "hall_seasons") res = (get(HSE) || []).slice().sort(function (a, b) { return a.season < b.season ? 1 : -1 }); // öffentlich lesbar
               else if (table == "absence_reasons") res = get(SESS) ? (get(ABS) || []).filter(canAbs) : []; // RLS: Person selbst, Captains, Spielleitung
+              else if (table == "player_profiles") res = get(SESS) ? (get("__mock_prof") || []) : []; // alle Mitglieder lesen
+              else if (table == "player_seasons") res = get(SESS) ? (get("__mock_pse") || []).slice().sort(function (a, b) { return a.season < b.season ? -1 : 1 }) : [];
               else if (table == "penalty_catalog") res = get(SESS) ? (get(CAT) || []).slice().sort(function (a, b) { return a.reason.localeCompare(b.reason, "de") }) : [];
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
@@ -117,6 +119,16 @@
           if (table == "hall_seasons") {
             if (!canHall()) return RLS(table);
             var H = (get(HSE) || []).filter(function (x) { return x.season != row.season }); H.push(row); set(HSE, H); log({ op: "upsert", table: table, row: row }); return ok();
+          }
+          if (table == "player_profiles") { // RLS: nur das eigene Profil
+            if (row.player != myPlayer()) return RLS(table);
+            if (row.pos == "g" && row.stick) return fail("new row for relation \"player_profiles\" violates check constraint \"player_profiles_gk_no_stick\"");
+            var PF = (get("__mock_prof") || []).filter(function (x) { return x.player != row.player }); PF.push(row); set("__mock_prof", PF); log({ op: "upsert", table: table, row: row }); return ok();
+          }
+          if (table == "player_seasons") { // RLS: nur die Spielleitung schreibt
+            if (role() != "admin") return RLS(table);
+            var rows = [].concat(row), PS = (get("__mock_pse") || []).filter(function (x) { return !rows.some(function (r) { return r.season == x.season && r.player == x.player }) });
+            set("__mock_pse", PS.concat(rows)); log({ op: "upsert", table: table, n: rows.length }); return ok();
           }
           if (table == "absence_reasons") {
             if (!canAbs(row)) return fail("new row violates row-level security policy for table \"absence_reasons\"");

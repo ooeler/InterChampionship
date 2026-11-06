@@ -55,6 +55,7 @@ test.describe("Datensicherung & Rollback", () => {
     await expect(card.locator(".row").first()).toContainText("manuell");
 
     // Änderung → automatische Sicherung des vorherigen Stands
+    await page.click("[data-ted='0']"); // Team bearbeiten
     await page.fill("input[data-tn='0']", "Neuer Name");
     await page.locator("input[data-tn='0']").blur();
     await expect.poll(async () => (await db(page)).data.t[0].n).toBe("Neuer Name");

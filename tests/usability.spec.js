@@ -12,6 +12,7 @@ test.describe("Usability", () => {
     expect(t[0]).toBe("Allgemein");
     expect(t[t.findIndex((x) => x.startsWith("Benutzer")) - 1]).toBe("Mitglied einladen");
     expect(t.at(-1)).toBe("Datensicherung");
+    await page.click("[data-ted='0']"); // Team bearbeiten
     await expect(card(page, "Team 1")).toContainText("C = Captain · 🧤 = Torhüter · 🗑 = Spieler entfernen");
     await expect(page.locator("[data-rm]").first()).toHaveAttribute("aria-label", /entfernen$/);
   });

@@ -64,7 +64,7 @@ test.describe("Strafenkatalog", () => {
     await page.evaluate(() => localStorage.setItem("__mock_strafen", "1"));
     await login(page, SPIELER);
     await page.click("nav [data-tab=team]");
-    await expect(page.locator("main .card > h3")).toHaveText(["Strafenkatalog", "Restaurant-Besuche", /^Trainingsleitung/]);
+    await expect(page.locator("main .card > h3")).toHaveText(["Strafenkatalog", /Spieler$/, /Spieler$/, "Restaurant-Besuche", /^Trainingsleitung/]);
     await addEntry(page, "Material vergessen", 3);
     await expect.poll(async () => (await cat(page)).map((c) => c.reason)).toEqual(["Material vergessen"]);
   });

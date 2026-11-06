@@ -16,6 +16,8 @@ test.describe("Rollen", () => {
   test("Captains sehen den Bereich Teams", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
+    await expect(page.locator("[data-ted]")).toHaveCount(2); // beide Teams mit „Team bearbeiten“
+    await page.click("[data-ted='0']"); // Team bearbeiten
     await expect(page.locator("main")).toContainText("Team 1 · 8 Spieler");
   });
 
@@ -76,6 +78,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
   test("Umbenennen eines Spielers behält die Zuordnung", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
+    await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first();
     const old = await inp.inputValue();
     await inp.fill("Andi S.");
