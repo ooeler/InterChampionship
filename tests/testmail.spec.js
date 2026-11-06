@@ -51,3 +51,18 @@ test("Resend: Absender mit Namen, Spielleitung in Kopie ohne Doppel", async () =
   expect(M.mailReady()).toBe(false); // ohne Secrets
   expect(await M.sendMail({ to: ["b@x.ch"], subject: "S", text: "T" })).toEqual({ ok: false, error: M.MAIL_MISSING });
 });
+
+test("Spielleitung schaltet die Kopie der Trainingsleitungs-Mail selbst ein und aus", async ({ page }) => {
+  await login(page, ADMIN);
+  await page.click("nav [data-tab=team]");
+  await page.click("h3[data-acc=mt]");
+  const cb = page.locator("[data-leadcc]");
+  await expect(cb).toBeChecked(); // Standard: Kopie an
+  await cb.uncheck();
+  await expect(page.locator("#toast")).toContainText("Keine Kopie mehr");
+  expect(await page.evaluate(() => localStorage.getItem("__mock_leadcc"))).toBe("0");
+  await page.reload();
+  await page.click("nav [data-tab=team]");
+  await page.click("h3[data-acc=mt]");
+  await expect(page.locator("[data-leadcc]")).not.toBeChecked();
+});
