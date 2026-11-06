@@ -7,18 +7,13 @@
 //   { action: "closed", id, completed, notify }    – Issue geschlossen; bei completed + notify bekommt die Person eine Mail
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual } from "../_shared/sicherheit.mjs";
+import { sendMail } from "../_shared/mail.mjs";
 
 const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampionship/";
 
 async function mail(to: string, subject: string, text: string) {
-  const apiKey = Deno.env.get("BREVO_API_KEY"), from = Deno.env.get("MAIL_FROM");
-  if (!apiKey || !from) return "BREVO_API_KEY oder MAIL_FROM fehlt";
-  const r = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ sender: { email: from, name: "Herren Inter" }, to: [{ email: to }], subject, textContent: text }),
-  });
-  return r.ok ? null : `Brevo ${r.status}`;
+  const r = await sendMail({ to: [to], subject, text });
+  return r.ok ? null : r.error;
 }
 
 const json = (b: unknown, status = 200) =>
