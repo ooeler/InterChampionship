@@ -17,6 +17,7 @@ test.describe("Spieltag: Gastspieler als Torhüter", () => {
     await seed(page);
     await login(page);
     await page.click("nav [data-tab=spiel]");
+    await page.click("[data-sped]"); // Spieltag freigeben
     await answer(page, { prompt: "Gast Goalie", confirm: true });
     await page.click("[data-gs='1']");
     await answer(page, { prompt: "Fritz Feld", confirm: false });

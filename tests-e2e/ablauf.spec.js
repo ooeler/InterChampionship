@@ -237,6 +237,7 @@ test("Strafenchef pflegt den Strafenkatalog im Teams-Tab, Spieler ohne Rolle nic
 test("Resultat der Spielleitung erscheint sofort in der öffentlichen Rangliste", async ({ page }) => {
   await admin.click("nav [data-tab=spiel]");
   await admin.click("[data-c='2']"); // November
+  await admin.click("[data-sped]"); // Spieltag freigeben
   const plus = (t) => admin.locator(`button[data-k=res][data-t='${t}'][data-d='1']`).first();
   await plus(0).click();
   await plus(0).click();

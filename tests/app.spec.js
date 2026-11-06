@@ -28,6 +28,7 @@ test.describe("Spiellogik", () => {
     await page.click("nav [data-tab=spiel]");
     await page.click("[data-c='3']");
     await expect(page.locator(".score .vs").first()).toHaveText("Dezember");
+    await page.click("[data-sped]"); // Spieltag freigeben
     for (let i = 0; i < 3; i++) await page.click(plus("res", 0));
     await expect(page.locator(".pill.win")).toHaveText("Sieger: Lochball Legenden (2 Punkte)");
 
@@ -40,6 +41,7 @@ test.describe("Spiellogik", () => {
   test("Pre-Game-Siege sind auf 3 begrenzt", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=spiel]");
+    await page.click("[data-sped]"); // Spieltag freigeben
     for (let i = 0; i < 5; i++) await page.click(plus("pre", 1));
     expect(await page.evaluate(() => S.m[cur].pre[1])).toBe(3);
   });
@@ -47,6 +49,7 @@ test.describe("Spiellogik", () => {
   test("Tor erfassen erscheint in der Torschützenliste", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=spiel]");
+    await page.click("[data-sped]"); // Spieltag freigeben
     const row = page.locator(".sk", { hasText: "Othmar Oeler" });
     await row.locator('[data-k=g][data-d="1"]').click();
     await row.locator('[data-k=g][data-d="1"]').click();
@@ -98,6 +101,7 @@ test.describe("Daten & Synchronisation", () => {
     await expect(b.locator("header")).toBeVisible();
     await b.click("nav [data-tab=spiel]");
     await b.click("[data-c='4']");
+    await b.click("[data-sped]");
     await b.click(plus("res", 1));
     await expect(page.locator(".card", { hasText: "Spieltage" }).locator(".row", { hasText: "Januar" })).toContainText("0 : 1");
   });

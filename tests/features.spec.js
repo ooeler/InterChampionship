@@ -109,6 +109,7 @@ test.describe("Konzept", () => {
   test("Forfait ergibt 0 : 5", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=spiel]");
+    await page.click("[data-sped]"); // Spieltag freigeben
     await page.click("[data-ff='1']");
     await expect(page.locator(".pill.win")).toHaveText("Sieger: Lochball Legenden");
     expect(await page.evaluate(() => S.m[cur].res)).toEqual([5, 0]);
@@ -270,6 +271,7 @@ test.describe("Push-Nachrichten", () => {
     await login(page);
     await page.click("nav [data-tab=spiel]");
     await expect(page.locator("[data-notify]")).toHaveCount(0);
+    await page.click("[data-sped]"); // Spieltag freigeben
     await page.click('[data-k=res][data-t="0"][data-d="1"]');
     const msg = page.waitForEvent("dialog", (d) => d.type() === "alert");
     await page.click("[data-notify]");

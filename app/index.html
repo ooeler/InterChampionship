@@ -521,11 +521,10 @@ function training(){return (PUSH===false||PUSH==="ios"?notifyCard():"")+myTr()+d
 function sortBlock(T){var md=T.pop();T.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});if(md)T.push(md)}
 function placeTr(x){var mi=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>x.d});if(mi<0)mi=S.m.length-1;var T=S.m[mi].tr;if(!T.length)T.push(x);else{var md=T.pop();T.push(x);T.push(md);sortBlock(T)}return mi+","+T.indexOf(x)}
 
-// Spieltag mit eingetragenem Resultat ist gesperrt, damit nichts aus Versehen ändert. ✏️ gibt ihn bis zum Monats- oder Reiterwechsel frei.
-// Wer einen Spieltag ohne Resultat öffnet, kann frei eintragen – gesperrt wird erst beim nächsten Öffnen.
-var SPED=-1;function spLock(m){return m.res[0]!=null&&m.res[1]!=null&&SPED!=S.m.indexOf(m)}
-function lkBtn(m){if(!me||m.res[0]==null||m.res[1]==null)return "";var o=SPED==S.m.indexOf(m);return '<button class="add" data-sped="1" aria-pressed="'+o+'">'+(o?'✓ Fertig bearbeitet':'✏️ Spielbericht bearbeiten')+'</button>'}
-function spiel(){if(S.m[cur].res[0]==null||S.m[cur].res[1]==null)SPED=cur;var m=S.m[cur],b=bonus(m),ld=lead(m),w=win(m),h="";
+// Jeder Spieltag ist gesperrt, damit nichts aus Versehen ändert. ✏️ gibt ihn bis zum Monats- oder Reiterwechsel frei.
+var SPED=-1;function spLock(m){return SPED!=S.m.indexOf(m)}
+function lkBtn(m){if(!me)return "";var o=SPED==S.m.indexOf(m);return '<button class="add" data-sped="1" aria-pressed="'+o+'">'+(o?'✓ Fertig bearbeitet':'✏️ Spielbericht bearbeiten')+'</button>'}
+function spiel(){var m=S.m[cur],b=bonus(m),ld=lead(m),w=win(m),h="";
 h+='<div class="chips">'+MON.map(function(n,i){return '<button class="chip'+(i==cur?" on":"")+'" data-c="'+i+'">'+n.slice(0,3)+(DBL.indexOf(i)>=0?" ×2":"")+'</button>'}).join("")+'</div>';
 h+='<div class="card"><div class="score"><div class="tn ta">'+lg(0)+esc(S.t[0].n)+'</div><div class="vs">'+MON[cur]+'</div><div class="tn tb">'+lg(1)+esc(S.t[1].n)+'</div>'
 +'<b class="ta">'+(m.res[0]==null?"–":m.res[0])+'</b><span class="vs">Endstand</span><b class="tb">'+(m.res[1]==null?"–":m.res[1])+'</b></div>'
