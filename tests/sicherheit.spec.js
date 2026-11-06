@@ -1,12 +1,12 @@
 const { test, expect, login, openLogin } = require("./fixtures");
 
 test.describe("Sicherheit", () => {
-  test("Content-Security-Policy mit Prüfsummen ist aktiv", async ({ page }) => {
+  test("Content-Security-Policy ist aktiv: Skripte nur aus eigenen Dateien", async ({ page }) => {
     await page.goto("/");
     const csp = await page.getAttribute('meta[http-equiv="Content-Security-Policy"]', "content");
-    expect(csp).toMatch(/script-src 'self' 'sha256-[A-Za-z0-9+/=]{44}'/);
     const scriptSrc = csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src"));
-    expect(scriptSrc).not.toContain("unsafe-inline"); // Skripte nur per Prüfsumme, keine Inline-Handler
+    expect(scriptSrc).toBe("script-src 'self'"); // kein Inline-Code, keine Inline-Handler
+    expect(await page.locator("script:not([src])").count()).toBe(0);
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'none'");
   });

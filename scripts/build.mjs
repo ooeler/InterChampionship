@@ -18,7 +18,7 @@ export function csp(html, supabaseUrl = supabase) {
   const [http, ws] = /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(supabaseUrl) ? ["http", "ws"] : ["https", "wss"];
   return [
     "default-src 'self'",
-    `script-src 'self' ${hashes.join(" ")}`,
+    ["script-src 'self'", ...hashes].join(" "),
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' ${http}://${host} ${ws}://${host}`,
