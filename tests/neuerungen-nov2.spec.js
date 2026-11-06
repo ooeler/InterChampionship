@@ -20,8 +20,10 @@ test.describe("Neuerungen November II", () => {
     await login(page);
     await page.click("nav [data-tab=spiel]");
     const ec = card(page, "Spielbericht");
-    // beim Eintragen bleibt der Spieltag offen …
-    await page.evaluate(() => { S.m[cur].res = [null, null]; render(); S.m[cur].res = [5, 3]; save(); render() });
+    // freigegeben bleibt der Spieltag beim Eintragen offen …
+    await page.evaluate(() => { S.m[cur].res = [null, null]; render() });
+    await ec.locator("[data-sped]").click();
+    await page.evaluate(() => { S.m[cur].res = [5, 3]; save(); render() });
     await expect(ec.locator("[data-rs]")).toBeEnabled();
     // … beim nächsten Öffnen ist er gesperrt
     await page.click("nav [data-tab=rang]");
@@ -35,10 +37,10 @@ test.describe("Neuerungen November II", () => {
     await expect(ec.locator("[data-sped]")).toHaveText("✓ Fertig bearbeitet");
     await ec.locator("[data-sped]").click();
     await expect(ec.locator("[data-rs]")).toBeDisabled();
-    // ohne Resultat bleibt alles direkt bearbeitbar
+    // auch ohne Resultat gesperrt, mit Knopf zum Freigeben
     await page.evaluate(() => { S.m[cur].res = [null, null]; render() });
-    await expect(ec.locator("[data-rs]")).toBeEnabled();
-    await expect(ec.locator("[data-sped]")).toHaveCount(0);
+    await expect(ec.locator("[data-rs]")).toBeDisabled();
+    await expect(ec.locator("[data-sped]")).toHaveText("✏️ Spielbericht bearbeiten");
   });
 
   test("Forfait steht unter „Resultat übernehmen“, Torhüter-Auswahl in derselben Zeile", async ({ page }) => {

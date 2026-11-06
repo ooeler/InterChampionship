@@ -33,6 +33,7 @@ test.describe("Usability", () => {
     expect(t[0]).toMatch(/^Ablauf Matchtag/);
     expect(t.indexOf("Spielbericht")).toBe(1);
     const sk = page.locator(".card", { has: page.locator("h3[data-acc=sk0]") });
+    await page.click("[data-sped]"); // Spieltag freigeben
     await expect(sk.locator("[data-k]").first()).toBeVisible();
     await page.click("h3[data-acc=sk0]");
     await expect(sk).toHaveClass(/(^| )cl( |$)/);
