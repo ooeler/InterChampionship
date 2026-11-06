@@ -387,6 +387,6 @@ test("Hall of INTER Fame: Gewinner und Fotos öffentlich", async () => {
   expect((await rest("/rest/v1/hall_photos", { key: ANON, method: "POST", body: { season: "91/92", data: "data:image/jpeg;base64,AAAA" } })).status).not.toBe(201);
   expect((await rest("/rest/v1/hall_seasons", { key: ANON, method: "POST", body: { season: "x" } })).status).not.toBe(201);
   // Saison löschen nimmt die Fotos mit
-  await admin.evaluate(() => sb.from("hall_seasons").delete().eq("season", "91/92"));
+  await nochmals(() => sb.from("hall_seasons").delete().eq("season", "91/92"));
   expect((await rest("/rest/v1/hall_photos?select=id")).data).toEqual([]);
 });
