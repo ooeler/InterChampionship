@@ -67,7 +67,8 @@ jobs:
 
       - name: Mergen
         if: steps.kind.outputs.merge == 'true'
-        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+        # Rebase statt Squash: Commits bleiben gleich, aufeinander aufbauende PRs lassen sich ohne Konflikt nachziehen
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch
 
       - name: Release erstellen und deployen
         if: steps.kind.outputs.merge == 'true' && steps.kind.outputs.bump != 'none'
