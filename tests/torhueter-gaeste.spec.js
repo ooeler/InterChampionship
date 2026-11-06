@@ -93,20 +93,24 @@ test.describe("Mail an die Trainingsleitung (Edge Function)", () => {
   };
   test.beforeAll(async () => { L = await import("../supabase/functions/notify/logic.mjs"); });
 
-  test("24 h vorher, mit Feldspielern, Torhütern, Gästen und Abmeldungen", () => {
+  test("am Trainingstag ab 08:00, mit Dank, Feldspielern, Torhütern, Gästen und Abmeldungen", () => {
     const at = (iso) => L.leadMailMessages(st, Date.parse(iso), "https://app");
-    expect(at("2026-11-10T17:40:00Z")).toEqual([]); // 24 h 05 min vorher
-    const [m] = at("2026-11-10T17:45:00Z"); // Winterzeit: 18:45 Zürich = 17:45 UTC
-    expect(m).toMatchObject({ key: "lead-mail:2026-11-11:Beat B", player: "Beat B", subject: "Training Mi, 11.11.2026: 4 Feldspieler, 2 Torhüter" });
+    expect(at("2026-11-10T17:45:00Z")).toEqual([]); // Vortag, vor dem Abmeldeschluss
+    expect(at("2026-11-11T06:55:00Z")).toEqual([]); // 07:55 Zürich
+    const [m] = at("2026-11-11T07:00:00Z"); // Winterzeit: 08:00 Zürich = 07:00 UTC
+    expect(m).toMatchObject({ key: "lead-mail:2026-11-11:Beat B", player: "Beat B", subject: "Training heute, Mi, 11.11.2026: 4 Feldspieler, 2 Torhüter" });
+    expect(m.text).toContain("Danke, dass du heute, Mi, 11.11.2026, 18:45 Uhr, das Training leitest!");
+    expect(m.text).toContain("alle Teams zusammen");
+    expect(m.text).not.toContain("23 h");
     expect(m.text).toContain("Angemeldet: 4 Feldspieler und 2 Torhüter (inkl. 2 Gastspieler).");
     expect(m.text).toContain("Torhüter: Anna Goalie, Gast G (Gast)");
     expect(m.text).toContain("Abgemeldet: Eva E");
     expect(m.text).toContain("https://app");
-    expect(at("2026-11-10T18:45:00Z")).toEqual([]); // Fenster vorbei
+    expect(at("2026-11-11T08:00:00Z")).toEqual([]); // Fenster vorbei
   });
 
   test("ohne Leitung und am Match Day keine Mail", () => {
-    expect(L.leadMailMessages(st, Date.parse("2026-11-17T17:45:00Z"))).toEqual([]); // keine Leitung
-    expect(L.leadMailMessages(st, Date.parse("2026-12-01T17:45:00Z"))).toEqual([]); // Match Day
+    expect(L.leadMailMessages(st, Date.parse("2026-11-18T07:00:00Z"))).toEqual([]); // keine Leitung
+    expect(L.leadMailMessages(st, Date.parse("2026-12-02T07:00:00Z"))).toEqual([]); // Match Day
   });
 });

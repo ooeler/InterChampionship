@@ -156,12 +156,13 @@ function leadMail(state, x, appUrl) {
   const c = trainingCount(state, x);
   const list = (a) => (a.length ? a.join(", ") : "–");
   return {
-    subject: `Training ${wd(x.d)}: ${c.field} Feldspieler, ${c.gk} Torhüter`,
+    subject: `Training heute, ${wd(x.d)}: ${c.field} Feldspieler, ${c.gk} Torhüter`,
     text: [
       `Hallo ${x.lead.split(" ")[0]}`,
       "",
-      `Morgen, ${wd(x.d)}, ${t} Uhr, leitest du das Training.`,
+      `Danke, dass du heute, ${wd(x.d)}, ${t} Uhr, das Training leitest! 🙌`,
       "",
+      "Der Abmeldeschluss ist vorbei. So viele kommen (alle Teams zusammen):",
       `Angemeldet: ${c.field} Feldspieler und ${c.gk} Torhüter${c.guests.length ? ` (inkl. ${c.guests.length} Gast${c.guests.length > 1 ? "spieler" : ""})` : ""}.`,
       `Torhüter: ${list(c.keepers)}`,
       `Gastspieler: ${list(c.guests)}`,
@@ -169,7 +170,7 @@ function leadMail(state, x, appUrl) {
       ...(c.unsure.length ? [`Unsicher: ${list(c.unsure)}`] : []),
       ...(c.late.length ? [`Verspätet: ${list(c.late)}`] : []),
       "",
-      "Denk an Einlaufen, Passübungen und deine 3 Übungen. Abmeldungen sind noch bis 23 h vorher möglich – den aktuellen Stand siehst du in der App:",
+      "Denk an Einlaufen, Passübungen und deine 3 Übungen. Den aktuellen Stand siehst du in der App:",
       appUrl,
       "",
       "Let's fly!",
@@ -177,14 +178,15 @@ function leadMail(state, x, appUrl) {
   };
 }
 
-// Mail an die Trainingsleitung 24 h vor dem Training (läuft alle 15 Min.; push_log verhindert Doppelte)
-export function leadMailMessages(state, nowMs, appUrl = "", hoursBefore = 24) {
+// Mail an die Trainingsleitung am Trainingstag ab 08:00, frühestens nach dem Abmeldeschluss (23 h vorher);
+// Spielleitung in Kopie. Läuft alle 15 Min.; push_log verhindert Doppelte.
+export function leadMailMessages(state, nowMs, appUrl = "", sendAt = "08:00") {
   const out = [];
   (state.m || []).forEach((m) => {
     m.tr.forEach((x, ti) => {
       if (ti === m.tr.length - 1 || !x.lead || isWinterEvent(x.d)) return; // Match Day und Winter Event haben keine Trainingsleitung
-      const from = zurichToUtc(x.d, x.t || "18:45") - hoursBefore * 36e5;
-      if (nowMs < from || nowMs >= from + 36e5) return;
+      const start = zurichToUtc(x.d, x.t || "18:45"), from = Math.max(zurichToUtc(x.d, sendAt), start - 23 * 36e5);
+      if (nowMs < from || nowMs >= Math.min(from + 36e5, start)) return;
       out.push({ key: `lead-mail:${x.d}:${x.lead}`, player: x.lead, ...leadMail(state, x, appUrl) });
     });
   });

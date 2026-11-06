@@ -64,7 +64,7 @@ Die Schlüssel liegen in `.secrets/push.env` (nicht im Git!). Den Wert `VAPID_SU
 2. `supabase/cron.sql` öffnen, `<PROJECT_REF>` und `<CRON_SECRET>` ersetzen, im SQL Editor ausführen (die Datei mit eingesetzten Werten nicht committen).
 3. Hinweis iPhone: Push funktioniert erst, wenn die App über *Teilen → Zum Home-Bildschirm* installiert ist (ab iOS 16.4).
 
-**Mail an die Trainingsleitung (optional):** 24 h vor jedem Training bekommt die eingeteilte Trainingsleitung eine Mail mit der Anzahl Feldspieler und Torhüter (inkl. Gastspieler) und den Abmeldungen. Dafür in Brevo unter *SMTP & API → API Keys* einen API-Schlüssel erstellen und in Supabase unter **Edge Functions → Secrets** eintragen:
+**Mail an die Trainingsleitung (optional):** Am Trainingstag ab 08:00 (nach dem Abmeldeschluss) bekommt die eingeteilte Trainingsleitung eine Dankes-Mail mit der Anzahl Feldspieler und Torhüter über alle Teams (inkl. Gastspieler) und den Abmeldungen; die Spielleitung erhält sie in Kopie. Dafür in Brevo unter *SMTP & API → API Keys* einen API-Schlüssel erstellen und in Supabase unter **Edge Functions → Secrets** eintragen:
 - `BREVO_API_KEY` – der API-Schlüssel (nicht der SMTP-Schlüssel)
 - `MAIL_FROM` – die in Brevo verifizierte Absenderadresse
 
