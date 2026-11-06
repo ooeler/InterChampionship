@@ -47,3 +47,19 @@ test.describe("Trainingsleitung per WhatsApp anfragen", () => {
     expect(await page.evaluate(() => location.hash)).toBe("");
   });
 });
+
+test("Spielleitung: Einteilen und Statistik hintereinander, beide zu, WhatsApp beim Einteilen", async ({ page }) => {
+  await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
+  await page.click("nav [data-tab=team]");
+  const ids = await page.locator("main .card > h3[data-acc]").evaluateAll((h) => h.map((x) => x.dataset.acc));
+  expect(ids.indexOf("lst")).toBe(ids.indexOf("tl") + 1);
+  await expect(page.locator("h3[data-acc=tl]")).toHaveText(/^Trainingsleitung · Einteilen/);
+  await expect(page.locator("h3[data-acc=lst]")).toHaveText(/^Trainingsleitung · Statistik/);
+  for (const k of ["tl", "lst"]) await expect(page.locator(`h3[data-acc=${k}]`)).toHaveAttribute("aria-expanded", "false");
+  const tl = page.locator(".card", { has: page.locator("h3[data-acc=tl]") });
+  const lst = page.locator(".card", { has: page.locator("h3[data-acc=lst]") });
+  await expect(tl.locator("a[data-wa]")).toHaveCount(1);
+  await expect(lst.locator("a[data-wa]")).toHaveCount(0);
+  await page.click("h3[data-acc=tl]");
+  await expect(tl.locator("a[data-wa]")).toBeVisible();
+});

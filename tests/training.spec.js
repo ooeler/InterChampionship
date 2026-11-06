@@ -273,7 +273,7 @@ test.describe("Statistik Trainingsleitung", () => {
     await seed(page, { player: null, patch: `d.m[2].tr[0].lead = "Beat Rentsch"; d.m[2].tr[1].lead = "Beat Rentsch"; d.m[3].tr[0].lead = "Othmar Oeler";` });
     await login(page);
     await page.click("nav [data-tab=team]");
-    await expect(page.locator("h3[data-acc=lst]")).toHaveText("Trainingsleitung · ⚠️ 1 ohne Leitung");
+    await expect(page.locator("h3[data-acc=lst]")).toHaveText("Trainingsleitung · Statistik · ⚠️ 1 ohne Leitung");
     await page.click("h3[data-acc=lst]");
     const card = page.locator(".card", { has: page.locator("h3[data-acc=lst]") });
     await expect(card.locator(".row").first()).toHaveAttribute("data-lst", "Beat Rentsch");
