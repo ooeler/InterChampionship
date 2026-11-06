@@ -93,7 +93,7 @@ test.describe("Fremde Saisondaten", () => {
   });
 
   test("Formatversion der App passt zur Prüfung auf dem Server", async () => {
-    const html = fs.readFileSync(path.join(__dirname, "../app/index.html"), "utf8");
+    const html = fs.readFileSync(path.join(__dirname, "../app/js/kern.js"), "utf8");
     const dir = path.join(__dirname, "../supabase/migrations");
     const sql = fs.readdirSync(dir).sort().map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("\n");
     const srv = [...sql.matchAll(/function public\.league_version\(\)[^$]*\$\$ select (\d+) \$\$/g)].pop()[1];
