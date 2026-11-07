@@ -18,10 +18,10 @@ gk=P.filter(isGK),f=P.filter(function(p){return !isGK(p)}),on=function(L){return
 row=function(l,a,b,c){return '<tr'+(c?' class="'+c+'"':'')+'><th scope="row">'+l+'</th><td><b>'+a+'</b> / '+b+'</td></tr>'},nm=function(st){return pl.filter(function(p){return stOf(x,p)==st})};
 var v=nm("v"),u=nm("u");
 return '<div class="tsum"><table class="mt"><tbody>'+row("🧤 Torhüter",on(gk)+gG,gk.length+gG)+row("Feldspieler",on(f)+gs.length-gG,f.length+gs.length-gG)
-+S.t.map(function(t,i){return row(esc(t.n),on(t.p),t.p.length,i?"tb":"ta")}).join("")+'</tbody></table>'
++S.t.map(function(t,i){return row(esc(t.n),on(t.p),t.p.length,i?"tb":"ta")}).join("")
++(v.length?'<tr class="tsn"><th scope="row">⏰ Verspätet</th><td>'+v.map(esc).join(", ")+'</td></tr>':'')
++(u.length?'<tr class="tsn"><th scope="row">❔ Unsicher</th><td>'+u.map(esc).join(", ")+'</td></tr>':'')+'</tbody></table>'
 +(gs.length?'<div class="sp">inkl. '+gs.length+(gs.length==1?' Gast':' Gäste')+'</div>':'')
-+(v.length?'<div class="kv"><span>⏰ Verspätet</span><b class="wr">'+v.map(esc).join(", ")+'</b></div>':'')
-+(u.length?'<div class="kv"><span>❔ Unsicher</span><b class="wr">'+u.map(esc).join(", ")+'</b></div>':'')
 +'<button class="lnk tdl" data-tjump="'+k+'">Details mit allen Namen</button></div>'}
 function guestField(x){var G=x.gs||[],c=trCount(x);return '<div class="sk"><div class="kv"><b>Gastspieler</b><span class="sp">'+G.length+'</span></div><div class="pt">'+(G.map(function(g,i){return '<span class="pb in">'+esc(g.n)+(g.gk?' 🧤':'')+(me?' <button class="bd" data-tgdel="'+i+'" aria-label="'+esc(g.n)+' entfernen">🗑</button>':'')+'</span>'}).join("")||'<span class="sp">–</span>')+'</div>'
 +(me?'<form id="tgs" class="tgs"><input class="t" name="n" placeholder="Name Gastspieler" aria-label="Name Gastspieler" maxlength="60" required><label class="gkl"><input type="checkbox" name="gk"> 🧤 Torhüter</label><button class="add">+ Gast</button></form>':'')+'</div>'

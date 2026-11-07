@@ -31,3 +31,31 @@ test("Meine Trainings: Datum antippen zeigt, wie viele kommen (#102)", async ({ 
   await b.click();
   await expect(mine.locator(".tsum")).toHaveCount(0);
 });
+
+test("Kurzübersicht: Unsicher und Verspätet gleich gross wie die übrigen Zeilen, Symbol nicht grösser", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: fix(def()) }));
+    localStorage.setItem("__mock_player", "Silvan Frey");
+  });
+  await login(page, { email: "spieler@flyingpenguins.test", password: "spieler123" });
+  await page.click("nav [data-tab=train]");
+  const mine = page.locator(".card", { has: page.locator("h3", { hasText: "Meine Trainings" }) });
+  const b = mine.locator("[data-tsum]").first();
+  const k = await b.getAttribute("data-tsum");
+  await page.evaluate((k) => { const x = trAt(k).x; x.st = { [S.t[0].p[1]]: "u", [S.t[0].p[2]]: "v" }; render(); }, k);
+  await b.click();
+  const s = mine.locator(".tsum");
+  const st = await s.evaluate((el) => {
+    const f = (q) => { const e = el.querySelector(q), c = getComputedStyle(e); return [c.fontSize, c.fontWeight]; };
+    return { th: f("tr.ta th"), td: f("tr.ta td"), uth: f("tr.tsn th"), utd: f("tr.tsn td"), uthLast: f("tr.tsn:last-child th") };
+  });
+  expect(st.uth).toEqual(st.th); // „❔ Unsicher“ wie die anderen Bezeichnungen (Symbol inklusive)
+  expect(st.uthLast).toEqual(st.th);
+  expect(st.utd[0]).toBe(st.td[0]); // Namen gleich gross wie die Zahlen
+  expect(Number(st.utd[1])).toBeLessThanOrEqual(400); // Namen nicht fett
+  await expect(s.locator("tr.tsn", { hasText: "Unsicher" })).toContainText(await page.evaluate(() => S.t[0].p[1]));
+  // das Symbol ist nicht höher als die Zeile von „Torhüter“
+  const h = await s.evaluate((el) => [el.querySelector("tr.tsn th").getBoundingClientRect().height, el.querySelector("tr.ta th").getBoundingClientRect().height]);
+  expect(h[0]).toBeLessThanOrEqual(h[1] + 1);
+});
