@@ -165,11 +165,45 @@ test.describe("Spielerprofil (#103)", () => {
     await expect(prof(page)).toContainText("Alte Füchse");
   });
 
+  test("Spielleitung importiert frühere Saisons aus einer Datei", async ({ page }) => {
+    await seed(page, () => localStorage.setItem("__mock_pse", JSON.stringify([{ season: "23/24", player: "Silvan Frey", team: "Alt", goals: 1, assists: 1, trainings: 1, potm: 0 }])));
+    await login(page, ADMIN);
+    await page.click("nav [data-tab=team]");
+    const msg = [];
+    page.on("dialog", (d) => msg.push(d.message()));
+    const up = (o) => page.setInputFiles("[data-pimp]", { name: "archiv.json", mimeType: "application/json", buffer: Buffer.from(typeof o == "string" ? o : JSON.stringify(o)) });
+    const rows = () => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_pse")));
+
+    await up("kein json");
+    await expect.poll(() => msg.at(-1)).toContain("kein gültiges JSON");
+    await up([{ season: "22/23", player: "Silvan Frey", goals: -1 }]);
+    await expect.poll(() => msg.at(-1)).toContain("Eintrag 1: goals ist ungültig");
+    await up([{ season: "22/23", player: "Silvan Frey" }, { season: "22/23", player: "Silvan Frey" }]);
+    await expect.poll(() => msg.at(-1)).toContain("doppelt");
+    expect(await rows()).toHaveLength(1);
+
+    await up([
+      { season: "23/24", player: "Silvan Frey", team: "Blue Dolphins", goals: 12, assists: 3, trainings: 27, rank_goals: 1, rank_points: 2, rank_trainings: 4 },
+      { season: "22/23", player: "Silvan Frey", team: "The Patellis", goals: 5, assists: 2, trainings: 20, potm: 0 },
+      { season: "22/23", player: "Beat Rentsch", team: "The Patellis", goals: 0, assists: 0, trainings: 9 },
+    ]);
+    await expect(page.locator("#toast")).toContainText("3 Einträge im Spielerarchiv (22/23, 23/24)");
+    expect(msg.some((m) => m.startsWith("3 Einträge für die Saisons 22/23, 23/24"))).toBe(true);
+    const R = await rows();
+    expect(R).toHaveLength(3);
+    expect(R.find((r) => r.season == "23/24")).toMatchObject({ team: "Blue Dolphins", goals: 12, potm: 0, rank_goals: 1 }); // ersetzt
+    expect(R.find((r) => r.player == "Beat Rentsch").rank_goals).toBeNull();
+    await page.click("main [data-prof='Silvan Frey']");
+    await expect(prof(page)).toContainText("22/23");
+    await expect(prof(page)).toContainText("Blue Dolphins");
+  });
+
   test("Spieler können nicht archivieren und kein fremdes Profil speichern", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
     await page.click("nav [data-tab=team]");
     await expect(page.locator("[data-arch]")).toHaveCount(0);
+    await expect(page.locator("[data-pimp]")).toHaveCount(0);
     const r = await page.evaluate(async () => [(await sb.from("player_profiles").upsert({ player: "Beat Rentsch", pos: "g" })).error, (await sb.from("player_seasons").upsert([{ season: "x", player: "Silvan Frey" }])).error]);
     expect(r[0]).not.toBeNull();
     expect(r[1]).not.toBeNull();
