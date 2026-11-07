@@ -106,6 +106,36 @@ test.describe("Spielerprofil (#103)", () => {
     await expect(page.locator("#ovl")).toBeHidden();
   });
 
+  test("durch die Profile blättern: Knöpfe, Pfeiltasten und Wischen", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=team]");
+    const L = await page.evaluate(() => profList());
+    await page.click(`main [data-prof='${L[0]}']`);
+    await expect(prof(page).locator("h3")).toContainText(L[0]);
+    await expect(prof(page).locator(".pnav")).toContainText(`1 / ${L.length}`);
+    await page.click("#ovc [data-pstep='1']");
+    await expect(prof(page).locator("h3")).toContainText(L[1]);
+    await expect(page.locator("#ovc [data-pstep='1']")).toBeFocused();
+    await page.click("#ovc [data-pstep='-1']");
+    await page.click("#ovc [data-pstep='-1']"); // vom ersten zum letzten
+    await expect(prof(page).locator("h3")).toContainText(L[L.length - 1]);
+    await page.keyboard.press("ArrowRight");
+    await expect(prof(page).locator("h3")).toContainText(L[0]);
+    // Wischen nach links = nächstes Profil
+    await page.evaluate(() => {
+      const el = document.querySelector("#ovc h3"), ev = (type, k, x) => { const e = new Event(type, { bubbles: true }); Object.defineProperty(e, k, { value: [{ clientX: x, clientY: 300 }] }); el.dispatchEvent(e); };
+      ev("touchstart", "touches", 300);
+      ev("touchend", "changedTouches", 150);
+    });
+    await expect(prof(page).locator("h3")).toContainText(L[1]);
+    // „Mein Profil“ blättert nicht
+    await page.keyboard.press("Escape");
+    await page.click("#lo");
+    await page.click("[data-myprof]");
+    await expect(prof(page).locator(".pnav")).toHaveCount(0);
+  });
+
   test("Captain: Team bearbeiten öffnet die Bearbeitung, Fertig schliesst sie", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
