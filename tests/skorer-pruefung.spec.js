@@ -70,6 +70,10 @@ test.describe("Skorerliste prüfen", () => {
     expect(M[0]).toMatchObject({ key: "stats:2", title: "⚠️ Skorerliste November prüfen", teams: [0, 1] });
     expect(M[0].body).toBe(r.txt.join(" "));
     expect(L.statsMessages(r.state, at(L.addDays(md, 15), "08:10"))).toEqual([]); // nach 14 Tagen Ruhe
+    // Empfänger: Spielleitung + Captains der betroffenen Teams, keine Spieler
+    const mem = [{ user_id: "a", role: "admin", player: null }, { user_id: "c0", role: "captain", player: r.state.t[0].p[0] }, { user_id: "c1", role: "captain", player: r.state.t[1].p[0] }, { user_id: "p", role: "player", player: r.state.t[0].p[1] }];
+    expect(L.statsRecipients(r.state, [0], mem)).toEqual(["a", "c0"]);
+    expect(L.statsRecipients(r.state, [0, 1], mem)).toEqual(["a", "c0", "c1"]);
     r.state.m[2].ff = 0;
     expect(L.statsMessages(r.state, at(next, "08:10"))).toEqual([]);
   });

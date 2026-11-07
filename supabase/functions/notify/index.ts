@@ -18,7 +18,7 @@ import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushEndpointOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mail.mjs";
-import { statsMessages, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { statsMessages, statsRecipients, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -152,12 +152,11 @@ Deno.serve(async (req) => {
       const { data: owners } = await db.from("members").select("user_id").eq("player", msg.player);
       q = q.in("user_id", (owners ?? []).map((o) => o.user_id));
     }
-    const { data: subs } = await q;
-    if (msg.teams) { // Spielleitung + Captains, deren Spieler in einem der Teams ist
+    if (msg.teams) { // nur Spielleitung + Captains der betroffenen Teams (Filter vor der Abfrage!)
       const { data: mem } = await db.from("members").select("user_id, role, player").in("role", ["admin", "captain"]);
-      const T = msg.teams.flatMap((t) => row.data.t[t]?.p ?? []);
-      q = q.in("user_id", (mem ?? []).filter((x) => x.role === "admin" || T.includes(x.player)).map((x) => x.user_id));
+      q = q.in("user_id", statsRecipients(row.data, msg.teams, mem ?? []));
     }
+    const { data: subs } = await q;
     const { player: _p, teams: _t, ...payload } = msg;
     for (const s of subs ?? []) {
       if (!pushEndpointOk(s.endpoint)) continue; // nur bekannte Push-Dienste
