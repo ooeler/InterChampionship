@@ -174,8 +174,11 @@ test.describe("Spielerprofil (#103)", () => {
     const up = (o) => page.setInputFiles("[data-pimp]", { name: "archiv.json", mimeType: "application/json", buffer: Buffer.from(typeof o == "string" ? o : JSON.stringify(o)) });
     const rows = () => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_pse")));
 
-    await up("kein json");
-    await expect.poll(() => msg.at(-1)).toContain("kein gültiges JSON");
+    // Nach dem Login lädt die App noch nach und zeichnet neu; eine Datei im gerade ersetzten Feld löst nichts aus → bis zur ersten Meldung wiederholen
+    await expect(async () => {
+      await up("kein json");
+      await expect.poll(() => msg.at(-1), { timeout: 1500 }).toContain("kein gültiges JSON");
+    }).toPass({ timeout: 15000 });
     await up([{ season: "22/23", player: "Silvan Frey", goals: -1 }]);
     await expect.poll(() => msg.at(-1)).toContain("Eintrag 1: goals ist ungültig");
     await up([{ season: "22/23", player: "Silvan Frey" }, { season: "22/23", player: "Silvan Frey" }]);
