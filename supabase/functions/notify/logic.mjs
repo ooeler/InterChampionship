@@ -240,6 +240,11 @@ export function statsText(state, q) {
 }
 // Eine einzige Meldung pro Match Day (push_log-Key ohne Datum): am ersten Morgen ab sendAt (eine Stunde lang, Cron alle 15 Min.)
 // nach dem Match Day, an dem die Skorerliste nicht stimmt – höchstens `days` Tage danach. Empfänger: Spielleitung und die Captains der betroffenen Teams (teams).
+// Empfänger der Skorer-Meldung: alle Spielleitungen und die Captains, deren Spieler in einem der Teams ist (user_ids)
+export function statsRecipients(state, teams, members) {
+  const T = teams.flatMap((t) => state.t[t]?.p ?? []);
+  return members.filter((x) => x.role === "admin" || (x.role === "captain" && T.includes(x.player))).map((x) => x.user_id);
+}
 export function statsMessages(state, nowMs, sendAt = "08:00", days = 14) {
   const today = zurichDate(new Date(nowMs)), from = zurichToUtc(today, sendAt);
   if (nowMs < from || nowMs >= from + 36e5) return [];
