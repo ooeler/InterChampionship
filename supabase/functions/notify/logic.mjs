@@ -210,6 +210,56 @@ export function leadPushMessages(state, nowMs, sendAt = "08:00") {
   });
 }
 
+// Plausibilität der Skorerliste (gleiche Regeln wie skIssues in app/js/spieltag.js):
+// Tore pro Team = Endresultat minus Vorsprung (Bonus Anwesenheit + Pre-Game), Assists höchstens so viele wie Tore; Forfait wird nicht geprüft
+const anOf = (m, p, today) => ((m.base || {})[p] || 0) + m.tr.filter((x) => x.d <= today && (x.p || []).includes(p)).length;
+export function leadOf(state, m, today) {
+  const av = state.t.map((t) => (t.p.length ? t.p.reduce((a, p) => a + anOf(m, p, today), 0) / t.p.length : 0));
+  const b = av[0] > av[1] ? [1, 0] : av[1] > av[0] ? [0, 1] : av[0] > 0 ? [1, 1] : [0, 0];
+  return [b[0] + ((m.pre || [])[0] || 0), b[1] + ((m.pre || [])[1] || 0)];
+}
+export function statsIssues(state, i, today) {
+  const m = state.m[i];
+  if (!m || m.res[0] == null || m.res[1] == null || m.ff != null) return [];
+  const l = leadOf(state, m, today), out = [];
+  [0, 1].forEach((t) => {
+    const keys = state.t[t].p.concat((m.gs || []).filter((g) => g.t == t).map((g) => g.k));
+    const s = (o) => keys.reduce((a, p) => a + ((o || {})[p] || 0), 0);
+    const e = m.res[t] - l[t], g = s(m.g), a = s(m.a);
+    if (e < 0) { out.push({ t, k: "neg", v: m.res[t], w: l[t] }); return; }
+    if (g != e) out.push({ t, k: "g", v: g, w: e });
+    if (a > e) out.push({ t, k: "a", v: a, w: e });
+  });
+  return out;
+}
+export function statsText(state, q) {
+  const n = state.t[q.t].n, d = Math.abs(q.v - q.w);
+  return q.k == "neg" ? `${n}: Endresultat ${q.v} ist kleiner als der Vorsprung ${q.w}.`
+    : q.k == "a" ? `${n}: ${d} Assist${d > 1 ? "s" : ""} zu viel (${q.v} erfasst, höchstens ${q.w} möglich – 1 pro Tor).`
+    : `${n}: ${d}${d > 1 ? " Tore" : " Tor"}${q.v > q.w ? " zu viel" : " zu wenig"} (${q.v} erfasst, laut Endresultat minus Vorsprung ${q.w}).`;
+}
+// Täglich ab sendAt (eine Stunde lang, Cron alle 15 Min.), ab dem Tag nach dem Match Day und höchstens `days` Tage lang,
+// solange die Skorerliste nicht stimmt. Empfänger: Spielleitung und die Captains der betroffenen Teams (teams).
+export function statsMessages(state, nowMs, sendAt = "08:00", days = 14) {
+  const today = zurichDate(new Date(nowMs)), from = zurichToUtc(today, sendAt);
+  if (nowMs < from || nowMs >= from + 36e5) return [];
+  const out = [];
+  (state.m || []).forEach((m, i) => {
+    const md = m.tr.length ? m.tr[m.tr.length - 1].d : null;
+    if (!md || md >= today || addDays(md, days) < today) return;
+    const Q = statsIssues(state, i, today);
+    if (!Q.length) return;
+    out.push({
+      key: `stats:${i}:${today}`,
+      tag: `stats-${i}`,
+      teams: [...new Set(Q.map((q) => q.t))],
+      title: `⚠️ Skorerliste ${MON[i]} prüfen`,
+      body: Q.map((q) => statsText(state, q)).join(" "),
+    });
+  });
+  return out;
+}
+
 // Test-Mail für die Spielleitung: so sähe die Mail für das nächste Training aus (ohne Leitung: Beispielname)
 export function testLeadMail(state, nowMs, appUrl = "") {
   for (const m of state.m || []) {
