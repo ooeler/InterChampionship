@@ -69,15 +69,17 @@ test.describe("Verwaltung durch die Spielleitung", () => {
   test("Akkordeon gleitet beim Öffnen und Schliessen", async ({ page }) => {
     await teams(page);
     const bk = card(page, "bk");
-    const h0 = (await bk.boundingBox()).height;
+    const hb = async () => (await bk.boundingBox())?.height ?? 0; // null, solange die Karte gerade neu gezeichnet wird
+    await expect.poll(hb).toBeGreaterThan(0);
+    const h0 = await hb();
     // Klick und Prüfung im selben Takt, damit die Animation auch unter Last noch läuft
     const toggle = () => page.evaluate(() => { document.querySelector("h3[data-acc=bk]").click(); return document.querySelector("h3[data-acc=bk]").closest(".card").getAnimations().length });
     const anim = () => page.evaluate(() => document.querySelector("h3[data-acc=bk]").closest(".card").getAnimations().length);
     expect(await toggle()).toBeGreaterThan(0);
     await expect.poll(anim).toBe(0);
-    expect((await bk.boundingBox()).height).toBeGreaterThan(h0 + 40);
+    await expect.poll(hb).toBeGreaterThan(h0 + 40);
     expect(await toggle()).toBeGreaterThan(0);
-    await expect.poll(async () => (await bk.boundingBox()).height).toBeLessThan(h0 + 2);
+    await expect.poll(hb).toBeLessThan(h0 + 2);
   });
 });
 
