@@ -180,17 +180,34 @@ function leadMail(state, x, appUrl) {
 
 // Mail an die Trainingsleitung am Trainingstag ab 08:00, frühestens nach dem Abmeldeschluss (23 h vorher);
 // Spielleitung in Kopie. Läuft alle 15 Min.; push_log verhindert Doppelte.
-export function leadMailMessages(state, nowMs, appUrl = "", sendAt = "08:00") {
+function leadDue(state, nowMs, sendAt) {
   const out = [];
   (state.m || []).forEach((m) => {
     m.tr.forEach((x, ti) => {
       if (ti === m.tr.length - 1 || !x.lead || isWinterEvent(x.d)) return; // Match Day und Winter Event haben keine Trainingsleitung
       const start = zurichToUtc(x.d, x.t || "18:45"), from = Math.max(zurichToUtc(x.d, sendAt), start - 23 * 36e5);
       if (nowMs < from || nowMs >= Math.min(from + 36e5, start)) return;
-      out.push({ key: `lead-mail:${x.d}:${x.lead}`, player: x.lead, ...leadMail(state, x, appUrl) });
+      out.push(x);
     });
   });
   return out;
+}
+export function leadMailMessages(state, nowMs, appUrl = "", sendAt = "08:00") {
+  return leadDue(state, nowMs, sendAt).map((x) => ({ key: `lead-mail:${x.d}:${x.lead}`, player: x.lead, ...leadMail(state, x, appUrl) }));
+}
+
+// Push an die Trainingsleitung zur gleichen Zeit wie die Mail (unabhängig davon, ob Mail eingerichtet ist)
+export function leadPushMessages(state, nowMs, sendAt = "08:00") {
+  return leadDue(state, nowMs, sendAt).map((x) => {
+    const c = trainingCount(state, x);
+    return {
+      key: `lead-push:${x.d}:${x.lead}`,
+      tag: `lead-${x.d}`,
+      player: x.lead,
+      title: "🙌 Danke, dass du heute das Training leitest",
+      body: `${wd(x.d)}, ${x.t || "18:45"} Uhr: ${c.field} Feldspieler und ${c.gk} Torhüter angemeldet.` + (c.late.length ? ` Verspätet: ${c.late.length}.` : "") + (c.unsure.length ? ` Unsicher: ${c.unsure.length}.` : ""),
+    };
+  });
 }
 
 // Test-Mail für die Spielleitung: so sähe die Mail für das nächste Training aus (ohne Leitung: Beispielname)

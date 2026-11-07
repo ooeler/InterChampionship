@@ -111,6 +111,17 @@ test.describe("Mail an die Trainingsleitung (Edge Function)", () => {
     expect(at("2026-11-11T08:00:00Z")).toEqual([]); // Fenster vorbei
   });
 
+  test("Push an die Trainingsleitung im gleichen Fenster wie die Mail", () => {
+    const at = (iso) => L.leadPushMessages(st, Date.parse(iso));
+    expect(at("2026-11-11T06:55:00Z")).toEqual([]);
+    const [p] = at("2026-11-11T07:00:00Z");
+    expect(p).toMatchObject({ key: "lead-push:2026-11-11:Beat B", tag: "lead-2026-11-11", player: "Beat B", title: "🙌 Danke, dass du heute das Training leitest" });
+    expect(p.body).toContain("Mi, 11.11.2026, 18:45 Uhr: 4 Feldspieler und 2 Torhüter angemeldet.");
+    expect(at("2026-11-11T08:00:00Z")).toEqual([]);
+    expect(L.leadPushMessages(st, Date.parse("2026-11-18T07:00:00Z"))).toEqual([]); // keine Leitung
+    expect(L.leadPushMessages(st, Date.parse("2026-12-02T07:00:00Z"))).toEqual([]); // Match Day
+  });
+
   test("ohne Leitung und am Match Day keine Mail", () => {
     expect(L.leadMailMessages(st, Date.parse("2026-11-18T07:00:00Z"))).toEqual([]); // keine Leitung
     expect(L.leadMailMessages(st, Date.parse("2026-12-02T07:00:00Z"))).toEqual([]); // Match Day
