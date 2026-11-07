@@ -16,7 +16,8 @@ async function createLink(page, player, role) {
 }
 
 async function logout(page) {
-  await page.click("#lo");
+  await page.click("#lo"); // Benutzermenü
+    await page.click("[data-lo]");
 }
 
 test.describe("Mitglieder per Einladungslink einladen", () => {

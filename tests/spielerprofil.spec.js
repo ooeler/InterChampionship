@@ -18,7 +18,7 @@ test.describe("Spielerprofil (#103)", () => {
     await seed(page, () => localStorage.setItem("__mock_prof", JSON.stringify([{ player: "Beat Rentsch", pos: "f", stick: "l", nr: 7 }])));
     await login(page, SPIELER);
     await page.click("nav [data-tab=team]");
-    await expect(page.locator("[data-prof]")).toHaveCount(await page.evaluate(() => allP().length));
+    await expect(page.locator("main [data-prof]")).toHaveCount(await page.evaluate(() => allP().length));
     await expect(page.locator("[data-ted], input[data-pn], input[data-tn]")).toHaveCount(0);
     await page.click("[data-prof='Beat Rentsch']");
     await expect(prof(page)).toContainText("Beat Rentsch");
@@ -34,8 +34,8 @@ test.describe("Spielerprofil (#103)", () => {
   test("eigenes Profil bearbeiten; Torhüter ohne Stockseite", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
-    await page.click("[data-prof='Silvan Frey']");
+    await page.click("#lo");
+    await page.click("[data-myprof]");
     const f = page.locator("#proff");
     await f.locator("[name=pos]").selectOption("f");
     await expect(f.locator("[data-stick]")).toBeVisible();
@@ -52,6 +52,60 @@ test.describe("Spielerprofil (#103)", () => {
     await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_prof"))))[0]).toMatchObject({ pos: "g", stick: null, nr: 12 });
   });
 
+  test("Benutzermenü: Mein Profil als Overlay, Abmelden als Unterpunkt, Escape schliesst", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await expect(page.locator("#lo")).toHaveText("👤");
+    await expect(page.locator("#um")).toBeHidden();
+    await page.click("#lo");
+    await expect(page.locator("#lo")).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator("#um [role=menuitem]")).toHaveText(["👤 Mein Profil", "↩️ Abmelden"]);
+    await expect(page.locator("#ume")).toHaveText(SPIELER.email);
+    await page.click("main"); // Klick daneben schliesst das Menü
+    await expect(page.locator("#um")).toBeHidden();
+    await page.click("#lo");
+    await page.click("[data-myprof]");
+    await expect(page.locator("#ovl")).toBeVisible();
+    await expect(page.locator("#ovl [role=dialog]")).toHaveAttribute("aria-modal", "true");
+    await expect(prof(page)).toContainText("Silvan Frey");
+    await expect(prof(page)).toContainText(SPIELER.email);
+    await expect(page.locator("#proff")).toBeVisible();
+    await expect(page.locator("#pwf")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#ovl")).toBeHidden();
+  });
+
+  test("Passwort im Profil ändern", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await page.click("#lo");
+    await page.click("[data-myprof]");
+    const f = page.locator("#pwf");
+    await f.locator("[name=p1]").fill("neuesPasswort1");
+    await f.locator("[name=p2]").fill("anderes");
+    let msg = "";
+    page.on("dialog", (d) => { msg = d.message(); }); // die Fixture bestätigt Dialoge selbst
+    await f.locator("button").click();
+    await expect.poll(() => msg).toContain("stimmen nicht");
+    await f.locator("[name=p2]").fill("neuesPasswort1");
+    await f.locator("button").click();
+    await expect(page.locator("#toast")).toContainText("Passwort geändert");
+    await expect(f.locator("[name=p1]")).toHaveValue("");
+  });
+
+  test("Teams zeigen auch das eigene Profil nur lesend, mit Skorerpunkten statt Assists", async ({ page }) => {
+    await seed(page);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=team]");
+    await page.click("[data-prof='Silvan Frey']");
+    await expect(page.locator("#ovl")).toBeVisible();
+    await expect(prof(page).locator("form")).toHaveCount(0);
+    await expect(prof(page)).toContainText("Skorerpunkte");
+    await expect(prof(page)).not.toContainText("Assists");
+    await page.click("#ovl .ovb", { position: { x: 5, y: 5 } }); // Klick auf den Hintergrund schliesst
+    await expect(page.locator("#ovl")).toBeHidden();
+  });
+
   test("Captain: Team bearbeiten öffnet die Bearbeitung, Fertig schliesst sie", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=team]");
@@ -65,7 +119,7 @@ test.describe("Spielerprofil (#103)", () => {
   });
 
   test("Spielleitung archiviert die Saison, das Profil zeigt frühere Saisons", async ({ page }) => {
-    await seed(page, () => localStorage.setItem("__mock_pse", JSON.stringify([{ season: "25/26", player: "Silvan Frey", team: "Alte Füchse", goals: 9, assists: 4, trainings: 30, potm: 2, rank_goals: 3, rank_assists: 5, rank_trainings: 1 }])));
+    await seed(page, () => localStorage.setItem("__mock_pse", JSON.stringify([{ season: "25/26", player: "Silvan Frey", team: "Alte Füchse", goals: 9, assists: 4, trainings: 30, potm: 2, rank_goals: 3, rank_points: 5, rank_trainings: 1 }])));
     await login(page, ADMIN);
     await page.click("nav [data-tab=team]");
     await page.evaluate(() => S.m.forEach((m, i) => actPts(i, m))); // Monatswertungen laden

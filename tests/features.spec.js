@@ -29,7 +29,8 @@ test.describe("Rollen", () => {
   test("Spieler-Änderungen an Teams lehnt der Server ab", async ({ page }) => {
     await login(page); // Captain legt die Saison an
     await expect.poll(() => page.evaluate(() => !!localStorage.getItem("__mock_db"))).toBe(true);
-    await page.click("#lo");
+    await page.click("#lo"); // Benutzermenü
+    await page.click("[data-lo]");
     await login(page, SPIELER);
     await page.evaluate(() => { S.t[0].n = "Gehackt"; save() });
     await page.waitForTimeout(600);
