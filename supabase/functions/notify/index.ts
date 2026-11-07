@@ -4,7 +4,7 @@
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
 //                                    + Mail an die Trainingsleitung am Trainingstag nach dem Abmeldeschluss (Spielleitung in Kopie):
 //                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
-//                                    (über Resend, nur wenn RESEND_API_KEY und MAIL_FROM als Secrets gesetzt sind)
+//                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
 //   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
 //                                    (prüft die Mail-Einrichtung; höchstens eine pro Person und 10 Min.)
 //   { type: "testpush" }           – aus der App, nur Spielleitung: Push an die eigenen Geräte (höchstens eine pro Minute)
@@ -38,7 +38,7 @@ const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampi
 type Mail = { key: string; player: string; subject: string; text: string };
 async function sendLeadMails(db: ReturnType<typeof createClient>, mails: Mail[]) {
   if (!mails.length) return 0;
-  if (!mailReady()) { console.log("Mail an Trainingsleitung übersprungen: RESEND_API_KEY/MAIL_FROM fehlen"); return 0; }
+  if (!mailReady()) { console.log("Mail an Trainingsleitung übersprungen: BREVO_API_KEY/MAIL_FROM fehlen"); return 0; }
   let n = 0;
   const { data: admins } = await db.from("members").select("email").eq("role", "admin").eq("lead_mail_cc", true);
   for (const m of mails) {

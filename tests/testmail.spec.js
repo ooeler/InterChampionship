@@ -20,9 +20,9 @@ test.describe("Test-Mail (Mail-Einrichtung prüfen)", () => {
     expect(log).toContainEqual({ op: "invoke", name: "notify", body: { type: "testmail" } });
   });
 
-  test("ohne Resend-Secrets: verständliche Fehlermeldung", async ({ page }) => {
+  test("ohne Brevo-Secrets: verständliche Fehlermeldung", async ({ page }) => {
     await login(page, ADMIN);
-    expect(await testMail(page)).toContain("RESEND_API_KEY oder MAIL_FROM fehlt");
+    expect(await testMail(page)).toContain("BREVO_API_KEY oder MAIL_FROM fehlt");
   });
 
   test("Captains sehen den Knopf nicht", async ({ page }) => {
@@ -43,11 +43,13 @@ test.describe("Test-Mail (Mail-Einrichtung prüfen)", () => {
   });
 });
 
-test("Resend: Absender mit Namen, Spielleitung in Kopie ohne Doppel", async () => {
+test("Brevo: Absender mit Namen, Spielleitung in Kopie ohne Doppel", async () => {
   const M = await import("../supabase/functions/_shared/mail.mjs");
   expect(M.mailBody("app@x.ch", { to: ["Beat@x.ch"], cc: ["admin@x.ch", "beat@x.ch", "", "admin@x.ch"], subject: "S", text: "T" }))
-    .toEqual({ from: "Herren Inter <app@x.ch>", to: ["Beat@x.ch"], cc: ["admin@x.ch"], subject: "S", text: "T" });
-  expect(M.mailBody("Club <a@x.ch>", { to: ["b@x.ch"], subject: "S", text: "T" })).toEqual({ from: "Club <a@x.ch>", to: ["b@x.ch"], subject: "S", text: "T" });
+    .toEqual({ sender: { name: "Herren Inter", email: "app@x.ch" }, to: [{ email: "Beat@x.ch" }], cc: [{ email: "admin@x.ch" }], subject: "S", textContent: "T" });
+  expect(M.mailBody("Club <a@x.ch>", { to: ["b@x.ch"], subject: "S", text: "T" }))
+    .toEqual({ sender: { name: "Club", email: "a@x.ch" }, to: [{ email: "b@x.ch" }], subject: "S", textContent: "T" });
+  expect(M.mailBody('"Herren Inter" <a@x.ch>', { to: ["b@x.ch"], subject: "S", text: "T" }).sender).toEqual({ name: "Herren Inter", email: "a@x.ch" });
   expect(M.mailReady()).toBe(false); // ohne Secrets
   expect(await M.sendMail({ to: ["b@x.ch"], subject: "S", text: "T" })).toEqual({ ok: false, error: M.MAIL_MISSING });
 });
