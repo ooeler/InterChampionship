@@ -238,8 +238,8 @@ export function statsText(state, q) {
     : q.k == "a" ? `${n}: ${d} Assist${d > 1 ? "s" : ""} zu viel (${q.v} erfasst, höchstens ${q.w} möglich – 1 pro Tor).`
     : `${n}: ${d}${d > 1 ? " Tore" : " Tor"}${q.v > q.w ? " zu viel" : " zu wenig"} (${q.v} erfasst, laut Endresultat minus Vorsprung ${q.w}).`;
 }
-// Täglich ab sendAt (eine Stunde lang, Cron alle 15 Min.), ab dem Tag nach dem Match Day und höchstens `days` Tage lang,
-// solange die Skorerliste nicht stimmt. Empfänger: Spielleitung und die Captains der betroffenen Teams (teams).
+// Eine einzige Meldung pro Match Day (push_log-Key ohne Datum): am ersten Morgen ab sendAt (eine Stunde lang, Cron alle 15 Min.)
+// nach dem Match Day, an dem die Skorerliste nicht stimmt – höchstens `days` Tage danach. Empfänger: Spielleitung und die Captains der betroffenen Teams (teams).
 export function statsMessages(state, nowMs, sendAt = "08:00", days = 14) {
   const today = zurichDate(new Date(nowMs)), from = zurichToUtc(today, sendAt);
   if (nowMs < from || nowMs >= from + 36e5) return [];
@@ -250,7 +250,7 @@ export function statsMessages(state, nowMs, sendAt = "08:00", days = 14) {
     const Q = statsIssues(state, i, today);
     if (!Q.length) return;
     out.push({
-      key: `stats:${i}:${today}`,
+      key: `stats:${i}`,
       tag: `stats-${i}`,
       teams: [...new Set(Q.map((q) => q.t))],
       title: `⚠️ Skorerliste ${MON[i]} prüfen`,
