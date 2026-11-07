@@ -91,3 +91,10 @@ function exp(){var n="interchampionship-"+String(S.sn).replace(/\W+/g,"-")+"-"+T
 if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:n}).catch(function(){});return}
 give(f)}
 function give(f){var a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
+// Wischen nach links/rechts wechselt den Reiter der Hauptnavigation (nicht in Eingabefeldern, waagrecht scrollbaren Bereichen und am Bildschirmrand)
+(function(){var x0=null,y0=0;
+function hscroll(el){for(;el&&el!=document.body;el=el.parentElement){if(/^(INPUT|SELECT|TEXTAREA|CANVAS)$/.test(el.tagName))return true;if(el.scrollWidth>el.clientWidth+2){var o=getComputedStyle(el).overflowX;if(o=="auto"||o=="scroll")return true}}return false}
+document.addEventListener("touchstart",function(e){x0=null;if(e.touches.length!=1||document.body.classList.contains("lo")||document.body.classList.contains("ovo"))return;var t=e.touches[0],m=document.getElementById("um");
+if(!e.target.closest||!e.target.closest("#app")||(m&&!m.hidden)||t.clientX<24||t.clientX>innerWidth-24||hscroll(e.target))return;x0=t.clientX;y0=t.clientY},{passive:true});
+document.addEventListener("touchend",function(e){if(x0==null)return;var t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*2)return;
+var B=[].slice.call(document.querySelectorAll("#nav [data-tab]")),i=B.findIndex(function(b){return b.dataset.tab==tab}),n=B[i+(dx<0?1:-1)];if(i>=0&&n)n.click()},{passive:true})})();
