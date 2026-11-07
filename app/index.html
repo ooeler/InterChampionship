@@ -17,8 +17,9 @@
 <div id="auth" hidden></div>
 <div id="toast" role="status" aria-live="polite" hidden></div>
 <div id="wart" role="alertdialog" aria-modal="true" aria-labelledby="wart-t" hidden><div class="wb"><div class="wi">🛠️</div><h2 id="wart-t">Update wird eingespielt</h2><p>Herren Inter bekommt gerade eine neue Version. In ein bis zwei Minuten geht es weiter – die Seite lädt dann von selbst neu.</p><p class="sp">Deine Eingaben sind sicher und werden danach gespeichert.</p><div class="wl"><span></span></div></div></div>
-<header><img id="clogo" hidden><h1 id="h1">Herren Inter</h1><button id="lo" data-lo="1">Abmelden</button><button id="li" data-login="1" hidden>Anmelden</button><div class="hd"><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><div class="tag">Let’s Fly</div></header>
+<header><img id="clogo" hidden><h1 id="h1">Herren Inter</h1><div class="umw"><button id="lo" data-um="1" aria-haspopup="menu" aria-expanded="false" aria-controls="um" aria-label="Benutzermenü">👤</button><div id="um" role="menu" hidden><div class="ume" id="ume"></div><button role="menuitem" data-myprof="1">👤 Mein Profil</button><button role="menuitem" data-lo="1">↩️ Abmelden</button></div></div><button id="li" data-login="1" hidden>Anmelden</button><div class="hd"><div class="sub" id="sub"></div><div class="hi" id="hi"></div></div><div class="tag">Let’s Fly</div></header>
 <main id="app"></main>
+<div id="ovl" hidden><div class="ovb" data-prof=""></div><div class="ovc" id="ovc" role="dialog" aria-modal="true" aria-labelledby="prof-t"></div></div>
 <nav id="nav"></nav>
 <script src="config.js"></script>
 <script src="vendor/supabase.js"></script>

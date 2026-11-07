@@ -264,7 +264,8 @@ test.describe("Grund beim Abmelden", () => {
     await mine(page).locator("form#abf button.del").click();
     await expect(first(page).locator("[data-abw]")).toHaveText("✗ abgemeldet");
     await expect.poll(async () => (await db(page)).m[2].tr[1].ab).toEqual(["Silvan Frey"]); // gespeichert
-    await page.click("#lo");
+    await page.click("#lo"); // Benutzermenü
+    await page.click("[data-lo]");
     await expect(page.locator("#li")).toBeVisible();
     expect(await page.evaluate(() => sb.from("absence_reasons").select("reason").order("d").then((r) => r.data))).toEqual([]);
 

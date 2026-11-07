@@ -127,7 +127,8 @@ test.describe("Login", () => {
 
   test("Abmelden löscht lokale Daten", async ({ page }) => {
     await login(page);
-    await page.click("#lo");
+    await page.click("#lo"); // Benutzermenü
+    await page.click("[data-lo]");
     await expect(page.locator("#li")).toBeVisible(); // zurück in der öffentlichen Rangliste
     await expect(page.locator("nav button")).toHaveCount(3); // Rangliste, Hall, Infos
     expect(await page.evaluate(() => localStorage.getItem("ic_state"))).toBeNull();

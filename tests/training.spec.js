@@ -134,7 +134,8 @@ test.describe("Training-Tab", () => {
     await openTraining(page, SPIELER);
     await expect(overview(page).locator("input[data-tdt]")).toHaveCount(0);
     await expect(overview(page).locator("[data-tadd]")).toHaveCount(0);
-    await page.click("#lo");
+    await page.click("#lo"); // Benutzermenü
+    await page.click("[data-lo]");
     await openTraining(page);
     await overview(page).locator("input[data-ttm]").fill("19:30");
     await overview(page).locator("input[data-ttm]").blur();
