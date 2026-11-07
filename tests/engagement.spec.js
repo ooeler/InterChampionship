@@ -201,6 +201,9 @@ test.describe("Monats-Rückblick", () => {
 
     await login(page, SPIELER);
     await page.click("nav [data-tab=rang]");
+    await expect(c).toHaveCount(0); // Mitglieder: nicht mehr in der Meisterschaft
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='2']");
     await expect(c).toContainText("Rössli");
     await page.evaluate(() => Object.defineProperty(navigator, "share", { configurable: true, value: (d) => { window.__s = d; return Promise.resolve() } }));
     await c.locator("[data-recap]").click();
@@ -217,7 +220,8 @@ test.describe("Monats-Rückblick", () => {
       return { silvan: an(m, "Silvan Frey") + 4, beat: an(m, "Beat Rentsch") + 3 };
     }, L);
     await login(page, SPIELER);
-    await page.click("nav [data-tab=rang]");
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='2']");
     return { r: card(page, "Rückblick November").locator(".rcr", { hasText: "Spieler des Monats" }), w };
   };
 
@@ -250,6 +254,22 @@ test.describe("Monats-Rückblick", () => {
     await mine(page).locator("[data-abw]").first().click();
     await mine(page).locator("[data-stt$='|v']").click();
     await expect.poll(() => page.evaluate(() => window.__a)).toEqual([true]);
+  });
+
+  test("im Spieltag: jeder gespielte Match Day hat seinen Rückblick", async ({ page }) => {
+    await seed(page, PATCH + ` d.m[1].res = [2, 4]; d.m[1].g = { "Beat Rentsch": 2 };`);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='1']");
+    await expect(card(page, "Rückblick Oktober")).toContainText("SpVgg Nieder");
+    await expect(card(page, "Rückblick Oktober")).toContainText("Beat Rentsch (2)");
+    await page.evaluate(() => Object.defineProperty(navigator, "share", { configurable: true, value: (d) => { window.__s = d; return Promise.resolve() } }));
+    await card(page, "Rückblick Oktober").locator("[data-recap]").click();
+    expect((await page.evaluate(() => window.__s)).title).toBe("Rückblick Oktober");
+    await page.click("[data-c='2']");
+    await expect(card(page, "Rückblick November")).toContainText("Silvan Frey (3)");
+    await page.click("[data-c='3']");
+    await expect(page.locator(".recap")).toHaveCount(0);
   });
 
   test("ohne Resultat kein Rückblick", async ({ page }) => {

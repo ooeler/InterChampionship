@@ -57,7 +57,8 @@ test.describe("Monat öffentlich", () => {
     await expect(card(page, "Rückblick November")).toHaveCount(0);
 
     await login(page, SPIELER);
-    await page.click("nav [data-tab=rang]");
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='2']");
     await expect(card(page, "Rückblick November")).toBeVisible();
   });
 
