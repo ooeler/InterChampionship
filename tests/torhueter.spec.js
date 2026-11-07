@@ -32,6 +32,7 @@ test.describe("Torhüter-Statistik", () => {
 
     await login(page, SPIELER);
     await page.click("nav [data-tab=rang]");
+    await expect(card(page, "Rückblick November")).toHaveCount(0);
     const { l, gk } = await stats(page);
     const q = (p) => gk.find((x) => x.p == p);
     expect(q("Silvan Frey").g).toBe(3 - l[1]);
@@ -40,6 +41,8 @@ test.describe("Torhüter-Statistik", () => {
     await expect(c.locator(".row")).toHaveCount(2);
     await expect(c).toContainText("1 Spiel");
     await expect(c.locator(".row", { hasText: gk[0].p }).locator("b")).toHaveText(gk[0].g.toFixed(2));
+    await page.click("nav [data-tab=spiel]");
+    await page.click("[data-c='2']");
     await expect(card(page, "Rückblick November")).toContainText("Wenigste Gegentore");
   });
 
