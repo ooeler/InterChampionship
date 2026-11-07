@@ -67,7 +67,7 @@ test.describe("Skorerliste prüfen", () => {
     expect(L.statsMessages(r.state, at(next, "07:50"))).toEqual([]);
     const M = L.statsMessages(r.state, at(next, "08:10"));
     expect(M).toHaveLength(1);
-    expect(M[0]).toMatchObject({ key: `stats:2:${next}`, title: "⚠️ Skorerliste November prüfen", teams: [0, 1] });
+    expect(M[0]).toMatchObject({ key: "stats:2", title: "⚠️ Skorerliste November prüfen", teams: [0, 1] });
     expect(M[0].body).toBe(r.txt.join(" "));
     expect(L.statsMessages(r.state, at(L.addDays(md, 15), "08:10"))).toEqual([]); // nach 14 Tagen Ruhe
     r.state.m[2].ff = 0;

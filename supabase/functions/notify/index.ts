@@ -5,7 +5,7 @@
 //                                    + Mail an die Trainingsleitung am Trainingstag nach dem Abmeldeschluss (Spielleitung in Kopie):
 //                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
 //                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
-//                                    + täglich um 8 Uhr nach dem Match Day: Skorerliste stimmt nicht → Push an Spielleitung und Captain des Teams
+//                                    + um 8 Uhr nach dem Match Day: Skorerliste stimmt nicht → einmalige Push an Spielleitung und Captain des Teams
 //   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
 //                                    (prüft die Mail-Einrichtung; höchstens eine pro Person und 10 Min.)
 //   { type: "testpush" }           – aus der App, nur Spielleitung: Push an die eigenen Geräte (höchstens eine pro Minute)
