@@ -10,9 +10,16 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  shard:
+    # Alle Tests auf allen Geräten, auf 5 gleichzeitig laufende Maschinen verteilt (jeder Test läuft genau einmal).
+    # Der Job "test" unten sammelt die Teile ein; er ist die Pflicht-Prüfung für den Merge.
+    name: test (Teil ${{ matrix.teil }}/5)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        teil: [1, 2, 3, 4, 5]
     # Fertiges Playwright-Image: Browser und Systempakete sind schon drin, keine Installation mehr, die hängen bleiben kann.
     # Die Version muss zu @playwright/test in package.json passen (geprüft in tests/ci-container.spec.js).
     container:
@@ -26,13 +33,26 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: npm test
+      - run: npx playwright test --shard=${{ matrix.teil }}/5
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.teil }}
           path: playwright-report
           retention-days: 14
+
+  test:
+    # Sammelt die 5 Teile: nur grün, wenn jeder Teil grün ist (auch ein abgebrochener oder übersprungener Teil zählt als Fehler)
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          ERGEBNIS: ${{ needs.shard.result }}
+        run: |
+          [ "$ERGEBNIS" = "success" ] || { echo "::error::Mindestens ein Testteil ist nicht grün ($ERGEBNIS)"; exit 1; }
+          echo "Alle 5 Testteile grün"
 
   e2e:
     # End-to-End gegen eine echte, lokale Supabase (Docker): Migrationen, Row Level Security, Trigger, Edge Functions.
