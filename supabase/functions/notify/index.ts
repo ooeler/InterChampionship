@@ -17,7 +17,7 @@ import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushEndpointOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mail.mjs";
-import { leadMailMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
   let mailed = 0;
   if (body.type === "training") {
     if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
-    msgs = trainingSoonMessages(row.data, Date.now());
+    msgs = [...trainingSoonMessages(row.data, Date.now()), ...leadPushMessages(row.data, Date.now())];
     mailed = await sendLeadMails(db, leadMailMessages(row.data, Date.now(), APP_URL));
   } else if (body.type === "testmail") {
     const { data: { user } } = await db.auth.getUser(token);

@@ -14,7 +14,7 @@ Alles läuft **kostenlos**: GitHub (Code, Tests, Hosting über GitHub Pages) + S
 | ℹ️ Infos | alle | Verbesserungsvorschlag (→ GitHub-Issue) und das Inter-Herren-Konzept |
 | Benutzer & Rollen | Spielleitung | Rolle und zugeordneten Spieler pro Konto setzen |
 | 📸 Social Media | Spielleitung | „Final Score“-Bild 1080×1080 aus den Daten + eigenen Fotos |
-| 📣 Push | alle | 3 Tage vor dem Match Day und nach „Resultat melden“ |
+| 📣 Push | alle | 3 Tage vor dem Match Day und nach „Resultat melden“; Trainingsleitung am Trainingstag ab 08:00 mit der Anzahl Angemeldeter (zusätzlich zur Mail) |
 | Forfait | Spielleitung & Captains | Setzt 0 : 5 gemäss Konzept |
 
 Beim Laden fliegt das Flying-Penguins-Logo ein (bei „Bewegung reduzieren“ im System ruhig).
