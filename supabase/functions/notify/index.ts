@@ -5,6 +5,7 @@
 //                                    + Mail an die Trainingsleitung am Trainingstag nach dem Abmeldeschluss (Spielleitung in Kopie):
 //                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
 //                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
+//                                    + täglich um 8 Uhr nach dem Match Day: Skorerliste stimmt nicht → Push an Spielleitung und Captain des Teams
 //   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
 //                                    (prüft die Mail-Einrichtung; höchstens eine pro Person und 10 Min.)
 //   { type: "testpush" }           – aus der App, nur Spielleitung: Push an die eigenen Geräte (höchstens eine pro Minute)
@@ -17,7 +18,7 @@ import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushEndpointOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mail.mjs";
-import { leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { statsMessages, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -65,12 +66,12 @@ Deno.serve(async (req) => {
   const { data: row } = await db.from("league_state").select("data").eq("id", "main").maybeSingle();
   if (!row) return json({ sent: 0 });
 
-  let msgs: { key: string | null; tag: string; title: string; body: string; player?: string }[] = [];
+  let msgs: { key: string | null; tag: string; title: string; body: string; player?: string; teams?: number[] }[] = [];
   let onlyUsers: string[] | null = null; // null = alle Abos
   let mailed = 0;
   if (body.type === "training") {
     if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
-    msgs = [...trainingSoonMessages(row.data, Date.now()), ...leadPushMessages(row.data, Date.now())];
+    msgs = [...trainingSoonMessages(row.data, Date.now()), ...leadPushMessages(row.data, Date.now()), ...statsMessages(row.data, Date.now())];
     mailed = await sendLeadMails(db, leadMailMessages(row.data, Date.now(), APP_URL));
   } else if (body.type === "testmail") {
     const { data: { user } } = await db.auth.getUser(token);
@@ -152,7 +153,12 @@ Deno.serve(async (req) => {
       q = q.in("user_id", (owners ?? []).map((o) => o.user_id));
     }
     const { data: subs } = await q;
-    const { player: _p, ...payload } = msg;
+    if (msg.teams) { // Spielleitung + Captains, deren Spieler in einem der Teams ist
+      const { data: mem } = await db.from("members").select("user_id, role, player").in("role", ["admin", "captain"]);
+      const T = msg.teams.flatMap((t) => row.data.t[t]?.p ?? []);
+      q = q.in("user_id", (mem ?? []).filter((x) => x.role === "admin" || T.includes(x.player)).map((x) => x.user_id));
+    }
+    const { player: _p, teams: _t, ...payload } = msg;
     for (const s of subs ?? []) {
       if (!pushEndpointOk(s.endpoint)) continue; // nur bekannte Push-Dienste
       try {
