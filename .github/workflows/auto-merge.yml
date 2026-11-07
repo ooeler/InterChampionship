@@ -74,11 +74,14 @@ jobs:
         if: steps.kind.outputs.merge == 'true' && steps.kind.outputs.bump != 'none'
         env:
           BUMP: ${{ steps.kind.outputs.bump }}
+          GEPRUEFT: ${{ github.sha }} # der Merge-Stand, auf dem test und codeql oben gelaufen sind
         run: |
+          # Git-Tree des geprüften Stands: ist der Release-Stand identisch, wiederholt release.yml die Tests nicht
+          baum=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$GEPRUEFT" --jq .tree.sha 2>/dev/null || true)
           last=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
           IFS=. read -r ma mi pa <<< "${last#v}"; ma=${ma:-1}; mi=${mi:-0}; pa=${pa:-0}
           if [ "$BUMP" = "minor" ]; then mi=$((mi+1)); pa=0; else pa=$((pa+1)); fi
           tag="v$ma.$mi.$pa"; echo "Neue Version: $tag (vorher $last)"
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target main --title "Herren Inter ${tag#v}" --generate-notes
           # Ein mit GITHUB_TOKEN erstelltes Release startet keine Workflows → Deployment explizit anstossen
-          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f grund="$TITLE (#$PR)"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f grund="$TITLE (#$PR)" -f getestet="$baum"
