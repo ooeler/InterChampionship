@@ -64,11 +64,11 @@ Die Schlüssel liegen in `.secrets/push.env` (nicht im Git!). Den Wert `VAPID_SU
 2. `supabase/cron.sql` öffnen, `<PROJECT_REF>` und `<CRON_SECRET>` ersetzen, im SQL Editor ausführen (die Datei mit eingesetzten Werten nicht committen).
 3. Hinweis iPhone: Push funktioniert erst, wenn die App über *Teilen → Zum Home-Bildschirm* installiert ist (ab iOS 16.4).
 
-**Mail an die Trainingsleitung (optional):** Am Trainingstag ab 08:00 (nach dem Abmeldeschluss) bekommt die eingeteilte Trainingsleitung eine Dankes-Mail mit der Anzahl Feldspieler und Torhüter über alle Teams (inkl. Gastspieler) und den Abmeldungen; die Spielleitung erhält sie in Kopie (jede Person kann das unter **Teams → Mail und Benachrichtigung testen** abschalten). Dafür bei [Resend](https://resend.com) unter *Domains* die eigene Domain bestätigen (DNS-Einträge), unter *API Keys* einen Schlüssel mit „Sending access“ erstellen und in Supabase unter **Edge Functions → Secrets** eintragen:
-- `RESEND_API_KEY` – der API-Schlüssel
-- `MAIL_FROM` – Absender auf der bestätigten Domain, z. B. `app@deine-domain.ch` oder `Herren Inter <app@deine-domain.ch>`
+**Mail an die Trainingsleitung (optional):** Am Trainingstag ab 08:00 (nach dem Abmeldeschluss) bekommt die eingeteilte Trainingsleitung eine Dankes-Mail mit der Anzahl Feldspieler und Torhüter über alle Teams (inkl. Gastspieler) und den Abmeldungen; die Spielleitung erhält sie in Kopie (jede Person kann das unter **Teams → Mail und Benachrichtigung testen** abschalten). Dafür in [Brevo](https://www.brevo.com) unter *Senders, Domains & Dedicated IPs → Senders* die Absenderadresse verifizieren (Bestätigungsmail, keine DNS-Einträge nötig), unter *SMTP & API → API Keys* einen API-Schlüssel erstellen und in Supabase unter **Edge Functions → Secrets** eintragen:
+- `BREVO_API_KEY` – der API-Schlüssel (nicht der SMTP-Schlüssel)
+- `MAIL_FROM` – die in Brevo verifizierte Absenderadresse, z. B. `app@deine-domain.ch` oder `Herren Inter <app@deine-domain.ch>`
 
-Resend hat keine IP-Sperre; die wechselnden Adressen der Edge Functions sind kein Problem. Test: in der App **Teams → Mail und Benachrichtigung testen → ✉️ Test-Mail an mich**.
+Falls in Brevo unter *Security → Authorised IPs* die IP-Sperre aktiv ist, diese ausschalten: die Edge Functions haben wechselnde Adressen. Test: in der App **Teams → Mail und Benachrichtigung testen → ✉️ Test-Mail an mich**.
 
 Ohne diese beiden Werte wird keine Mail verschickt (die App funktioniert trotzdem). Die Mail geht an die Adresse des Kontos, das dem Spieler zugeordnet ist (Teams → Benutzer & Rollen).
 
