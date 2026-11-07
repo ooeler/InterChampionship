@@ -20,7 +20,7 @@ function statLine(r){var rk=function(x){return x?' <span class="sp">('+(+x)+'.)<
 function pwForm(){var em=me&&me.email?esc(me.email):"";return '<form id="pwf" class="sk"><div class="sp" style="margin-bottom:4px">🔒 Passwort ändern</div><input type="email" name="u" autocomplete="username" value="'+em+'" hidden><label class="sp" for="pw1">Neues Passwort (mind. 8 Zeichen)</label><input class="t" id="pw1" type="password" name="p1" autocomplete="new-password" minlength="8" required><label class="sp" for="pw2">Passwort wiederholen</label><input class="t" id="pw2" type="password" name="p2" autocomplete="new-password" required><button class="add">Passwort ändern</button></form>'}
 function acctLine(){return me&&me.email?'<div class="kv"><span>Konto</span><b class="wr">'+esc(me.email)+'</b></div>':''}
 function profCard(){var p=PROF,cl='<button class="x pcl" data-prof="" aria-label="Profil schliessen">✕</button>';if(PROFE&&!PLAYER)return '<div class="card prof" id="prof"><h3 id="prof-t">👤 Mein Profil</h3>'+cl+acctLine()+'<div class="sp">Dein Konto ist noch keinem Spieler zugeordnet.</div>'+pwForm()+'</div>';if(p==null)return "";loadSeasons();var q=prOf(p),own=PROFE&&p==PLAYER,cur=seasonRow(p),H=(PSE||[]).filter(function(r){return r.player==p&&r.season!=S.sn}).reverse();
-return '<div class="card prof" id="prof"><h3 id="prof-t">👤 '+nrTag(p)+esc(p)+tags(p)+'</h3>'+cl+(own?acctLine():'')
+return '<div class="card prof'+(PDIR&&!calm()?(PDIR>0?' swr':' swl'):'')+'" id="prof"><h3 id="prof-t">👤 '+nrTag(p)+esc(p)+tags(p)+'</h3>'+cl+(own?acctLine():profNav(p))
 +'<div class="kv"><span>Team</span><b>'+(cur.team?esc(cur.team):'–')+'</b></div>'
 +(own?'<form id="proff"><label class="sp" for="pfpos">Position</label><select class="t" id="pfpos" name="pos"><option value="">– bitte wählen –</option>'+["f","g"].map(function(v){return '<option value="'+v+'"'+(q.pos==v?" selected":"")+'>'+POS[v]+'</option>'}).join("")+'</select>'
 +'<div data-stick'+(q.pos=="g"?" hidden":"")+'><label class="sp" for="pfst">Stockseite</label><select class="t" id="pfst" name="stick"><option value="">–</option>'+["l","r"].map(function(v){return '<option value="'+v+'"'+(q.stick==v?" selected":"")+'>'+STK[v]+'</option>'}).join("")+'</select></div>'
@@ -31,6 +31,16 @@ return '<div class="card prof" id="prof"><h3 id="prof-t">👤 '+nrTag(p)+esc(p)+
 // Overlay neu zeichnen; nicht während jemand im Formular tippt
 function ovl(){var o=document.getElementById("ovl"),c=document.getElementById("ovc");if(!o)return;var on=!!me&&!PUB&&(PROF!=null||PROFE),ae=document.activeElement;
 if(on&&!o.hidden&&c.contains(ae)&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName))return;var was=!o.hidden;o.hidden=!on;document.body.classList.toggle("ovo",on);c.innerHTML=on?profCard():"";if(on&&!was){var x=c.querySelector(".pcl");if(x)x.focus()}}
+// Durch die Profile blättern (aus Teams geöffnet): Wischen, Pfeiltasten oder ‹ ›; Reihenfolge wie in den Teams
+var PDIR=0;
+function profList(){return S.t.reduce(function(a,t){return a.concat(t.p.slice().sort(function(x,y){return x.localeCompare(y,"de")}))},[])}
+function profNav(p){var L=profList(),i=L.indexOf(p);if(i<0||L.length<2)return "";return '<div class="pnav"><button class="x" data-pstep="-1" aria-label="Vorheriges Profil">‹</button><span class="sp">'+(i+1)+' / '+L.length+' · wischen zum Blättern</span><button class="x" data-pstep="1" aria-label="Nächstes Profil">›</button></div>'}
+function profStep(d,keep){if(PROF==null||PROFE)return;var L=profList(),i=L.indexOf(PROF);if(i<0||L.length<2)return;PROF=L[(i+d+L.length)%L.length];PDIR=d;loadSeasons();render();PDIR=0;
+if(keep){var b=document.querySelector('#ovc [data-pstep="'+d+'"]');if(b)b.focus()}}
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("#ovc [data-pstep]");if(b)profStep(+b.dataset.pstep,true)});
+document.addEventListener("keydown",function(e){var o=document.getElementById("ovl");if(!o||o.hidden||PROFE||/^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement||{}).tagName||""))return;if(e.key=="ArrowRight"){e.preventDefault();profStep(1,false)}else if(e.key=="ArrowLeft"){e.preventDefault();profStep(-1,false)}});
+(function(){var x0=null,y0=0;document.addEventListener("touchstart",function(e){x0=e.target.closest&&e.target.closest("#ovc")&&e.touches.length==1?e.touches[0].clientX:null;if(x0!=null)y0=e.touches[0].clientY},{passive:true});
+document.addEventListener("touchend",function(e){if(x0==null)return;var t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5)profStep(dx<0?1:-1,false)},{passive:true})})();
 function ovClose(){if(PROF==null&&!PROFE)return;PROF=null;PROFE=false;render();var b=document.getElementById("lo");if(b&&!b.hidden)b.focus()}
 // Benutzermenü oben rechts
 function umTog(on){var m=document.getElementById("um"),b=document.getElementById("lo");if(!m)return;on=on==null?m.hidden:on;m.hidden=!on;b.setAttribute("aria-expanded",on);if(on){document.getElementById("ume").textContent=me&&me.email?me.email:"";var f=m.querySelector("button");if(f)f.focus()}}
