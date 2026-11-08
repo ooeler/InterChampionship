@@ -18,7 +18,7 @@ import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mail.mjs";
-import { statsMessages, statsRecipients, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -146,19 +146,10 @@ Deno.serve(async (req) => {
       const { error } = await db.from("push_log").insert({ key: msg.key });
       if (error) continue; // bereits verschickt
     }
-    let q = db.from("push_subscriptions").select("endpoint, sub");
-    if (onlyUsers) q = q.in("user_id", onlyUsers);
-    if (msg.player) { // nur an die Geräte der Konten, die diesem Spieler zugeordnet sind
-      const { data: owners } = await db.from("members").select("user_id").eq("player", msg.player);
-      q = q.in("user_id", (owners ?? []).map((o) => o.user_id));
-    }
-    if (msg.teams) { // nur Spielleitung + Captains der betroffenen Teams (Filter vor der Abfrage!)
-      const { data: mem } = await db.from("members").select("user_id, role, player").in("role", ["admin", "captain"]);
-      q = q.in("user_id", statsRecipients(row.data, msg.teams, mem ?? []));
-    }
-    const { data: subs } = await q;
+    // Empfängerfilter (onlyUsers, Spieler, Teams) – in pushSubsFor getestet, auch dass sie vor der Abfrage stehen
+    const subs = await pushSubsFor(db, row.data, msg, onlyUsers);
     const { player: _p, teams: _t, ...payload } = msg;
-    for (const s of subs ?? []) {
+    for (const s of subs) {
       if (!pushSubOk(s)) continue; // nur bekannte Push-Dienste, Adresse = gespeicherte Spalte
       try {
         await webpush.sendNotification(s.sub, JSON.stringify({ ...payload, url: "./" }));

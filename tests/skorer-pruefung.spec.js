@@ -98,4 +98,44 @@ test.describe("Skorerliste prüfen", () => {
     expect(L.statsIssues(r.state, 2, r.TD).map((q) => L.statsText(r.state, q))).toEqual(r.txt);
     await expect(ban(page).locator(".skbi")).toHaveText(r.txt);
   });
+
+  // Der Fehler vor b8caf27: Der Empfängerfilter wurde erst nach "await q" gesetzt und wirkte nicht.
+  // Die Attrappe führt die Abfrage beim await mit den bis dahin gesetzten Filtern aus – wie der Supabase-Client.
+  test("Push-Empfänger: alle Filter stehen vor der Abfrage (nur Spielleitung und Captains bekommen die Skorer-Meldung)", async () => {
+    const L = await import("../supabase/functions/notify/logic.mjs");
+    const tabellen = {
+      members: [{ user_id: "a", role: "admin", player: null }, { user_id: "c0", role: "captain", player: "A1" }, { user_id: "c1", role: "captain", player: "B1" },
+        { user_id: "p", role: "player", player: "A2" }, { user_id: "p2", role: "player", player: "A2" }],
+      push_subscriptions: ["a", "c0", "c1", "p", "p2", "x"].map((u) => ({ user_id: u, endpoint: "https://fcm.googleapis.com/fcm/send/" + u, sub: {} })),
+    };
+    const abfragen = [];
+    const db = {
+      from(t) {
+        const filter = [], b = {
+          select: () => b,
+          eq: (c, v) => (filter.push((r) => r[c] === v), b),
+          in: (c, L) => (filter.push((r) => L.includes(r[c])), b),
+          then: (ok, err) => {
+            abfragen.push(t);
+            return Promise.resolve({ data: tabellen[t].filter((r) => filter.every((f) => f(r))), error: null }).then(ok, err);
+          },
+        };
+        return b;
+      },
+    };
+    const state = { t: [{ p: ["A1", "A2"] }, { p: ["B1"] }] };
+    const an = async (msg, only = null) => (await L.pushSubsFor(db, state, msg, only)).map((s) => s.endpoint.split("/").pop());
+    expect(await an({ key: "stats:2", teams: [0] })).toEqual(["a", "c0"]);
+    expect(await an({ key: "stats:2", teams: [0, 1] })).toEqual(["a", "c0", "c1"]);
+    expect(await an({ key: "stats:2", teams: [1] }, ["c0", "c1", "p"])).toEqual(["c1"]);
+    expect(await an({ key: "lead", player: "A2" })).toEqual(["p", "p2"]);
+    expect(await an({ key: "signup" }, ["p", "x"])).toEqual(["p", "x"]);
+    expect(await an({ key: "result" })).toEqual(["a", "c0", "c1", "p", "p2", "x"]);
+    expect(abfragen.filter((t) => t == "push_subscriptions")).toHaveLength(6); // pro Nachricht genau eine Geräte-Abfrage
+    // notify nutzt genau diesen Helfer (die Geräte werden nicht nochmals selbst abgefragt)
+    const fs = require("fs"), path = require("path");
+    const src = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/notify/index.ts"), "utf8");
+    expect(src).toMatch(/const subs = await pushSubsFor\(db, row\.data, msg, onlyUsers\);/);
+    expect(src.match(/from\("push_subscriptions"\)\.select\(/g)).toHaveLength(1); // nur noch die Test-Push an die eigenen Geräte
+  });
 });

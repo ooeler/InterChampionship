@@ -75,3 +75,154 @@ test("Vollsicherung: nur lokal und verschlüsselt, Probe nur mit Testdaten", () 
   expect(fs.readFileSync(path.join(__dirname, "..", ".gitignore"), "utf8")).toContain("*.sql.gpg");
   expect(wf("vollsicherung-probe.yml")).not.toMatch(/secrets.|--linked|upload-artifact/); // nie gegen Produktion, keine Daten ins Repository
 });
+
+// ---- Release: Tests nur überspringen, wenn der Stand belegt geprüft ist; Deploy nur von main/v* ----
+// Kleiner Leser für die Job-Ebene von release.yml (ohne YAML-Bibliothek): Jobs, Schlüssel der Job-Ebene, Blöcke.
+function relJobs() {
+  const L = wf("release.yml").replace(/\r/g, "").split("\n");
+  const J = {};
+  let cur = null;
+  for (const l of L.slice(L.indexOf("jobs:") + 1)) {
+    const m = l.match(/^  ([\w-]+):\s*$/);
+    if (m) { cur = J[m[1]] = []; continue; }
+    if (/^\S/.test(l)) break;
+    if (cur) cur.push(l);
+  }
+  return Object.fromEntries(Object.entries(J).map(([k, v]) => [k, v.join("\n")]));
+}
+const jobKey = (job, k) => ((job.match(new RegExp("^    " + k + ":(.*)$", "m")) || [])[1] || "").trim();
+// Zeilen eines Blocks (z. B. "    env:" oder "        run: |") bis zur nächsten Zeile mit gleicher oder kleinerer Einrückung
+function block(text, head) {
+  const L = text.split("\n"), i = L.findIndex((l) => l.trimEnd() === head);
+  if (i < 0) return null;
+  const ind = head.length - head.trimStart().length, R = [];
+  for (const l of L.slice(i + 1)) {
+    if (l.trim() && l.length - l.trimStart().length <= ind) break;
+    R.push(l);
+  }
+  return R;
+}
+// `if:`-Ausdruck in die mit && verbundenen Teile der obersten Ebene zerlegen (Klammern zählen)
+function konjunktionen(expr) {
+  const T = [];
+  let d = 0, s = "";
+  for (let i = 0; i < expr.length; i++) {
+    const c = expr[i];
+    if (c == "(") d++;
+    if (c == ")") d--;
+    if (d == 0 && expr.startsWith("&&", i)) { T.push(s.trim()); s = ""; i++; continue; }
+    s += c;
+  }
+  T.push(s.trim());
+  return T.map((t) => t.replace(/\s+/g, " "));
+}
+const NUR_MAIN = "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))";
+
+test("Release: Deploy-Jobs nur von main oder Tags v*, Backend nur nach grünen oder belegt übersprungenen Tests", () => {
+  const J = relJobs();
+  expect(Object.keys(J)).toEqual(["pruefen", "test", "backend", "pages", "wartung-aus"]);
+  for (const j of ["backend", "pages", "wartung-aus"]) {
+    const k = konjunktionen(jobKey(J[j], "if"));
+    expect(k, j).toContain(NUR_MAIN);
+    expect(k.filter((t) => !t.startsWith("(")).join(" "), j + ": kein || auf oberster Ebene").not.toContain("||");
+  }
+  // Tests laufen, ausser pruefen belegt den Stand als geprüft
+  expect(jobKey(J.test, "needs")).toBe("pruefen");
+  expect(jobKey(J.test, "if")).toBe("needs.pruefen.outputs.tests == 'ja'");
+  // Backend: braucht pruefen und test; weiter nur bei grünen Tests oder übersprungenen Tests mit tests=nein
+  expect(jobKey(J.backend, "needs")).toBe("[pruefen, test]");
+  expect(konjunktionen(jobKey(J.backend, "if")).sort()).toEqual([
+    "(needs.test.result == 'success' || (needs.test.result == 'skipped' && needs.pruefen.outputs.tests == 'nein'))",
+    NUR_MAIN, "always()", "needs.pruefen.result == 'success'"].sort());
+  expect(jobKey(J.pages, "needs")).toBe("backend");
+  expect(konjunktionen(jobKey(J.pages, "if"))).toContain("needs.backend.result == 'success'");
+  expect(jobKey(J["wartung-aus"], "needs")).toBe("[backend, pages]");
+  expect(konjunktionen(jobKey(J["wartung-aus"], "if"))).toContain("needs.backend.result != 'skipped'");
+  // Environment production (Branch-Policy auf GitHub) für alles, was Supabase-Secrets braucht
+  expect(jobKey(J.backend, "environment")).toBe("production");
+  expect(jobKey(J["wartung-aus"], "environment")).toBe("production");
+  // Secrets nur in Schritten (env eines Steps), nie im Job-env und nie direkt im Skript
+  for (const [n, j] of Object.entries(J)) {
+    expect((block(j, "    env:") || []).filter((l) => l.includes("secrets.")), n + ": Secret im Job-env").toEqual([]);
+    for (const l of j.split("\n").filter((l) => l.includes("secrets."))) {
+      expect(l, n).toMatch(/^ {10}[A-Z_]+: \$\{\{ secrets\.[A-Z_]+ \}\}$/);
+    }
+  }
+});
+
+// Das Skript von "pruefen" läuft mit nachgebauten git/gh/jq: Nur wenn alles belegt ist, steht tests=nein.
+// Unabhängig vom Gerät: läuft nur im Projekt desktop (bash-Aufrufe sind unter Windows langsam).
+test("Release: pruefen setzt tests=nein nur bei gleichem Tree, gemergtem PR und grünen Pflicht-Jobs", ({}, info) => {
+  test.skip(info.project.name != "desktop", "einmal genügt");
+  test.setTimeout(180_000);
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+  const run = block(relJobs().pruefen, "        run: |");
+  expect(run && run.length).toBeGreaterThan(10);
+  const skript = run.map((l) => l.slice(10)).join("\n");
+  // Attrappen: git liefert den Tree, gh antwortet je nach API-Pfad aus T_*-Variablen (und protokolliert), jq prüft nur die Job-Liste
+  const stubs = [
+    'git() { echo "$T_BAUM"; }',
+    'gh() {',
+    '  echo "gh $*" >> "$T_LOG"',
+    '  local p="${2#repos/$GITHUB_REPOSITORY/}"',
+    '  case "$p" in',
+    '    compare/*) [ "$T_STATUS" = "fehler" ] && return 1; echo "$T_STATUS" ;;',
+    '    commits/*/pulls) echo "$T_MC" ;;',
+    '    commits/*) echo "$T_MTREE" ;;',
+    '    "actions/runs?"*) for r in $T_RUNS; do echo "$r"; done ;;',
+    '    actions/runs/*/jobs*) local id="${p#actions/runs/}"; id="${id%%/*}"; local v="T_JOBS_$id"; echo "${!v}" ;;',
+    '    *) return 1 ;;',
+    '  esac',
+    '}',
+    'jq() { [ "$1 $2 $3 $5" = \'-e --arg j any(.[]; . == $j)\' ] || return 2; grep -qF "\\"$4\\""; }',
+    '',
+  ].join("\n");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pruefen-"));
+  const baum = "a".repeat(40), kopf = "b".repeat(40), merge = "c".repeat(40);
+  const PFLICHT = ["test / test", "test / e2e", "test / security", "codeql / analyze (javascript-typescript)"];
+  const gut = { GETESTET: baum, KOPF: kopf, T_BAUM: baum, T_STATUS: "identical", T_MC: merge, T_MTREE: baum, T_RUNS: "11", T_JOBS_11: JSON.stringify(PFLICHT) };
+  let n = 0;
+  const lauf = (anders) => {
+    const out = path.join(dir, "out" + ++n), log = path.join(dir, "log" + n);
+    fs.writeFileSync(out, "");
+    const r = spawnSync("bash", ["-c", stubs + skript], {
+      env: { ...process.env, ...gut, ...anders, GITHUB_OUTPUT: out, T_LOG: log, GITHUB_REPOSITORY: "ooeler/InterChampionship", GITHUB_SHA: merge },
+      encoding: "utf8",
+    });
+    if (r.error && r.error.code == "ENOENT" && !process.env.CI) test.skip(true, "bash fehlt");
+    expect(r.status, r.stderr).toBe(0);
+    const t = fs.readFileSync(out, "utf8").split("\n").filter((l) => l.startsWith("tests="));
+    expect(t, "genau eine Ausgabe tests=").toHaveLength(1);
+    return { tests: t[0].slice(6), log: fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "", stdout: r.stdout };
+  };
+  try {
+    const ok = lauf({});
+    expect(ok.tests, ok.stdout).toBe("nein");
+    // die API-Abfragen prüfen den richtigen PR und den richtigen Workflow
+    expect(ok.log).toContain("compare/main..." + merge);
+    expect(ok.log).toContain(`select(.merged_at != null and .base.ref == "main" and .head.sha == "${kopf}")`);
+    expect(ok.log).toContain(`actions/runs?head_sha=${kopf}&event=pull_request`);
+    expect(ok.log).toContain(`select(.path == ".github/workflows/auto-merge.yml" and .head_repository.full_name == "ooeler/InterChampionship")`);
+    expect(lauf({ T_STATUS: "behind" }).tests).toBe("nein");
+    expect(lauf({ T_RUNS: "10 11", T_JOBS_10: JSON.stringify(PFLICHT.slice(1)) }).tests).toBe("nein"); // ein anderer Lauf war ganz grün
+    const faelle = {
+      "kein Tree": { GETESTET: "" },
+      "Tree kein Hash": { GETESTET: "x" + baum.slice(1) },
+      "anderer Tree": { GETESTET: "d".repeat(40) },
+      "kein Kopf": { KOPF: "" },
+      "Kopf kein Hash": { KOPF: kopf + "0" },
+      "Vergleich fehlgeschlagen": { T_STATUS: "fehler" },
+      "nicht auf main": { T_STATUS: "ahead" },
+      "abgezweigt": { T_STATUS: "diverged" },
+      "kein gemergter PR": { T_MC: "" },
+      "Merge mit anderem Tree": { T_MTREE: "e".repeat(40) },
+      "kein Lauf": { T_RUNS: "" },
+      "Lauf ohne Jobs": { T_JOBS_11: "" },
+      ...Object.fromEntries(PFLICHT.map((j) => ["rot: " + j, { T_JOBS_11: JSON.stringify(PFLICHT.filter((x) => x != j)) }])),
+    };
+    for (const [name, a] of Object.entries(faelle)) expect(lauf(a).tests, name).toBe("ja");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
