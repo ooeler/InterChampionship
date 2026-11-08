@@ -148,6 +148,58 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect(r).toContain("row-level security");
 });
 
+test("Öffentliche Rangliste: anw, n, stk und kp aus dem echten SQL stimmen mit der App überein", async () => {
+  const vorher = await state();
+  const d = JSON.parse(JSON.stringify(vorher));
+  const P = d.t.flatMap((t) => t.p).filter((p, i, L) => L.indexOf(p) == i);
+  expect(P.length).toBeGreaterThan(3);
+  // "heute" wie public_league (Europe/Zurich) und wie die App (TD, Zeitzone des Browsers): nur Trainings vor beiden Daten zählen
+  const heute = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Zurich" }).format(new Date());
+  const appHeute = await player.evaluate(() => TD);
+  const bis = heute < appHeute ? heute : appHeute;
+  const gueltig = (x) => !!x && typeof x == "object" && !Array.isArray(x) && /^\d{4}-\d{2}-\d{2}$/.test(x.d || "");
+  const vergangen = d.m.flatMap((m) => m.tr.filter((x) => gueltig(x) && x.d < bis)).sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  const K = vergangen.length;
+  expect(K).toBeGreaterThan(4);
+  // P[0] war immer da (Serie K), P[1] fehlte nur am viertletzten Training (Serie 3), die anderen fehlen jedes dritte Mal (Serie < 3)
+  vergangen.forEach((x, k) => { x.p = P.filter((p, j) => j == 0 || (j == 1 ? k != K - 4 : (j + k) % 3 != 0)) });
+  d.m.forEach((m) => m.tr.forEach((x) => { if (gueltig(x) && x.d >= bis) x.p = [] }));
+  expect((await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: d } })).status).toBe(200);
+  try {
+    const pub = (await rest("/rest/v1/rpc/public_league", { key: ANON, method: "POST", body: {} })).data;
+    // nachgerechnet wie an() und streak() in der App
+    const num = (v) => (typeof v == "number" ? v : typeof v == "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? +v.trim() : 0);
+    d.m.forEach((m, i) => {
+      const T = m.tr.filter(gueltig);
+      expect(pub.m[i].tr.map((x) => x.n), "n, Monat " + i).toEqual(T.map((x) => (x.p || []).filter((p) => typeof p == "string").length));
+      expect(pub.m[i].anw, "anw, Monat " + i).toEqual(Object.fromEntries(P.map((p) => [p, num((m.base || {})[p]) + T.filter((x) => x.d < bis && x.p.includes(p)).length])));
+    });
+    const stk = {};
+    for (const p of P) {
+      let last = 0;
+      vergangen.forEach((x, k) => { if (!x.p.includes(p)) last = k + 1 });
+      if (K - last >= 3) stk[p] = K - last;
+    }
+    expect(pub.stk).toEqual(stk);
+    expect(pub.stk[P[0]]).toBe(K);
+    expect(pub.stk[P[1]]).toBe(3);
+    // dieselben Werte rechnet die App als Mitglied aus den vollen Daten (an, streak, gkOf)
+    await player.reload();
+    await expect(player.locator("#lo")).toBeVisible();
+    const app = () => player.evaluate(() => ({
+      stk: Object.fromEntries(allP().map((p) => [p, streak(p).n]).filter((e) => e[1] >= 3)),
+      anw: S.m.map((m) => Object.fromEntries(allP().map((p) => [p, an(m, p)]))),
+      kp: S.m.map((m) => [0, 1].map((t) => gkOf(m, t))),
+    }));
+    await expect.poll(async () => (await app()).stk).toEqual(pub.stk);
+    const a = await app();
+    expect(a.anw).toEqual(pub.m.map((m) => m.anw));
+    expect(a.kp).toEqual(pub.m.map((m) => m.kp));
+  } finally {
+    await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: vorher } });
+  }
+});
+
 test("Saison-Zeile: ungültige Daten und fremde Zeilen werden abgelehnt (serverseitig)", async () => {
   const vorher = await state();
   const r = await player.evaluate(async () => {
@@ -219,6 +271,27 @@ test("Konto ohne Einladung wird kein Mitglied und sieht keine geschützten Daten
     const als = (p) => fetch(URL + p, { headers: { apikey: ANON, Authorization: "Bearer " + t.access_token } }).then((r) => r.json());
     expect(await als("/rest/v1/league_state?select=id")).toEqual([]);
     expect(await als("/rest/v1/members?select=email")).toEqual([]);
+  } finally {
+    await rest("/auth/v1/admin/users/" + u.data.id, { method: "DELETE" });
+  }
+});
+
+test("Entfernte Mitgliedschaft entsteht bei einem späteren Update von app_metadata nicht neu", async () => {
+  const gast = { email: "eingeladen@e2e.test", password: pw() };
+  // wie die Function invite: Konto mit app_metadata.invited = true – der Trigger legt das Mitglied an
+  const u = await rest("/auth/v1/admin/users", { method: "POST", body: { ...gast, email_confirm: true, app_metadata: { invited: true } } });
+  expect(u.status).toBe(200);
+  const mitglied = async () => (await rest("/rest/v1/members?user_id=eq." + u.data.id + "&select=user_id")).data;
+  try {
+    expect(await mitglied()).toEqual([{ user_id: u.data.id }]);
+    // die Spielleitung entfernt die Mitgliedschaft, das Konto bleibt
+    expect([200, 204]).toContain((await rest("/rest/v1/members?user_id=eq." + u.data.id, { method: "DELETE" })).status);
+    expect(await mitglied()).toEqual([]);
+    // späteres Update von app_metadata (invited bleibt true): kein neues Mitglied
+    const upd = await rest("/auth/v1/admin/users/" + u.data.id, { method: "PUT", body: { app_metadata: { invited: true, zusatz: "e2e" } } });
+    expect(upd.status).toBe(200);
+    expect(upd.data.app_metadata).toMatchObject({ invited: true, zusatz: "e2e" });
+    expect(await mitglied()).toEqual([]);
   } finally {
     await rest("/auth/v1/admin/users/" + u.data.id, { method: "DELETE" });
   }

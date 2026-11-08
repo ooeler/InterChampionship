@@ -97,9 +97,29 @@ test.describe("Öffentliche Sicht nur mit Summen", () => {
   test("Neueste public_league-Definition gibt keine Namenslisten (p) und keine Restaurants (r) aus", () => {
     const dir = path.join(__dirname, "..", "supabase", "migrations");
     const defs = fs.readdirSync(dir).sort().map((f) => fs.readFileSync(path.join(dir, f), "utf8"))
-      .flatMap((s) => [...s.matchAll(/create or replace function public\.public_league\(\)[\s\S]*?\n\$\$;/gi)].map((m) => m[0]));
+      .flatMap((s) => [...s.matchAll(/create or replace function public\.public_league\s*\(\s*\)[\s\S]*?\n\$\$\s*;/gi)].map((m) => m[0]));
     const neu = defs[defs.length - 1];
     expect(neu).toBeTruthy();
+    // Ausgabe pro Training ('tr', (…)): nur d, t (über jsonb_only) und n – kein 'p'/'r', auch nicht über
+    // jsonb_build_object('p', …), tr.x->'p', tr.x #> '{p}' oder das ganze Objekt (|| tr.x)
+    const i = neu.search(/'tr'\s*,\s*\(/);
+    expect(i).toBeGreaterThan(0);
+    let tief = 0, ende = -1;
+    for (let k = neu.indexOf("(", i); k < neu.length; k++) {
+      if (neu[k] == "(") tief++;
+      if (neu[k] == ")" && --tief == 0) { ende = k; break; }
+    }
+    const trAus = neu.slice(i, ende + 1);
+    expect(ende).toBeGreaterThan(i);
+    expect(trAus).not.toMatch(/'(p|r)'|\{\s*(p|r)\s*\}|"(p|r)"/);
+    // tr.x nur gefiltert (jsonb_only) oder mit einem einzelnen erlaubten Schlüssel
+    const rest = trAus.replace(/jsonb_only\(\s*tr\.x\s*,\s*array\[\s*'d'\s*,\s*'t'\s*\]\s*\)/gi, "")
+      .replace(/tr\.x\s*->>?\s*'(d|t)'/gi, "");
+    expect(rest).not.toMatch(/\b(tr|a)\.x\b|\bx\b(?!\s*->)/);
+    for (const o of [...trAus.matchAll(/jsonb_build_object\(([^()]*)\)/gi)].map((m) => m[1])) {
+      const keys = [...o.matchAll(/'(\w+)'\s*,/g)].map((m) => m[1]);
+      expect(keys.every((k) => ["d", "t", "n"].includes(k)), o).toBe(true);
+    }
     // Felder pro Training nur über jsonb_only mit erlaubter Liste
     const listen = [...neu.matchAll(/jsonb_only\(\s*tr\.x\s*,\s*array\[([^\]]*)\]/gi)].map((m) => m[1]);
     expect(listen.length).toBeGreaterThan(0);

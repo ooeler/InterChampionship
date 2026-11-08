@@ -92,12 +92,15 @@ test.describe("Skorerliste per WhatsApp teilen", () => {
   });
 
   test("Link #spieltag=2 öffnet nach dem Anmelden den Spieltag November beim Hinweis", async ({ page }) => {
+    // Im Januar: ohne Link stünde die App auf einem anderen Monat – ein ignorierter Link fällt so auf
+    await page.clock.setFixedTime(new Date("2027-01-20T10:00:00"));
     await seedDb(page, BEIDE);
     await openLink(page, "#spieltag=2", CAPTAIN);
     await expect(page.locator("nav [data-tab=spiel]")).toHaveClass(/on/);
     expect(await page.evaluate(() => cur)).toBe(2);
     await expect(ban(page)).toBeInViewport();
     expect(await page.evaluate(() => location.hash)).toBe("");
+    expect(await page.evaluate(() => { const c = cur; goNow(); const ohneLink = cur; cur = c; return ohneLink })).not.toBe(2);
   });
 
   test("Link auf einen anderen Monat wählt diesen Spieltag", async ({ page }) => {

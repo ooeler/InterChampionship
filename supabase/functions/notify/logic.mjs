@@ -259,6 +259,22 @@ export function statsRecipients(state, teams, members) {
   const T = teams.flatMap((t) => state.t[t]?.p ?? []);
   return members.filter((x) => x.role === "admin" || (x.role === "captain" && T.includes(x.player))).map((x) => x.user_id);
 }
+// Geräte (push_subscriptions), an die eine Nachricht geht. Alle Empfängerfilter (onlyUsers, msg.player, msg.teams)
+// stehen auf der Abfrage, BEVOR sie ausgeführt wird – sonst wirken sie nicht. db = Supabase-Client (im Test eine Attrappe).
+export async function pushSubsFor(db, state, msg, onlyUsers) {
+  let q = db.from("push_subscriptions").select("endpoint, sub");
+  if (onlyUsers) q = q.in("user_id", onlyUsers);
+  if (msg.player) { // nur an die Geräte der Konten, die diesem Spieler zugeordnet sind
+    const { data: owners } = await db.from("members").select("user_id").eq("player", msg.player);
+    q = q.in("user_id", (owners ?? []).map((o) => o.user_id));
+  }
+  if (msg.teams) { // nur Spielleitung + Captains der betroffenen Teams
+    const { data: mem } = await db.from("members").select("user_id, role, player").in("role", ["admin", "captain"]);
+    q = q.in("user_id", statsRecipients(state, msg.teams, mem ?? []));
+  }
+  const { data: subs } = await q;
+  return subs ?? [];
+}
 export function statsMessages(state, nowMs, sendAt = "08:00", days = 14) {
   const today = zurichDate(new Date(nowMs)), from = zurichToUtc(today, sendAt);
   if (nowMs < from || nowMs >= from + 36e5) return [];

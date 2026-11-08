@@ -69,27 +69,63 @@ test.describe("Sicherheit (statisch)", () => {
 
   test("Push-Abo: Datenbank-Regel entspricht pushEndpointOk", async () => {
     const S = await import("../supabase/functions/_shared/sicherheit.mjs");
-    const mig = read("supabase/migrations/20261108_34_push_abo_pruefen.sql");
-    expect(mig).toMatch(/add constraint push_subscriptions_endpoint_pruefen check \(coalesce\(\s*sub->>'endpoint' = endpoint/);
-    const res = [...mig.matchAll(/endpoint ~ '([^']+)'/g)].map((m) => m[1]);
-    expect(res).toHaveLength(2);
-    expect(res[0]).toBe(res[1]); // Aufräumen und Regel prüfen dasselbe
-    const re = new RegExp(res[0]);
-    for (const u of ["https://fcm.googleapis.com/fcm/send/x", "https://web.push.apple.com/x", "https://updates.push.services.mozilla.com/wpush/v2/x",
-      "https://wns2-par02p.notify.windows.com/w/?token=x", "http://fcm.googleapis.com/x", "https://169.254.169.254/latest",
-      "https://fcm.googleapis.com.evil.example/x", "https://evilpush.apple.com/x", "https://notify.windows.com/x", "kaputt"]) {
-      expect(re.test(u), u).toBe(S.pushEndpointOk(u));
+    // die neueste Migration, die die Regel setzt
+    const datei = fs.readdirSync(path.join(root, "supabase/migrations")).sort().map((f) => read("supabase/migrations/" + f))
+      .filter((s) => s.includes("add constraint push_subscriptions_endpoint_pruefen")).pop();
+    expect(datei).toBeTruthy();
+    const norm = (s) => s.replace(/\s+/g, " ").trim();
+    const chk = datei.match(/add constraint push_subscriptions_endpoint_pruefen check \(coalesce\(([\s\S]*?),\s*false\)\);/);
+    const del = datei.match(/delete from public\.push_subscriptions\s+where not coalesce\(([\s\S]*?),\s*false\);/);
+    expect(chk, "Regel").toBeTruthy();
+    expect(del, "Aufräumen").toBeTruthy();
+    // Aufräumen löscht genau die Zeilen, die die Regel verbietet (sonst scheitert add constraint im Release)
+    expect(norm(del[1])).toBe(norm(chk[1]));
+    const teile = norm(chk[1]).match(/^sub->>'endpoint' = endpoint and endpoint ~ '([^']+)'$/);
+    expect(teile, "Regel: Abo-Adresse = Spalte und bekannter Push-Dienst").toBeTruthy();
+    const re = new RegExp(teile[1]);
+    const gut = ["https://fcm.googleapis.com/fcm/send/x", "https://fcm.googleapis.com", "https://web.push.apple.com/x", "https://api.push.apple.com/x",
+      "https://updates.push.services.mozilla.com/wpush/v2/x", "https://wns2-par02p.notify.windows.com/w/?token=x"];
+    // fremde Hosts, die einer zu breiten Regel durchrutschen würden
+    const fremd = ["https://storage.googleapis.com/x", "https://googleapis.com/x", "https://fcm-googleapis.com/x", "https://fcmXgoogleapis.com/x",
+      "https://evil.example/fcm.googleapis.com", "https://evil.example/https://fcm.googleapis.com/x", "https://evil.example/?u=https://fcm.googleapis.com/",
+      "https://fcm.googleapis.com.evil.example/x", "https://fcm.googleapis.com@evil.example/x", "https://FCM.GOOGLEAPIS.COM.evil.example/x",
+      "https://evilpush.apple.com/x", "https://push.apple.com.evil.example/x", "https://notify.windows.com/x", "https://xnotify.windows.com/x",
+      "https://updates.push.services.mozilla.com.evil.example/x", "https://push.services.mozilla.com/x",
+      "http://fcm.googleapis.com/x", "http://web.push.apple.com/x", "wss://fcm.googleapis.com/x", "https://169.254.169.254/latest", "kaputt", ""];
+    for (const u of gut) {
+      expect(re.test(u), "DB: " + u).toBe(true);
+      expect(S.pushEndpointOk(u), "JS: " + u).toBe(true);
     }
+    for (const u of fremd) {
+      expect(re.test(u), "DB: " + u).toBe(false);
+      expect(S.pushEndpointOk(u), "JS: " + u).toBe(false);
+    }
+    // Gleicher Host anders geschrieben (Grossbuchstaben, Port, Benutzerangabe): die Datenbank lehnt ab;
+    // pushEndpointOk prüft den normalisierten Host (new URL) und ist damit nie strenger als die Datenbank.
+    for (const u of ["https://FCM.googleapis.com/x", "https://fcm.googleapis.com:8443/x", "https://user:pw@fcm.googleapis.com/x", "https://fcm.googleapis.com:443/x"]) {
+      expect(re.test(u), "DB: " + u).toBe(false);
+    }
+    for (const u of [...gut, ...fremd]) if (re.test(u)) expect(S.pushEndpointOk(u), u).toBe(true);
   });
 
   test("Mitglied wird nur, wer über die Einladung kommt", () => {
     const files = ["supabase/setup.sql", ...fs.readdirSync(path.join(root, "supabase/migrations")).sort().map((f) => "supabase/migrations/" + f)];
-    const defs = files.flatMap((f) => [...read(f).matchAll(/create or replace function public\.handle_new_user\(\)[\s\S]*?end \$\$;/gi)].map((m) => m[0]));
-    expect(defs.length).toBeGreaterThan(0);
+    const defs = files.flatMap((f) => [...read(f).matchAll(/create or replace function public\.handle_new_user\s*\(\s*\)[\s\S]*?\bend\s*\$\$\s*;/gi)].map((m) => m[0]));
+    expect(defs.length).toBeGreaterThan(1);
     for (const d of [defs[0], defs[defs.length - 1]]) { // setup.sql und die neueste Definition
       expect(d).toMatch(/if coalesce\(new\.raw_app_meta_data->>'invited', ''\) = 'true'/);
       expect(d.indexOf("insert into public.members")).toBeGreaterThan(d.indexOf("raw_app_meta_data->>'invited'"));
+      // Mitglied nur beim Anlegen mit Kennzeichen oder wenn das Kennzeichen neu dazukommt – eine von der Spielleitung
+      // entfernte Mitgliedschaft entsteht bei einem späteren Update von app_metadata (z. B. weiterer Login-Anbieter) nicht neu
+      expect(d.match(/insert into public\.members/gi)).toHaveLength(1);
+      const wenn = d.match(/\bif\s+([\s\S]*?)\s+then\s+insert into public\.members/i);
+      expect(wenn && wenn[1].replace(/\s+/g, " ")).toBe(
+        "coalesce(new.raw_app_meta_data->>'invited', '') = 'true' and (tg_op = 'INSERT' or coalesce(old.raw_app_meta_data->>'invited', '') <> 'true')");
     }
+    // Trigger bei INSERT und bei UPDATE von app_metadata (die Auth-API schreibt app_metadata erst nach dem Anlegen)
+    const trig = files.flatMap((f) => [...read(f).matchAll(/create trigger on_auth_user_created\s+([^;]*);/gi)].map((m) => m[1].replace(/\s+/g, " ")));
+    expect(trig.length).toBeGreaterThan(1);
+    for (const t of [trig[0], trig[trig.length - 1]]) expect(t).toBe("after insert or update of raw_app_meta_data on auth.users for each row execute function public.handle_new_user()");
     // kein Nachtragen von Mitgliedern für beliebige Konten
     expect(sql).not.toMatch(/insert into public\.members\s*\([^)]*\)\s*select[^;]*from auth\.users/i);
     // die Function invite setzt das Kennzeichen, das nur der Server schreiben kann
