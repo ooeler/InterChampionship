@@ -2,8 +2,11 @@
 # Sind alle Tests und Sicherheitsprüfungen grün, wird automatisch gemergt und – je nach Branch – ein Release erstellt und deployt:
 #   feature/…                  → Minor-Release (z. B. v1.1.0)
 #   fix/…, Dependabot npm       → Patch-Release (z. B. v1.0.2)  (npm-Updates sind nur Sicherheitspatches)
-#   ci/…, docs/…, Dependabot Actions → nur mergen, kein Release (Major-Actions-Updates bleiben offen)
+#   ci/…, docs/…                → nur mergen, kein Release
+#   Dependabot GitHub Actions   → nie automatisch: bleibt offen, bis jemand das Update geprüft und gemergt hat
 # Entwürfe (Draft) und Pull Requests aus Forks werden nie automatisch gemergt.
+# Lieferkette: Fremde Actions laufen ohne Schreib-Token und ohne Secrets (dependabot/fetch-metadata in eigenem Job mit Leserechten,
+# GH_TOKEN nur in den eigenen Schritten, die ihn brauchen). Release-Tags v* sind per Ruleset geschützt (siehe SECURITY.md).
 name: Auto-Merge & Release
 
 on:
@@ -31,52 +34,67 @@ jobs:
       contents: read
       actions: read
 
+  meta:
+    # Fremde Action (Dependabot-Metadaten) nur mit Leserechten, getrennt vom Merge-Job mit Schreib-Token
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      eco: ${{ steps.meta.outputs.package-ecosystem }}
+      upd: ${{ steps.meta.outputs.update-type }}
+    steps:
+      - id: meta
+        if: github.actor == 'dependabot[bot]'
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
+
   merge:
-    needs: [test, codeql] # Tests, Semgrep, npm audit und CodeQL müssen grün sein
+    needs: [test, codeql, meta] # Tests, Semgrep, npm audit und CodeQL müssen grün sein
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
       actions: write
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR: ${{ github.event.pull_request.number }}
       BRANCH: ${{ github.event.pull_request.head.ref }}
       TITLE: ${{ github.event.pull_request.title }}
     steps:
-      - id: meta
-        if: github.actor == 'dependabot[bot]'
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
-
       - name: Art der Änderung bestimmen
         id: kind
         env:
-          ECO: ${{ steps.meta.outputs.package-ecosystem }}
-          UPD: ${{ steps.meta.outputs.update-type }}
+          ECO: ${{ needs.meta.outputs.eco }}
         run: |
           bump=none; merge=true
           case "$BRANCH" in
             feature/*) bump=minor ;;
             fix/*)     bump=patch ;;
             dependabot/*)
+              # Nur npm-Sicherheitsupdates automatisch; Actions-Updates (und alles andere von Dependabot) prüft ein Mensch
               if [ "$ECO" = "npm_and_yarn" ]; then bump=patch
-              elif [ "$UPD" = "version-update:semver-major" ]; then merge=false; fi ;;
+              else merge=false; echo "::notice::Dependabot-Update ($ECO) wird nicht automatisch gemergt – bitte prüfen und von Hand mergen."; fi ;;
           esac
           echo "bump=$bump" >> "$GITHUB_OUTPUT"; echo "merge=$merge" >> "$GITHUB_OUTPUT"
           echo "Branch $BRANCH → merge=$merge, release=$bump"
 
       - name: Mergen
         if: steps.kind.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Rebase statt Squash: Commits bleiben gleich, aufeinander aufbauende PRs lassen sich ohne Konflikt nachziehen
         run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch
 
       - name: Release erstellen und deployen
         if: steps.kind.outputs.merge == 'true' && steps.kind.outputs.bump != 'none'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUMP: ${{ steps.kind.outputs.bump }}
           GEPRUEFT: ${{ github.sha }} # der Merge-Stand, auf dem test und codeql oben gelaufen sind
+          KOPF: ${{ github.event.pull_request.head.sha }} # an diesem Commit hängen die Check-Runs dieses Laufs
         run: |
-          # Git-Tree des geprüften Stands: ist der Release-Stand identisch, wiederholt release.yml die Tests nicht
+          # Git-Tree des geprüften Stands: ist der Release-Stand identisch und belegt release.yml die grünen Checks über die API,
+          # werden die Tests dort nicht wiederholt
           baum=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$GEPRUEFT" --jq .tree.sha 2>/dev/null || true)
           last=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
           IFS=. read -r ma mi pa <<< "${last#v}"; ma=${ma:-1}; mi=${mi:-0}; pa=${pa:-0}
@@ -84,4 +102,4 @@ jobs:
           tag="v$ma.$mi.$pa"; echo "Neue Version: $tag (vorher $last)"
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target main --title "Herren Inter ${tag#v}" --generate-notes
           # Ein mit GITHUB_TOKEN erstelltes Release startet keine Workflows → Deployment explizit anstossen
-          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f grund="$TITLE (#$PR)" -f getestet="$baum"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f grund="$TITLE (#$PR)" -f getestet="$baum" -f geprueft_sha="$KOPF"

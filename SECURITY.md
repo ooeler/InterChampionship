@@ -22,6 +22,15 @@ Bei jedem Release prüft `release.yml` zusätzlich die **echte Datenbank**: Kein
 
 Laufend aktiv: GitHub Secret Scanning mit Push-Schutz und Dependabot-Sicherheitsupdates, die automatisch gemergt und ausgeliefert werden.
 
+## CI/CD-Härtung (Lieferkette)
+- **Dependabot-Updates für GitHub Actions werden nicht automatisch gemergt.** Sie bleiben offen, bis jemand die Änderungen der Action geprüft hat. Automatisch gemergt werden nur npm-Sicherheitsupdates.
+- **Secrets nur dort, wo sie gebraucht werden:** `SUPABASE_ACCESS_TOKEN`, das Cron-Secret und `GH_TOKEN` stehen in den einzelnen Schritten, nicht im Job. Fremde Actions (`checkout`, `setup-cli`, `setup-node`, …) sehen sie nicht. `dependabot/fetch-metadata` läuft in einem eigenen Job nur mit Leserechten.
+- **Environment `production`:** Die Deploy-Jobs (`backend`, `wartung-aus`) laufen im Environment `production`, Pages wie bisher in `github-pages`. Beide erlauben nur `main` und Tags `v*`. Zusätzlich prüfen die Jobs selbst den Ref.
+- **Tag-Schutz:** Ein Ruleset verhindert, dass bestehende Release-Tags `v*` verschoben oder gelöscht werden (Ausnahme: Admin). Das Anlegen neuer Tags bleibt erlaubt, weil der Release-Workflow sie mit dem `GITHUB_TOKEN` erstellt. In einem persönlichen Repository lässt sich GitHub Actions nicht als Ausnahme eintragen.
+- **Tests überspringen nur mit Nachweis:** `release.yml` wiederholt die Tests nur dann nicht, wenn über die GitHub-API belegt ist, dass der Release-Stand auf `main` liegt, ein gemergter Pull Request genau diesen Git-Tree hinterlassen hat und in dessen Lauf die Jobs `test`, `e2e`, `security` und CodeQL grün waren. Sonst laufen alle Tests.
+- **SQL im Release:** Der Ref-Name wird vor der Verwendung im SQL geprüft. Das Cron-Secret wird nur noch geschrieben, wenn es sich geändert hat (Vergleich per SHA-256), und steht damit nicht mehr bei jedem Release im SQL-Text.
+- **Container per Digest gepinnt** (Playwright, Semgrep). Dependabot aktualisiert Images in Workflows nicht. Bei einem Update von `@playwright/test` müssen Tag und Digest in `ci.yml` von Hand angepasst werden (`tests/ci-container.spec.js` meldet eine abweichende Version, den Digest prüft er nicht). Semgrep sollte gelegentlich von Hand aktualisiert werden.
+
 ## Security-Assessment Oktober 2026
 
 ### Behoben
