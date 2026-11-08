@@ -89,7 +89,7 @@ else if(D.gkp!=null){var GT=S.t[+D.gkp],G=GT.gk||(GT.gk=[]),gq=G.indexOf(D.p);gq
 else if(D.catedit!=null){CATE=D.catedit?+D.catedit:null;render();var cf=document.querySelector("#cate input[name=g]");if(cf)cf.focus();return}
 else if(D.catdel!=null){var cd=cat().filter(function(c){return String(c.id)==D.catdel})[0];if(cd&&confirm("„"+cd.reason+"“ aus dem Katalog löschen?"))sb.from("penalty_catalog").delete().eq("id",+D.catdel).then(function(r){if(r.error)alert(r.error.message);CAT=null;render()});return}
 else if(D.tgdel!=null){var gx=trAt(TSEL).x;(gx.gs||[]).splice(+D.tgdel,1);save()}
-else if(D.k){var m=S.m[cur],v=+D.d,k=D.k,t=+D.t;if(k=="pre"){if(v>0&&preFull(m))return;m.pre[t]=Math.max(0,Math.min(3,m.pre[t]+v))}else if(k=="res")m.res[t]=Math.max(0,(m.res[t]||0)+v),m.res[1-t]==null&&(m.res[1-t]=0);else m[k][D.p]=Math.max(0,(m[k][D.p]||0)+v);save()}
+else if(D.k){var m=S.m[cur],v=+D.d,k=D.k,t=+D.t;if(k=="pre"){if(v>0&&preFull(m,t))return;m.pre[t]=Math.max(0,Math.min(3,m.pre[t]+v))}else if(k=="res")m.res[t]=Math.max(0,(m.res[t]||0)+v),m.res[1-t]==null&&(m.res[1-t]=0);else m[k][D.p]=Math.max(0,(m[k][D.p]||0)+v);save()}
 else if(D.add){S.t[+D.add].p.push("Neuer Spieler "+(S.t[+D.add].p.length+1));fix(S);save()}
 else if(D.rm){var P=S.t[+D.rm].p,rj=D.p!=null&&P.indexOf(D.p)>=0?P.indexOf(D.p):+D.j,nm=P[rj];if(nm!=null&&confirm(nm+" entfernen?")){P.splice(rj,1);if(S.t[+D.rm].c==nm)S.t[+D.rm].c=P[0]||"";var RG=S.t[+D.rm].gk||[];if(RG.indexOf(nm)>=0)RG.splice(RG.indexOf(nm),1);save()}}
 var y=scrollY;render();scrollTo(0,y)});
