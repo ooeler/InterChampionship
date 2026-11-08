@@ -16,7 +16,7 @@
 // Jede Nachricht wird nur einmal verschickt (Tabelle push_log).
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
-import { safeEqual, pushEndpointOk } from "../_shared/sicherheit.mjs";
+import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mail.mjs";
 import { statsMessages, statsRecipients, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     let sent = 0;
     const errors: string[] = [];
     for (const s of subs) {
-      if (!pushEndpointOk(s.endpoint)) { errors.push("unbekannter Push-Dienst"); continue; }
+      if (!pushSubOk(s)) { errors.push("unbekannter Push-Dienst"); continue; }
       try {
         await webpush.sendNotification(s.sub, JSON.stringify({ tag: "test", title: "🔔 Test-Benachrichtigung", body: "So kommen Nachrichten von Herren Inter an.", url: "./" }));
         sent++;
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     const { data: subs } = await q;
     const { player: _p, teams: _t, ...payload } = msg;
     for (const s of subs ?? []) {
-      if (!pushEndpointOk(s.endpoint)) continue; // nur bekannte Push-Dienste
+      if (!pushSubOk(s)) continue; // nur bekannte Push-Dienste, Adresse = gespeicherte Spalte
       try {
         await webpush.sendNotification(s.sub, JSON.stringify({ ...payload, url: "./" }));
         sent++;

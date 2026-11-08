@@ -35,11 +35,13 @@ let admin, player, link, playerId;
 
 test.beforeAll(async ({ browser }) => {
   expect(URL, "E2E_SUPABASE_URL fehlt").toMatch(/^http:\/\/(127\.0\.0\.1|localhost)/);
-  // Spielleitung anlegen: Konto über die Admin-API, Rolle direkt in der Datenbank (wie im README beschrieben)
+  // Spielleitung anlegen: Konto über die Admin-API, Mitgliedschaft direkt in der Datenbank (wie im README beschrieben)
   const u = await rest("/auth/v1/admin/users", { method: "POST", body: { email: ADMIN.email, password: ADMIN.password, email_confirm: true } });
   expect(u.status).toBe(200);
-  const m = await rest("/rest/v1/members?user_id=eq." + u.data.id, { method: "PATCH", body: { role: "admin", player: "Othmar Oeler" } });
-  expect(m.data).toHaveLength(1); // Trigger hat das Mitglied beim Anlegen erstellt
+  // ohne Einladung legt der Trigger kein Mitglied an
+  expect((await rest("/rest/v1/members?user_id=eq." + u.data.id + "&select=user_id")).data).toEqual([]);
+  const m = await rest("/rest/v1/members", { method: "POST", body: { user_id: u.data.id, email: ADMIN.email, role: "admin", player: "Othmar Oeler" } });
+  expect(m.status).toBe(201);
   admin = await (await browser.newContext()).newPage();
   player = await (await browser.newContext()).newPage();
 });
@@ -95,6 +97,7 @@ test("Einladungslink: neues Mitglied erstellt sein Konto und ist dem Spieler zug
   const m = (await rest("/rest/v1/members?email=eq." + PLAYER.email + "&select=user_id,role,player")).data[0];
   expect(m).toMatchObject({ role: "player", player: "Silvan Frey" });
   playerId = m.user_id;
+  expect((await rest("/auth/v1/admin/users/" + playerId)).data.app_metadata).toMatchObject({ invited: true });
 });
 
 test("Ein Einladungslink funktioniert nur einmal", async ({ page }) => {
@@ -194,6 +197,44 @@ test("Spieler darf Teams, Rollen und Strafen nicht ändern (serverseitig)", asyn
   });
   expect(info).toBeNull();
   expect((await state()).info).toBeUndefined();
+});
+
+test("Konto ohne Einladung wird kein Mitglied und sieht keine geschützten Daten", async () => {
+  const fremd = { email: "fremd@e2e.test", password: pw() };
+  // auch wenn das Konto Benutzerdaten mitbringt, die nach Einladung aussehen (die kann jede Person selbst setzen)
+  const u = await rest("/auth/v1/admin/users", { method: "POST", body: { ...fremd, email_confirm: true, user_metadata: { invited: true } } });
+  expect(u.status).toBe(200);
+  try {
+    expect((await rest("/rest/v1/members?user_id=eq." + u.data.id + "&select=user_id")).data).toEqual([]);
+    const t = await fetch(URL + "/auth/v1/token?grant_type=password", {
+      method: "POST", headers: { apikey: ANON, "Content-Type": "application/json" }, body: JSON.stringify(fremd),
+    }).then((r) => r.json());
+    expect(t.access_token).toBeTruthy();
+    const als = (p) => fetch(URL + p, { headers: { apikey: ANON, Authorization: "Bearer " + t.access_token } }).then((r) => r.json());
+    expect(await als("/rest/v1/league_state?select=id")).toEqual([]);
+    expect(await als("/rest/v1/members?select=email")).toEqual([]);
+  } finally {
+    await rest("/auth/v1/admin/users/" + u.data.id, { method: "DELETE" });
+  }
+});
+
+test("Push-Abo: nur bekannte Push-Dienste, gespeichertes Abo muss zur Adresse passen (serverseitig)", async () => {
+  const r = await player.evaluate(async () => {
+    const fcm = "https://fcm.googleapis.com/fcm/send/e2e-" + me.id;
+    const keys = { p256dh: "x", auth: "y" };
+    const save = async (endpoint, sub) => (await sb.from("push_subscriptions").insert({ endpoint, user_id: me.id, sub })).error?.code;
+    return {
+      anders: await save(fcm, { endpoint: "https://example.org/x", keys }),
+      ohne: await save(fcm, { keys }),
+      fremd: await save("https://example.org/x", { endpoint: "https://example.org/x", keys }),
+      gut: (await save(fcm, { endpoint: fcm, keys })) ?? "ok",
+      weg: (await sb.from("push_subscriptions").delete().eq("endpoint", fcm)).error?.code ?? "ok",
+    };
+  });
+  for (const k of ["anders", "ohne", "fremd"]) expect(r[k], k).toBe("23514"); // check_violation
+  expect(r.gut).toBe("ok");
+  expect(r.weg).toBe("ok");
+  expect((await rest("/rest/v1/push_subscriptions?endpoint=like.*e2e-*&select=endpoint")).data).toEqual([]);
 });
 
 test("Spielleitung macht den Spieler zum Strafenchef – danach darf er Strafen eintragen", async () => {

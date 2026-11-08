@@ -22,17 +22,20 @@ create policy "Mitglieder: eigene Zeile, Admin alle" on public.members
   for select to authenticated using (user_id = auth.uid() or public.my_role() = 'admin');
 -- Rollen werden nur im Dashboard (Table Editor) oder per SQL gesetzt – keine Schreib-Policy für die App.
 
--- Jede eingeladene Person wird automatisch Mitglied mit Rolle 'player'.
+-- Jede eingeladene Person wird automatisch Mitglied mit Rolle 'player'. Nur Konten, die die Function "invite"
+-- angelegt hat (app_metadata.invited = true), werden Mitglied (siehe auch Migration 20261108_35).
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.members (user_id, email) values (new.id, new.email) on conflict do nothing;
+  if coalesce(new.raw_app_meta_data->>'invited', '') = 'true'
+     and (tg_op = 'INSERT' or coalesce(old.raw_app_meta_data->>'invited', '') <> 'true') then
+    insert into public.members (user_id, email) values (new.id, new.email) on conflict do nothing;
+  end if;
   return new;
 end $$;
 drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created after insert on auth.users
+create trigger on_auth_user_created after insert or update of raw_app_meta_data on auth.users
   for each row execute function public.handle_new_user();
-insert into public.members (user_id, email) select id, email from auth.users on conflict do nothing;
 
 -- Beim App-Start: Rolle + letzter Besuch (für "Willkommen zurück") abfragen und Besuch speichern.
 create or replace function public.me() returns json
