@@ -13,11 +13,12 @@ function trCount(x){var P=allP(),pl=confOpen(x)&&x.p.length?P.filter(function(p)
 var gk=pl.filter(isGK).length+gs.filter(function(g){return g.gk}).length;return {all:pl.length+gs.length,gk:gk,field:pl.length+gs.length-gk,guests:gs.length}}
 // Kurzübersicht unter „Meine Trainings“ (#102): wie viele kommen, über alle Teams, ohne Namen ausser verspätet/unsicher
 var TSUM=null;
-function trSum(x,k){var P=allP(),pl=confOpen(x)&&x.p.length?P.filter(function(p){return x.p.indexOf(p)>=0}):P.filter(function(p){return !isOff(x,p)}),gs=(x.gs||[]).filter(function(g){return g&&g.n}),
-gk=P.filter(isGK),f=P.filter(function(p){return !isGK(p)}),on=function(L){return pl.filter(function(p){return L.indexOf(p)>=0}).length},gG=gs.filter(function(g){return g.gk}).length,
-row=function(l,a,b,c){return '<tr'+(c?' class="'+c+'"':'')+'><th scope="row">'+l+'</th><td><b>'+a+'</b> / '+b+'</td></tr>'},nm=function(st){return pl.filter(function(p){return stOf(x,p)==st})};
-var v=nm("v"),u=nm("u");
-return '<div class="tsum"><table class="mt"><tbody>'+row("🧤 Torhüter",on(gk)+gG,gk.length+gG)+row("Feldspieler",on(f)+gs.length-gG,f.length+gs.length-gG)
+// Wer kommt (alle Teams + Gäste): Torhüter/Feldspieler gezählt, Verspätete und Unsichere – für die Kurzübersicht und die WhatsApp an die Leitung
+function trWho(x){var P=allP(),pl=confOpen(x)&&x.p.length?P.filter(function(p){return x.p.indexOf(p)>=0}):P.filter(function(p){return !isOff(x,p)}),gs=(x.gs||[]).filter(function(g){return g&&g.n}),
+gG=gs.filter(function(g){return g.gk}).length,gk=pl.filter(isGK).length+gG,nm=function(st){return pl.filter(function(p){return stOf(x,p)==st})};return {P:P,pl:pl,gs:gs,gG:gG,gk:gk,field:pl.length+gs.length-gk,v:nm("v"),u:nm("u")}}
+function trSum(x,k){var w=trWho(x),P=w.P,pl=w.pl,gs=w.gs,gG=w.gG,v=w.v,u=w.u,gk=P.filter(isGK),f=P.filter(function(p){return !isGK(p)}),on=function(L){return pl.filter(function(p){return L.indexOf(p)>=0}).length},
+row=function(l,a,b,c){return '<tr'+(c?' class="'+c+'"':'')+'><th scope="row">'+l+'</th><td><b>'+a+'</b> / '+b+'</td></tr>'};
+return '<div class="tsum"><table class="mt"><tbody>'+row("🧤 Torhüter",w.gk,gk.length+gG)+row("Feldspieler",w.field,f.length+gs.length-gG)
 +S.t.map(function(t,i){return row(esc(t.n),on(t.p),t.p.length,i?"tb":"ta")}).join("")
 +(v.length?'<tr class="tsn"><th scope="row">⏰ Verspätet</th><td>'+v.map(esc).join(", ")+'</td></tr>':'')
 +(u.length?'<tr class="tsn"><th scope="row">❔ Unsicher</th><td>'+u.map(esc).join(", ")+'</td></tr>':'')+'</tbody></table>'
@@ -31,6 +32,11 @@ function allP(){return S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.loc
 // WhatsApp-Aufruf für Trainings ohne Leitung; der Link öffnet direkt „Meine Trainings“
 function trLink(){return location.origin+location.pathname+"#trainings"}
 function leadWa(L){var t=!L.length?"🙌 Alle kommenden Trainings haben eine Leitung – danke!\nWer auch mal leiten möchte: unter Meine Trainings „Ich leite“ tippen.\n"+trLink():"🙋 Wer leitet ein Training?\nFür "+(L.length==1?"dieses Training":"die nächsten "+L.length+" Trainings")+" fehlt noch eine Leitung:\n"+L.map(function(r){return "• "+wd(r.x.d)+", "+tstart(r.x)}).join("\n")+"\n\nÜbernimm eines mit „Ich leite“ unter Meine Trainings – danke! 💪\n"+trLink();return "https://wa.me/?text="+encodeURIComponent(t)}
+// Spielleitung: nächstes Training mit Leitung (Match Day/Winter Event zählen nicht) – Info an die eingeteilte Person per WhatsApp, Zahlen wie in der Kurzübersicht
+function nextLead(){return allTr().filter(function(r){return !noLead(r)&&!started(r.x)})[0]||null}
+function leadInfoWa(x){var w=trWho(x),t="Hallo "+String(x.lead).split(" ")[0]+" 👋\nDu leitest das Training am "+wd(x.d)+", "+tstart(x)+" Uhr – danke! 🙌\n\nStand jetzt: "+w.field+" Feldspieler und "+w.gk+" Torhüter angemeldet"+(w.v.length?" · Verspätet: "+w.v.length:"")+(w.u.length?" · Unsicher: "+w.u.length:"")
++"\nBeim Abmeldeschluss (23 h vorher) bekommst du die definitive Zahl per Mail und Push.\n\nDenk an Einlaufen, Passübungen und deine 3 Übungen.\nAlle Details in der App:\n"+trLink();return "https://wa.me/?text="+encodeURIComponent(t)}
+function leadInfoBtn(r){var n=ROLE=="admin"&&r.x.lead&&nextLead();return n&&n.x===r.x?'<a class="add wa lwa" data-lwa="1" href="'+esc(leadInfoWa(r.x))+'" target="_blank" rel="noopener">💬 Leitung per WhatsApp informieren</a>':''}
 // WhatsApp-Knopf mit den nächsten drei Trainings ohne Leitung
 function waBtn(){var OL=allTr().filter(function(r){return !noLead(r)&&!started(r.x)&&!r.x.lead}).sort(function(a,b){return a.x.d<b.x.d?-1:a.x.d>b.x.d?1:0});return '<a class="add wa" data-wa="1" href="'+esc(leadWa(OL.slice(0,3)))+'" target="_blank" rel="noopener">💬 Per WhatsApp um Leitung bitten</a>'}
 // Statistik; den WhatsApp-Knopf zeigt sie nur, wo es keine Karte zum Einteilen gibt (wa=true)
@@ -101,7 +107,7 @@ var x=r.x,o=isOff(x,PLAYER),st=stOf(x,PLAYER),ar=(o||st=="u")&&absOf(x.d,PLAYER)
 var inf=(marks(r)+(nl?'':me?' · <b class="fl">Du leitest das Training</b>':leadTxt(x))).replace(/^ · /,"");
 return '<div class="row tm'+(me?' lme':'')+'"><span class="nm wr"><button class="td lnk" data-tsum="'+k+'" aria-expanded="'+(TSUM==k)+'" aria-label="Wer kommt am '+wd(x.d)+'">'+wd(x.d)+' <span class="sp">'+tstart(x)+'</span></button><span class="ti">'+(inf?'<span class="tsep"> · </span>'+inf:'')+(late?'<br><span class="sp">Abmelden nicht mehr möglich (23 h vorher)</span>':'')+(ar?'<br><span class="sp">Grund: '+esc(ar.reason)+'</span>':'')+'</span></span>'
 +(nl?'':'<button class="x" style="font-size:12px" data-leadme="'+k+'">'+(me?'Abgeben':x.lead?'Übernehmen':'Ich leite')+'</button>')
-+'<button class="pb'+(o?" off":st=="u"?" un":st=="v"?" ve":" on")+(late?" lt":"")+'" data-abw="'+k+'" aria-expanded="'+(TCH==k)+'">'+(o?"✗ abgemeldet":st=="u"?"❔ unsicher":st=="v"?"⏰ verspätet":"✓ angemeldet")+'</button></div>'+(TCH==k?stChoose(k,x):'')+(TSUM==k?trSum(x,k):'')
++'<button class="pb'+(o?" off":st=="u"?" un":st=="v"?" ve":" on")+(late?" lt":"")+'" data-abw="'+k+'" aria-expanded="'+(TCH==k)+'">'+(o?"✗ abgemeldet":st=="u"?"❔ unsicher":st=="v"?"⏰ verspätet":"✓ angemeldet")+'</button></div>'+leadInfoBtn(r)+(TCH==k?stChoose(k,x):'')+(TSUM==k?trSum(x,k):'')
 +(RESTO&&!r.xe?'<div class="rsr"><input class="t" list="restos" data-restok="'+k+'" placeholder="🍽️ Restaurant nach dem Training" aria-label="Restaurant am '+wd(x.d)+'" value="'+esc(x.r||"")+'"></div>':'')}).join("")
 +(L.length>5?'<button class="add" data-tall="1">'+(TALL?'Weniger zeigen':'Alle Trainings zeigen ('+L.length+')')+'</button>':'')+'</div>'}
 // Übersicht pro Training: angemeldet / abgemeldet / bestätigt, nach Mannschaft
