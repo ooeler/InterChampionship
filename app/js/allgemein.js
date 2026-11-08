@@ -27,13 +27,15 @@ var lt=leadTitle(k);if(lt)return lt[0]+sp+"! "+lt[1];
 if(missing()&&pick([1,0],k+"mw"))return pick(["Hallo"+sp+", komm mal wieder ins Training!","Hoi"+sp+", wir vermissen dich im Training!","Salü"+sp+", das Training wartet auf dich!"],k)+" 🏑";
 return pick(h<11?GR.morgen:h<18?GR.tag:GR.abend,k)+sp+"!"}
 var CUT=null; // gesetzt: Stand vor diesem Datum (für ▲/▼ in der Rangliste)
+// Öffentliche Sicht (public_league): pro Training nur die Anzahl (n), pro Monat die Anwesenheit pro Spieler (m.anw), die Serie ab 3 (S.stk). Ohne Namenslisten.
+function sums(){return S.m.some(function(m){return !!m.anw})}
 // 100% im abgeschlossenen Monat: alle Termine besucht, auch die vor der App übernommenen (base). Der Match Day zählt, sobald er bestätigt ist.
-function full(m,p){var T=m.tr,pre=Math.max.apply(null,[0].concat(Object.values(m.base)));return T.length>0&&T.every(function(x){return (x.d<TD||x.d==TD&&confOpen(x))&&x.p.indexOf(p)>=0})&&(m.base[p]||0)>=pre}
+function full(m,p){var T=m.tr,pre=Math.max.apply(null,[0].concat(Object.values(m.base)));return T.length>0&&T.every(function(x){return (x.d<TD||x.d==TD&&confOpen(x))&&(m.anw||x.p.indexOf(p)>=0)})&&(!m.anw||(m.anw[p]||0)-(m.base[p]||0)==T.length)&&(m.base[p]||0)>=pre}
 // Trainings-Serie: bestätigte Trainings in Folge (Match Days zählen, ohne Bestätigung zählt ein Training nicht)
-var SK=null;function streak(p){if(!SK){SK={};var T=allTr().filter(function(r){return !r.xe&&r.x.d<=TD&&r.x.p.length});allP().forEach(function(q){var n=0,b=0;T.forEach(function(r){n=r.x.p.indexOf(q)>=0?n+1:0;if(n>b)b=n});SK[q]={n:n,b:b}})}return SK[p]||{n:0,b:0}}
+var SK=null;function streak(p){if(!SK&&sums()){SK={};allP().forEach(function(q){var n=(S.stk||{})[q]||0;SK[q]={n:n,b:n}})}if(!SK){SK={};var T=allTr().filter(function(r){return !r.xe&&r.x.d<=TD&&r.x.p.length});allP().forEach(function(q){var n=0,b=0;T.forEach(function(r){n=r.x.p.indexOf(q)>=0?n+1:0;if(n>b)b=n});SK[q]={n:n,b:b}})}return SK[p]||{n:0,b:0}}
 function fire(p){var n=streak(p).n;return n>=3?' <span class="fire" title="'+n+' Trainings in Folge">🔥'+n+'</span>':''}
 function fullBadge(p){var ms=MON.filter(function(n,i){return full(S.m[i],p)});return ms.length?'<span class="fm" title="100% Anwesenheit: '+ms.join(", ")+'">💯🎉'+(ms.length>1?"×"+ms.length:"")+'</span>':""}
-function an(m,p){return (m.base[p]||0)+m.tr.filter(function(x){return x.d<=TD&&(!CUT||x.d<CUT)&&x.p.indexOf(p)>=0}).length}
+function an(m,p){if(m.anw)return m.anw[p]||0;return (m.base[p]||0)+m.tr.filter(function(x){return x.d<=TD&&(!CUT||x.d<CUT)&&x.p.indexOf(p)>=0}).length}
 function lastEv(){var l="";S.m.forEach(function(m){m.tr.forEach(function(x){if(x.d<=TD&&x.d>l)l=x.d})});return l}
 function sum(m,t){return S.t[t].p.reduce(function(a,p){return a+an(m,p)},0)}
 function avg(m,t){var n=S.t[t].p.length;return n?sum(m,t)/n:0}

@@ -196,7 +196,8 @@ test.describe("Monats-Rückblick", () => {
     await expect(c).toContainText("Sieger: Lochball Legenden");
     await expect(c).toContainText("Spieler des Monats");
     await expect(c).toContainText("Silvan Frey (3)");
-    await expect(c).toContainText("Rössli");
+    await expect(c).not.toContainText("Rössli"); // Restaurants nur für Mitglieder
+    await expect(c).not.toContainText("Restaurant");
     await expect(c.locator("[data-recap]")).toHaveCount(0);
 
     await login(page, SPIELER);

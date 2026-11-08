@@ -120,8 +120,14 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   const pub = (await rest("/rest/v1/rpc/public_league", { key: ANON, method: "POST", body: {} }));
   expect(pub.status).toBe(200);
   expect(pub.data.t[0].p.length).toBeGreaterThan(0);
-  expect(pub.data.m.flatMap((m) => m.tr).length).toBe((await state()).m.flatMap((m) => m.tr).length);
-  expect(pub.data.m.flatMap((m) => m.tr).every((x) => Object.keys(x).every((k) => ["d", "t", "p", "r"].includes(k)))).toBe(true);
+  const voll = await state();
+  expect(pub.data.m.flatMap((m) => m.tr).length).toBe(voll.m.flatMap((m) => m.tr).length);
+  // nur Summen: pro Training Datum, Beginn und Anzahl, keine Namenslisten und keine Restaurants
+  expect(pub.data.m.flatMap((m) => m.tr).every((x) => Object.keys(x).every((k) => ["d", "t", "n"].includes(k)))).toBe(true);
+  expect(pub.data.m.flatMap((m) => m.tr).map((x) => x.n)).toEqual(voll.m.flatMap((m) => m.tr).map((x) => (x.p || []).length));
+  expect(pub.data.m.every((m) => m.anw && typeof m.anw == "object" && Array.isArray(m.kp) && m.kp.length == 2)).toBe(true);
+  expect(Object.keys(pub.data.m[0].anw).sort()).toEqual(voll.t.flatMap((t) => t.p).filter((p, i, L) => L.indexOf(p) == i).sort());
+  expect(typeof pub.data.stk).toBe("object");
   const apOffen = await rest("/rest/v1/rpc/public_app_points", { key: ANON, method: "POST", body: { monat: 7 } });
   expect(apOffen.status).toBe(200);
   expect(apOffen.data).toEqual([]); // noch nicht gespielt: keine Punkte
