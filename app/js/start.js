@@ -26,11 +26,14 @@ var PUB=false;
 function showPublic(){PUB=true;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();render();
 sb.rpc("public_league").then(function(r){if(r.data){S=fix(r.data);render()}})}
 // Link aus dem WhatsApp-Aufruf: nach dem Anmelden direkt zu „Meine Trainings“
-var GOTR=/^#trainings$/.test(location.hash);
-function goTr(){if(!GOTR)return;GOTR=false;history.replaceState(null,"",location.pathname);tab="train";ACC.mytr=true;render();var h=document.querySelector("h3[data-acc=mytr]");if(h)h.scrollIntoView({block:"start"})}
-function start(){PUB=false;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();if(!BASE)try{localStorage.removeItem("ic_dirty")}catch(e){}goNow();render();
+var GOTR=/^#trainings$/.test(location.hash),GOSP=(location.hash.match(/^#spieltag=([0-7])$/)||[])[1],SPGO=null;
+// Link #spieltag=<Monat> (z. B. aus der WhatsApp-Nachricht zur Skorerliste): nach dem Login direkt dieser Spieltag
+function spGo(){cur=SPGO;ot=nxt(S.m[cur]);render();var sk=document.querySelector(".skban")||document.querySelector("#app .score");if(sk)sk.scrollIntoView({block:"start"})}
+// Kommt der Ligastand erst nach dem Login, setzt goNow() den Monat zurück – dann den Link-Monat erneut wählen
+function goTr(){if(GOSP!=null){SPGO=+GOSP;GOSP=null;history.replaceState(null,"",location.pathname);tab="spiel";SPED=-1;spGo();return}if(!GOTR)return;GOTR=false;history.replaceState(null,"",location.pathname);tab="train";ACC.mytr=true;render();var h=document.querySelector("h3[data-acc=mytr]");if(h)h.scrollIntoView({block:"start"})}
+function start(){PUB=false;SPGO=null;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();if(!BASE)try{localStorage.removeItem("ic_dirty")}catch(e){}goNow();render();
 setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};REAL={role:d.role||"player",resto:!!d.resto,strafen:!!d.strafen};applyRole();PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;LEADCC=d.lead_cc!==false;render();goTr();fbDone();act()});pushState();
-sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){adopt(r.data.data);goNow();render()}else push()});
+sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){adopt(r.data.data);goNow();if(SPGO!=null){spGo();SPGO=null}else render()}else push()});
 stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;adopt(n.data);if(idle())render()}).subscribe()},0)}
 function stop(){if(live){sb.removeChannel(live);live=null}}
 addEventListener("online",function(){if(isDirty())push()});
