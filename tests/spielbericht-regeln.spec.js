@@ -49,8 +49,8 @@ test.describe("Team bearbeiten: erster Klick nach einer Eingabe zählt", () => {
   });
 });
 
-// BB-3: 3 × Pre-Game à 10 min – zusammen höchstens 3 Siege
-test("Pre-Game-Siege: zusammen höchstens 3", async ({ page }) => {
+// Pre-Games: jedes Team höchstens 3 Punkte; Unentschieden gibt beiden einen Punkt, darum ist z. B. 3 : 3 möglich
+test("Pre-Game-Punkte: höchstens 3 pro Team, zusammen auch mehr", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
     const d = fix(def());
@@ -63,13 +63,14 @@ test("Pre-Game-Siege: zusammen höchstens 3", async ({ page }) => {
   await page.click("[data-sped]");
   const btn = (t, d) => page.locator(`[data-k=pre][data-t="${t}"][data-d="${d}"]`);
   for (let i = 0; i < 3; i++) await btn(0, 1).click();
-  await expect(btn(1, 1)).toBeDisabled();
   await expect(btn(0, 1)).toBeDisabled();
-  await btn(1, 1).evaluate((b) => { b.disabled = false; b.click() }); // auch ohne disabled ändert der Klick nichts
-  expect(await page.evaluate(() => S.m[2].pre)).toEqual([3, 0]);
-  await btn(0, -1).click();
-  await btn(1, 1).click();
-  expect(await page.evaluate(() => S.m[2].pre)).toEqual([2, 1]);
+  await expect(btn(1, 1)).toBeEnabled();
+  await btn(0, 1).evaluate((b) => { b.disabled = false; b.click() }); // auch ohne disabled bleibt es bei 3
+  for (let i = 0; i < 3; i++) await btn(1, 1).click();
+  expect(await page.evaluate(() => S.m[2].pre)).toEqual([3, 3]);
   await expect(btn(1, 1)).toBeDisabled();
-  await expect(page.locator(".sk", { hasText: "Pre-Game-Siege" })).toContainText("zusammen max. 3");
+  await btn(0, -1).click();
+  await expect(btn(0, 1)).toBeEnabled();
+  expect(await page.evaluate(() => S.m[2].pre)).toEqual([2, 3]);
+  await expect(page.locator(".sk", { hasText: "Pre-Game-Punkte" })).toContainText("max. 3 pro Team");
 });
