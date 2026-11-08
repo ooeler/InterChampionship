@@ -10,12 +10,16 @@ updates:
     commit-message:
       prefix: security
 
-  # GitHub Actions: wöchentlich, gruppiert. Diese PRs werden NICHT automatisch gemergt (Lieferkette) – prüfen und von Hand mergen.
+  # GitHub Actions: wöchentlich, gruppiert. Automatisch gemergt nur, wenn alle Regeln in scripts/actions-update-pruefen.mjs
+  # erfüllt sind (siehe auto-merge.yml und SECURITY.md), sonst prüfen und von Hand mergen.
+  # cooldown: neue Versionen erst nach 7 Tagen vorschlagen (Zeit, um kompromittierte Releases zu entdecken)
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]

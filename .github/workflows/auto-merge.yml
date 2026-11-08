@@ -3,10 +3,15 @@
 #   feature/…                  → Minor-Release (z. B. v1.1.0)
 #   fix/…, Dependabot npm       → Patch-Release (z. B. v1.0.2)  (npm-Updates sind nur Sicherheitspatches)
 #   ci/…, docs/…                → nur mergen, kein Release
-#   Dependabot GitHub Actions   → nie automatisch: bleibt offen, bis jemand das Update geprüft und gemergt hat
+#   Dependabot GitHub Actions   → nur mergen, kein Release – und nur, wenn der Job "regeln" alle Regeln aus
+#                                 scripts/actions-update-pruefen.mjs bestätigt: nur gepinnte uses-Zeilen in Workflows geändert,
+#                                 Besitzer auf der Erlaubt-Liste, SHA = Commit des Tags, kein Major-Update, Tag mindestens 7 Tage alt,
+#                                 Backup-Probe grün. Sonst bleibt der PR offen und der Lauf nennt die verletzte Regel.
+#                                 Liegt der PR hinter main, wird nicht gemergt, sondern um einen Rebase gebeten (siehe SECURITY.md).
 # Entwürfe (Draft) und Pull Requests aus Forks werden nie automatisch gemergt.
 # Lieferkette: Fremde Actions laufen ohne Schreib-Token und ohne Secrets (dependabot/fetch-metadata in eigenem Job mit Leserechten,
-# GH_TOKEN nur in den eigenen Schritten, die ihn brauchen). Release-Tags v* sind per Ruleset geschützt (siehe SECURITY.md).
+# GH_TOKEN nur in den eigenen Schritten, die ihn brauchen). Die Regelprüfung läuft nur mit Leserechten und mit dem Skript vom
+# Basis-Stand, nicht aus dem PR. Release-Tags v* sind per Ruleset geschützt (siehe SECURITY.md).
 name: Auto-Merge & Release
 
 on:
@@ -49,8 +54,40 @@ jobs:
         if: github.actor == 'dependabot[bot]'
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
 
+  regeln:
+    # Regelprüfung für Dependabot-Updates von GitHub Actions, nur mit Leserechten. Das Skript kommt vom Basis-Stand (main),
+    # nicht aus dem PR: ein PR kann seine eigene Prüfung nicht verändern. Für alle anderen PRs werden die Schritte übersprungen.
+    needs: [test, codeql, meta]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40 # wartet höchstens 25 Minuten auf die Backup-Probe
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    outputs:
+      ergebnis: ${{ steps.pruefen.outputs.ergebnis }}
+    steps:
+      - if: needs.meta.outputs.eco == 'github_actions'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts/actions-update-pruefen.mjs
+          sparse-checkout-cone-mode: false
+      - name: Regeln für Actions-Updates prüfen
+        id: pruefen
+        if: needs.meta.outputs.eco == 'github_actions'
+        env:
+          GH_TOKEN: ${{ github.token }} # nur Leserechte (permissions oben)
+          PR: ${{ github.event.pull_request.number }}
+          KOPF: ${{ github.event.pull_request.head.sha }}
+          AKTEUR: ${{ github.actor }}
+          OEKOSYSTEM: ${{ needs.meta.outputs.eco }}
+          UPDATE_TYP: ${{ needs.meta.outputs.upd }}
+        run: node scripts/actions-update-pruefen.mjs
+
   merge:
-    needs: [test, codeql, meta] # Tests, Semgrep, npm audit und CodeQL müssen grün sein
+    needs: [test, codeql, meta, regeln] # Tests, Semgrep, npm audit und CodeQL müssen grün sein (regeln: siehe oben)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -65,25 +102,46 @@ jobs:
         id: kind
         env:
           ECO: ${{ needs.meta.outputs.eco }}
+          REGELN: ${{ needs.regeln.outputs.ergebnis }}
         run: |
-          bump=none; merge=true
+          bump=none; merge=true; hinter=false
           case "$BRANCH" in
             feature/*) bump=minor ;;
             fix/*)     bump=patch ;;
             dependabot/*)
-              # Nur npm-Sicherheitsupdates automatisch; Actions-Updates (und alles andere von Dependabot) prüft ein Mensch
+              # npm-Sicherheitsupdates mit Patch-Release; Actions-Updates nur nach bestandener Regelprüfung (Job regeln), ohne Release
               if [ "$ECO" = "npm_and_yarn" ]; then bump=patch
-              else merge=false; echo "::notice::Dependabot-Update ($ECO) wird nicht automatisch gemergt – bitte prüfen und von Hand mergen."; fi ;;
+              elif [ "$ECO" = "github_actions" ] && [ "$REGELN" = "ok" ]; then bump=none
+              elif [ "$ECO" = "github_actions" ] && [ "$REGELN" = "hinter-main" ]; then
+                merge=false; hinter=true
+                echo "::notice::Actions-Update erfüllt alle Regeln, liegt aber hinter main – Merge erst nach einem Rebase durch Dependabot (siehe SECURITY.md)."
+              else merge=false; echo "::notice::Dependabot-Update ($ECO) wird nicht automatisch gemergt (Regelprüfung: ${REGELN:-keine}) – bitte prüfen und von Hand mergen."; fi ;;
           esac
-          echo "bump=$bump" >> "$GITHUB_OUTPUT"; echo "merge=$merge" >> "$GITHUB_OUTPUT"
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"; echo "merge=$merge" >> "$GITHUB_OUTPUT"; echo "hinter=$hinter" >> "$GITHUB_OUTPUT"
           echo "Branch $BRANCH → merge=$merge, release=$bump"
 
       - name: Mergen
         if: steps.kind.outputs.merge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Rebase statt Squash: Commits bleiben gleich, aufeinander aufbauende PRs lassen sich ohne Konflikt nachziehen
-        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch
+          KOPF: ${{ github.event.pull_request.head.sha }}
+        # Rebase statt Squash: Commits bleiben gleich, aufeinander aufbauende PRs lassen sich ohne Konflikt nachziehen.
+        # --match-head-commit: gemergt wird nur genau der geprüfte Stand.
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch --match-head-commit "$KOPF"
+
+      - name: Hinweis bei Actions-Update hinter main
+        if: steps.kind.outputs.hinter == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Dependabot nimmt Befehle von github-actions[bot] nicht an (nur von Personen mit Schreibrecht).
+        # Darum einmal pro PR ein Hinweis an den Besitzer; nach dem Rebase durch Dependabot merged der nächste Lauf von selbst.
+        run: |
+          marke="<!-- auto-merge:hinter-main -->"
+          if gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments?per_page=100" --jq '.[].body' | grep -qF "$marke"; then
+            echo "Hinweis steht schon im PR"; exit 0
+          fi
+          text="Dieses Actions-Update erfüllt alle Regeln für den automatischen Merge, liegt aber hinter main und lässt sich mit dem Token des Workflows so nicht mergen. Bitte als Kommentar \`@dependabot rebase\` schreiben – nach dem Rebase wird der PR automatisch gemergt, wenn die Regeln weiter erfüllt sind."
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$marke"$'\n'"$text"
 
       - name: Release erstellen und deployen
         if: steps.kind.outputs.merge == 'true' && steps.kind.outputs.bump != 'none'
