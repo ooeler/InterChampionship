@@ -33,9 +33,12 @@ test.describe("Datenschutz", () => {
     expect(r.direkt).toBeNull();
     expect(r.res).toEqual([4, 3]);
     expect(JSON.stringify(r.oeffentlich)).not.toMatch(SICHT);
-    expect(Object.keys(r.oeffentlich.m[2].tr[0]).sort()).toEqual(["d", "p", "r"]);
-    expect(r.oeffentlich.m[2].tr[0].p).toHaveLength(2); // die Anwesenheitsrangliste bleibt öffentlich
-    await expect(page.locator(".card", { hasText: "Anwesenheit Saison" })).toContainText(r.oeffentlich.m[2].tr[0].p[0]);
+    expect(JSON.stringify(r.oeffentlich)).not.toMatch(/Moosburg/);
+    expect(Object.keys(r.oeffentlich.m[2].tr[0]).sort()).toEqual(["d", "n"]); // nur Anzahl, keine Namen
+    expect(r.oeffentlich.m[2].tr[0].n).toBe(2);
+    const P = await page.evaluate(() => S.t[0].p[0]);
+    expect(r.oeffentlich.m[2].anw[P]).toBe(2); // die Anwesenheitsrangliste bleibt öffentlich (als Summe)
+    await expect(page.locator(".card", { hasText: "Anwesenheit Saison" })).toContainText(P);
   });
 
   test("Mitglieder laden weiter den ganzen Stand, Gründe anderer Spieler bleiben verborgen", async ({ page }) => {

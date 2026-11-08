@@ -46,7 +46,7 @@ Laufend aktiv: GitHub Secret Scanning mit Push-Schutz und Dependabot-Sicherheits
 | – | Hoch | *(v1.8.0)* Bilddaten (Logos, Sponsor) wurden ungeprüft ins HTML eingesetzt (XSS). | Prüfung der Bilddaten und Content-Security-Policy mit Prüfsummen |
 
 ### Bewusst akzeptiert / offen
-- **Öffentliche Rangliste:** Ohne Login lesbar ist der ganze Saison-Stand, inklusive Abmeldungen, Trainingsleitung und Restaurants (keine Mail-Adressen). Falls das zu viel ist, kann eine reduzierte öffentliche Sicht gebaut werden.
+- **Öffentliche Rangliste:** Ohne Login gibt es nur die eingeschränkte Sicht `public_league()` (Migration `36_oeffentlich_nur_summen`), nie den ganzen Saison-Stand. Öffentlich sind Teams und Spielernamen, Resultate, Tore und Assists, Gäste (Name, Team, Torhüter), pro Training nur Datum, Beginn und **Anzahl** Anwesende, pro Monat die **Summe** der Anwesenheit pro Spieler, die Torhüter des Match Days und die laufende Trainingsserie ab 3 (🔥). **Nicht** öffentlich: wer an welchem Training war, Restaurants, Abmeldungen und Gründe, Status, Trainingsleitung, Trainings-Gäste, Schiedsrichter, Mail-Adressen. Die App-Punkte gibt es nur als fertige Punkte für gespielte Monate (`public_app_points`). Besucher sehen darum keine ▲/▼ bei der Anwesenheit und keine Restaurants.
 - **Vertrauen im Team:** Mitglieder können Resultate und die Anwesenheit anderer ändern. Das ist so gewollt; jede Änderung ist im Verlauf gesichert und lässt sich wiederherstellen.
 - **Passwörter:** Mindestens 8 Zeichen. Der Schutz vor geleakten Passwörtern (Have I Been Pwned) braucht den Supabase-Pro-Plan.
 - Der öffentliche Supabase-Schlüssel (`anon`) steht absichtlich in der App. Geschützt wird über Login und Row Level Security.

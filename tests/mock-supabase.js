@@ -199,10 +199,35 @@
 
     // Spiegelt public_league() aus supabase/migrations
     function only(o, K) { var r = {}; K.forEach(function (k) { if (o && o[k] !== undefined) r[k] = o[k] }); return r }
+    // (20261108_36_oeffentlich_nur_summen): pro Training nur d, t und n; pro Monat anw, kp, gs; Serie stk ab 3. Keine Namenslisten, keine Restaurants.
+    function isO(x) { return !!x && typeof x == "object" && !Array.isArray(x) }
+    function strL(a) { return Array.isArray(a) ? a.filter(function (x) { return typeof x == "string" }) : [] }
+    function num(v) { return typeof v == "number" ? v : typeof v == "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? +v.trim() : 0 }
     function publicLeague() {
-      var r = get(DB); if (!r) return null; var d = r.data;
-      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: d.evt ? only(d.evt, ["d", "t"]) : null, m: d.m.map(function (m) {
-        return Object.assign(only(m, ["res", "pre", "g", "a", "base", "gs", "ff", "kp"]), { tr: m.tr.map(function (x) { return only(x, ["d", "t", "p", "r"]) }) });
+      var r = get(DB); if (!r) return null; var d = r.data, n = new Date(),
+        heute = n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"),
+        T = Array.isArray(d.t) ? d.t : [], M = Array.isArray(d.m) ? d.m : [], sp = [];
+      T.forEach(function (t) { strL(t && t.p).forEach(function (p) { if (sp.indexOf(p) < 0) sp.push(p) }) });
+      var TR = M.map(function (m) { return (m && Array.isArray(m.tr) ? m.tr : []).filter(function (x) { return isO(x) && typeof x.d == "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.d) }) });
+      var Z = [];
+      TR.forEach(function (L, i) { L.forEach(function (x, j) { if (x.d <= heute && strL(x.p).length) Z.push({ x: x, i: i, j: j }) }) });
+      Z.sort(function (a, b) { return a.x.d < b.x.d ? -1 : a.x.d > b.x.d ? 1 : a.i - b.i || a.j - b.j });
+      var stk = {};
+      sp.forEach(function (p) { var last = 0; Z.forEach(function (z, k) { if (strL(z.x.p).indexOf(p) < 0) last = k + 1 }); if (Z.length - last >= 3) stk[p] = Z.length - last });
+      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: isO(d.evt) ? only(d.evt, ["d", "t"]) : null, stk: stk, m: M.map(function (m, i) {
+        var L = TR[i], gs = Array.isArray(m.gs) ? m.gs : [], base = isO(m.base) ? m.base : {}, anw = {};
+        sp.forEach(function (p) { anw[p] = num(base[p]) + L.filter(function (x) { return x.d <= heute && strL(x.p).indexOf(p) >= 0 }).length });
+        var kp = [0, 1].map(function (t) {
+          if (Array.isArray(m.kp) && m.kp[t] != null) return strL(m.kp[t]);
+          var G = strL(T[t] && T[t].gk).concat(gs.filter(function (g) { return isO(g) && typeof g.n == "string" && typeof g.k == "string" && g.t === t && !!g.gk }).map(function (g) { return g.k }));
+          if (G.length < 2) return G;
+          var x = L[L.length - 1], P = x ? G.filter(function (p) { return strL(x.p).indexOf(p) >= 0 }) : [];
+          return P.length == 1 ? P : [];
+        });
+        return Object.assign(only(m, ["res", "pre", "g", "a", "base", "ff"]), {
+          gs: gs.filter(isO).map(function (g) { return only(g, ["n", "k", "t", "gk"]) }), kp: kp, anw: anw,
+          tr: L.map(function (x) { return Object.assign(only(x, ["d", "t"]), { n: strL(x.p).length }) }),
+        });
       }) });
     }
 
