@@ -47,6 +47,8 @@ jobs:
           echo "BACKUP_PASSPHRASE=$pass" >> "$GITHUB_ENV"
           curl -sf -o /dev/null -X POST "$API/auth/v1/admin/users" -H "apikey: $SERVICE" -H "Authorization: Bearer $SERVICE" -H "Content-Type: application/json" \
             -d "$(jq -n --arg p "$pw" '{email: "probe@e2e.test", password: $p, email_confirm: true}')"
+          # Mitglied wie im README (Konten ohne Einladung werden nicht automatisch Mitglied)
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -c "insert into public.members (user_id, email, role) select id, email, 'admin' from auth.users where email = 'probe@e2e.test' on conflict (user_id) do update set role = 'admin'"
           echo "ZAHL=$(psql "$SUPABASE_DB_URL" -tA -c "select (select count(*) from auth.users) || '/' || (select count(*) from public.members) || '/' || (select count(*) from public.league_state)")" >> "$GITHUB_ENV"
           BACKUP_PASSPHRASE=$pass bash scripts/vollsicherung.sh /tmp/sicherung
       - name: Datenbank wegwerfen und leer neu aufbauen
@@ -66,5 +68,10 @@ jobs:
             -d "$(jq -n --arg p "$PW" '{email: "probe@e2e.test", password: $p}')")
           echo "Anmelden mit dem alten Passwort: HTTP $code"
           [ "$code" = "200" ]
-          [ "$(curl -s "$API/rest/v1/league_state?select=id" -H "apikey: $ANON" | jq -r '.[0].id')" = "main" ]
+          # Das wiederhergestellte Konto liest den Spielstand; ohne Login bleibt alles gesperrt (seit dem Datenschutz-Update)
+          tok=$(curl -s -X POST "$API/auth/v1/token?grant_type=password" -H "apikey: $ANON" -H "Content-Type: application/json"             -d "$(jq -n --arg p "$PW" '{email: "probe@e2e.test", password: $p}')" | jq -r .access_token)
+          [ "$(curl -s "$API/rest/v1/league_state?select=id" -H "apikey: $ANON" -H "Authorization: Bearer $tok" | jq -r '.[0].id')" = "main" ]
+          [ "$(curl -s "$API/rest/v1/members?select=email" -H "apikey: $ANON" -H "Authorization: Bearer $tok" | jq -r '.[0].email')" = "probe@e2e.test" ]
+          [ "$(curl -s "$API/rest/v1/league_state?select=id" -H "apikey: $ANON" | jq 'length')" = "0" ]
           [ "$(curl -s "$API/rest/v1/members?select=email" -H "apikey: $ANON" | jq 'length')" = "0" ]
+          echo "Wiederhergestelltes Konto liest den Spielstand, ohne Login bleibt er gesperrt"
