@@ -78,8 +78,8 @@ test("Vollsicherung: nur lokal und verschlüsselt, Probe nur mit Testdaten", () 
 
 // ---- Release: Tests nur überspringen, wenn der Stand belegt geprüft ist; Deploy nur von main/v* ----
 // Kleiner Leser für die Job-Ebene von release.yml (ohne YAML-Bibliothek): Jobs, Schlüssel der Job-Ebene, Blöcke.
-function relJobs() {
-  const L = wf("release.yml").replace(/\r/g, "").split("\n");
+function relJobs(datei = "release.yml") {
+  const L = wf(datei).replace(/\r/g, "").split("\n");
   const J = {};
   let cur = null;
   for (const l of L.slice(L.indexOf("jobs:") + 1)) {
@@ -225,4 +225,85 @@ test("Release: pruefen setzt tests=nein nur bei gleichem Tree, gemergtem PR und 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---- Auto-Merge: Dependabot-Updates von GitHub Actions nur nach der Regelprüfung ----
+// Schritte eines Jobs (Zeilen ab "      - " bis zum nächsten Schritt)
+function schritte(job) {
+  const S = [];
+  for (const l of job.split("\n")) {
+    if (/^ {6}- /.test(l)) S.push([l]);
+    else if (S.length && (l.startsWith("        ") || !l.trim())) S[S.length - 1].push(l);
+    else if (S.length && /^ {0,5}\S/.test(l)) break;
+  }
+  return S.map((z) => z.join("\n"));
+}
+const schrittName = (s) => (s.match(/name: (.*)/) || [])[1] || (s.match(/uses: (\S+)/) || [])[1];
+
+test("Auto-Merge: Regelprüfung mit Leserechten, Skript vom Basis-Stand, GH_TOKEN nur in schreibenden Schritten", () => {
+  const y = wf("auto-merge.yml");
+  expect(y).toMatch(/^permissions:\n  contents: read\n\n/m);
+  const J = relJobs("auto-merge.yml");
+  expect(Object.keys(J)).toEqual(["test", "codeql", "meta", "regeln", "merge"]);
+  // regeln: nur lesen, nach grünen Tests und CodeQL
+  expect(jobKey(J.regeln, "needs")).toBe("[test, codeql, meta]");
+  expect(block(J.regeln, "    permissions:").filter((l) => l.trim())).toEqual(["      contents: read", "      pull-requests: read", "      actions: read"]);
+  expect(J.regeln).not.toContain("secrets.");
+  const R = schritte(J.regeln);
+  expect(R).toHaveLength(2);
+  for (const s of R) expect(s).toContain("if: needs.meta.outputs.eco == 'github_actions'");
+  expect(R[0]).toMatch(/uses: actions\/checkout@[0-9a-f]{40} # v\d+/);
+  expect(R[0]).toContain("ref: ${{ github.event.pull_request.base.sha }}"); // nicht der Stand aus dem PR
+  expect(R[0]).toContain("persist-credentials: false");
+  expect(R[1]).toContain("run: node scripts/actions-update-pruefen.mjs");
+  expect(R[1]).toContain("GH_TOKEN: ${{ github.token }}");
+  for (const k of ["AKTEUR: ${{ github.actor }}", "OEKOSYSTEM: ${{ needs.meta.outputs.eco }}", "UPDATE_TYP: ${{ needs.meta.outputs.upd }}", "KOPF: ${{ github.event.pull_request.head.sha }}"]) expect(R[1]).toContain(k);
+  expect(jobKey(J.regeln, "outputs") + block(J.regeln, "    outputs:").join("\n")).toContain("ergebnis: ${{ steps.pruefen.outputs.ergebnis }}");
+  // merge wartet auf regeln; GH_TOKEN nur in den Schritten, die schreiben, nie im Job-env
+  expect(jobKey(J.merge, "needs").replace(/ #.*/, "")).toBe("[test, codeql, meta, regeln]");
+  expect(block(J.merge, "    env:").join("\n")).not.toContain("GH_TOKEN");
+  const M = schritte(J.merge);
+  expect(M.map(schrittName)).toEqual(["Art der Änderung bestimmen", "Mergen", "Hinweis bei Actions-Update hinter main", "Release erstellen und deployen"]);
+  expect(M.filter((s) => s.includes("GH_TOKEN")).map(schrittName)).toEqual(["Mergen", "Hinweis bei Actions-Update hinter main", "Release erstellen und deployen"]);
+  expect(M[1]).toContain(`gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch --match-head-commit "$KOPF"`);
+  expect(M[1]).toContain("if: steps.kind.outputs.merge == 'true'");
+  expect(M[2]).toContain("if: steps.kind.outputs.hinter == 'true'");
+  expect(M[3]).toContain("if: steps.kind.outputs.merge == 'true' && steps.kind.outputs.bump != 'none'");
+});
+
+// Das Skript "Art der Änderung bestimmen" mit verschiedenen Branches und Ergebnissen der Regelprüfung
+test("Auto-Merge: Actions-Updates nur bei Regelprüfung ok, ohne Release; hinter main kein Merge", ({}, info) => {
+  test.skip(info.project.name != "desktop", "einmal genügt");
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+  const run = block(schritte(relJobs("auto-merge.yml").merge)[0], "        run: |");
+  const skript = run.map((l) => l.slice(10)).join("\n");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kind-"));
+  let n = 0;
+  const art = (BRANCH, ECO = "", REGELN = "") => {
+    const out = path.join(dir, "o" + ++n);
+    fs.writeFileSync(out, "");
+    const r = spawnSync("bash", ["-c", skript], { env: { ...process.env, BRANCH, ECO, REGELN, GITHUB_OUTPUT: out }, encoding: "utf8" });
+    if (r.error && r.error.code == "ENOENT" && !process.env.CI) test.skip(true, "bash fehlt");
+    expect(r.status, r.stderr).toBe(0);
+    return Object.fromEntries(fs.readFileSync(out, "utf8").trim().split("\n").map((l) => l.split("=")));
+  };
+  try {
+    const A = "dependabot/github_actions/actions-abc";
+    expect(art(A, "github_actions", "ok")).toEqual({ bump: "none", merge: "true", hinter: "false" });
+    expect(art(A, "github_actions", "hinter-main")).toEqual({ bump: "none", merge: "false", hinter: "true" });
+    for (const r of ["abgelehnt", "", "OK", "ok "]) expect(art(A, "github_actions", r).merge, r).toBe("false");
+    expect(art(A, "", "ok").merge).toBe("false"); // keine Metadaten (z. B. jemand anderes hat gepusht)
+    expect(art("dependabot/npm_and_yarn/x", "npm_and_yarn")).toEqual({ bump: "patch", merge: "true", hinter: "false" });
+    expect(art("dependabot/docker/x", "docker", "ok").merge).toBe("false");
+    expect(art("feature/x")).toEqual({ bump: "minor", merge: "true", hinter: "false" });
+    expect(art("ci/x", "", "abgelehnt")).toEqual({ bump: "none", merge: "true", hinter: "false" });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Dependabot: Actions-Updates mit 7 Tagen Wartezeit", () => {
+  const d = fs.readFileSync(path.join(__dirname, "..", ".github", "dependabot.yml"), "utf8").replace(/\r/g, "");
+  expect(d).toMatch(/- package-ecosystem: github-actions\n(    .*\n)*    cooldown:\n      default-days: 7\n/);
 });
