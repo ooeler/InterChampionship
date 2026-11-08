@@ -18,3 +18,11 @@ export function pushEndpointOk(url) {
     return false;
   }
 }
+
+// Ein gespeichertes Push-Abo ({ endpoint, sub }) ist nur gültig, wenn die Adresse, an die web-push sendet (sub.endpoint),
+// mit der gespeicherten Spalte übereinstimmt und zu einem bekannten Push-Dienst gehört.
+// Dieselbe Regel erzwingt die Datenbank (Migration 20261108_34_push_abo_pruefen.sql).
+export function pushSubOk(row) {
+  const ep = row?.sub?.endpoint;
+  return typeof ep === "string" && ep === row.endpoint && pushEndpointOk(ep);
+}

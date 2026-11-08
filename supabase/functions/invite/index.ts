@@ -45,13 +45,19 @@ Deno.serve(async (req) => {
     const { data: inv } = await db.from("invites").update({ used_at: now })
       .eq("token_hash", hash).is("used_at", null).gt("expires_at", now).select("id, role, player").maybeSingle();
     if (!inv) return json({ error: INVALID }, 404);
-    const { data, error } = await db.auth.admin.createUser({ email: j.email, password: j.password, email_confirm: true });
+    // app_metadata.invited: nur so angelegte Konten werden Mitglied (Trigger handle_new_user, Migration 20261108_35)
+    const { data, error } = await db.auth.admin.createUser({ email: j.email, password: j.password, email_confirm: true, app_metadata: { invited: true } });
     if (error) {
       await db.from("invites").update({ used_at: null }).eq("id", inv.id); // Link bleibt gültig
       return json({ error: joinError(error.message) }, 400);
     }
-    // Mitglied wurde per Trigger angelegt (Rolle player) – Rolle und Spieler setzen
-    await db.from("members").update({ role: inv.role, player: inv.player }).eq("user_id", data.user.id);
+    // Mitglied mit Rolle und Spieler aus der Einladung (legt die Zeile an, falls der Trigger sie nicht schon erstellt hat)
+    const { error: mErr } = await db.from("members").upsert({ user_id: data.user.id, email: data.user.email ?? j.email, role: inv.role, player: inv.player }, { onConflict: "user_id" });
+    if (mErr) {
+      await db.auth.admin.deleteUser(data.user.id); // kein Konto ohne Mitgliedschaft zurücklassen
+      await db.from("invites").update({ used_at: null }).eq("id", inv.id);
+      return json({ error: "Konto konnte nicht angelegt werden. Bitte nochmals versuchen." }, 500);
+    }
     await db.from("invites").update({ used_by: data.user.id }).eq("id", inv.id);
     return json({ ok: true, email: j.email });
   }

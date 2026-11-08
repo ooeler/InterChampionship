@@ -50,9 +50,11 @@ tests-e2e/                E2E-Ablauf gegen eine echte, lokale Supabase (im CI pe
 4. **Authentication → URL Configuration**: *Site URL* und *Redirect URLs* = deine App-Adresse, z. B. `https://<github-name>.github.io/InterChampionship/`.
 5. **Benutzer einladen**: in der App unter **Teams → Mitglied einladen** einen **Einladungslink** erstellen (optional mit Spieler und Rolle) und persönlich schicken, z. B. per WhatsApp. Der Link ist 7 Tage gültig und nur einmal verwendbar; die Person erstellt damit ihr Konto mit Mail und Passwort. Es braucht **keinen Mailversand**. Mit Google/Microsoft/GitHub kann sie sich danach mit derselben Mail-Adresse anmelden.
 6. **E-Mail-Versand (optional)**: nur für „Passwort vergessen“ nötig. Supabase verschickt ohne eigenen Mailserver nur sehr wenige Mails; Gratis-SMTP z. B. bei [Brevo](https://www.brevo.com) unter **Authentication → Emails → SMTP Settings** eintragen.
-7. Dich selbst einladen, anmelden, dann im SQL Editor:
+7. Erste Spielleitung: unter **Authentication → Users → Add user** dein Konto anlegen (Mitglied wird automatisch nur, wer über einen Einladungslink kommt), dann im SQL Editor:
    ```sql
-   update public.members set role = 'admin' where email = 'deine@adresse.ch';
+   insert into public.members (user_id, email, role)
+   select id, email, 'admin' from auth.users where email = 'deine@adresse.ch'
+   on conflict (user_id) do update set role = 'admin';
    ```
    Weitere Rollen und Spieler-Zuordnungen danach direkt in der App unter **Teams → Benutzer & Rollen**.
 

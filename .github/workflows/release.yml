@@ -115,6 +115,16 @@ jobs:
           if [ -n "$miss" ]; then echo "::error::Fehlt in GitHub → Settings → Secrets and variables → Actions:$miss"; exit 1; fi
           code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects)
           if [ "$code" != "200" ]; then echo "::error::SUPABASE_ACCESS_TOKEN wird abgelehnt (HTTP $code) – vermutlich abgelaufen. Neues Token erstellen und in GitHub ersetzen (siehe README)."; exit 1; fi
+      - name: Freie Registrierung ausgeschaltet?
+        # nur lesen; die Antwort enthält die Auth-Konfiguration und wird weder ausgegeben noch aufbewahrt
+        run: |
+          f=$(mktemp)
+          code=$(curl -s -o "$f" -w "%{http_code}" -m 30 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$REF/config/auth")
+          aus=$(jq -r '.disable_signup == true' "$f" 2>/dev/null || echo false)
+          rm -f "$f"
+          if [ "$code" != "200" ]; then echo "::error::Auth-Einstellungen konnten nicht gelesen werden (HTTP $code)."; exit 1; fi
+          if [ "$aus" != "true" ]; then echo "::error::In Supabase ist die freie Registrierung eingeschaltet. Unter Authentication → Sign In / Providers „Allow new users to sign up“ ausschalten (siehe README), dann das Release wiederholen."; exit 1; fi
+          echo "Freie Registrierung ist ausgeschaltet"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3
         with:
