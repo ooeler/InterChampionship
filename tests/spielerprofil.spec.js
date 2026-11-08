@@ -160,9 +160,17 @@ test.describe("Spielerprofil (#103)", () => {
     const sn = await page.evaluate(() => S.sn);
     expect(rows.filter((r) => r.season == sn).length).toBe(await page.evaluate(() => allP().length));
     await page.click("[data-prof='Silvan Frey']");
-    await expect(prof(page)).toContainText("Frühere Saisons");
+    // zugeklappt, mit Anzahl
+    const psh = prof(page).locator("[data-psh]");
+    await expect(psh).toContainText("Frühere Saisons · 1 Saison");
+    await expect(psh).toHaveAttribute("aria-expanded", "false");
+    await expect(prof(page)).not.toContainText("Alte Füchse");
+    await psh.click();
+    await expect(prof(page).locator("[data-psh]")).toHaveAttribute("aria-expanded", "true");
     await expect(prof(page)).toContainText("25/26");
     await expect(prof(page)).toContainText("Alte Füchse");
+    await prof(page).locator("[data-psh]").click();
+    await expect(prof(page)).not.toContainText("Alte Füchse");
   });
 
   test("Spielleitung importiert frühere Saisons aus einer Datei", async ({ page }) => {
@@ -197,6 +205,8 @@ test.describe("Spielerprofil (#103)", () => {
     expect(R.find((r) => r.season == "23/24")).toMatchObject({ team: "Blue Dolphins", goals: 12, potm: 0, rank_goals: 1 }); // ersetzt
     expect(R.find((r) => r.player == "Beat Rentsch").rank_goals).toBeNull();
     await page.click("main [data-prof='Silvan Frey']");
+    await expect(prof(page).locator("[data-psh]")).toContainText("2 Saisons");
+    await prof(page).locator("[data-psh]").click();
     await expect(prof(page)).toContainText("22/23");
     await expect(prof(page)).toContainText("Blue Dolphins");
   });
