@@ -216,7 +216,8 @@ export function leadPushMessages(state, nowMs) {
 }
 
 // Plausibilität der Skorerliste (gleiche Regeln wie skIssues in app/js/spieltag.js):
-// Tore pro Team = Endresultat minus Vorsprung (Bonus Anwesenheit + Pre-Game), Assists höchstens so viele wie Tore; Forfait wird nicht geprüft
+// Tore pro Team = Endresultat minus Vorsprung (Bonus Anwesenheit + Pre-Game), Assists höchstens so viele wie Tore.
+// Bei Forfait ist das Resultat gesetzt, dann zählt nur: Assists höchstens so viele wie erfasste Tore des Teams
 const anOf = (m, p, today) => ((m.base || {})[p] || 0) + m.tr.filter((x) => x.d <= today && (x.p || []).includes(p)).length;
 export function leadOf(state, m, today) {
   const av = state.t.map((t) => (t.p.length ? t.p.reduce((a, p) => a + anOf(m, p, today), 0) / t.p.length : 0));
@@ -225,12 +226,20 @@ export function leadOf(state, m, today) {
 }
 export function statsIssues(state, i, today) {
   const m = state.m[i];
-  if (!m || m.res[0] == null || m.res[1] == null || m.ff != null) return [];
-  const l = leadOf(state, m, today), out = [];
-  [0, 1].forEach((t) => {
+  if (!m) return [];
+  const out = [], sums = (t) => {
     const keys = state.t[t].p.concat((m.gs || []).filter((g) => g.t == t).map((g) => g.k));
     const s = (o) => keys.reduce((a, p) => a + ((o || {})[p] || 0), 0);
-    const e = m.res[t] - l[t], g = s(m.g), a = s(m.a);
+    return [s(m.g), s(m.a)];
+  };
+  if (m.ff != null) {
+    [0, 1].forEach((t) => { const [g, a] = sums(t); if (a > g) out.push({ t, k: "a", v: a, w: g }); });
+    return out;
+  }
+  if (m.res[0] == null || m.res[1] == null) return out;
+  const l = leadOf(state, m, today);
+  [0, 1].forEach((t) => {
+    const [g, a] = sums(t), e = m.res[t] - l[t];
     if (e < 0) { out.push({ t, k: "neg", v: m.res[t], w: l[t] }); return; }
     if (g != e) out.push({ t, k: "g", v: g, w: e });
     if (a > e) out.push({ t, k: "a", v: a, w: e });

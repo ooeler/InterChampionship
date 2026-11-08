@@ -42,8 +42,10 @@ test.describe("Spiellogik", () => {
     await login(page);
     await page.click("nav [data-tab=spiel]");
     await page.click("[data-sped]"); // Spieltag freigeben
-    for (let i = 0; i < 5; i++) await page.click(plus("pre", 1));
-    expect(await page.evaluate(() => S.m[cur].pre[1])).toBe(3);
+    await page.evaluate(() => { S.m[cur].pre = [0, 0]; render() });
+    for (let i = 0; i < 3; i++) await page.click(plus("pre", 1));
+    await expect(page.locator(plus("pre", 1))).toBeDisabled();
+    expect(await page.evaluate(() => S.m[cur].pre)).toEqual([0, 3]);
   });
 
   test("Tor erfassen erscheint in der Torschützenliste", async ({ page }) => {
