@@ -14,7 +14,7 @@ Alles läuft **kostenlos**: GitHub (Code, Tests, Hosting über GitHub Pages) + S
 | ℹ️ Infos | alle | Verbesserungsvorschlag (→ GitHub-Issue) und das Inter-Herren-Konzept |
 | Benutzer & Rollen | Spielleitung | Rolle und zugeordneten Spieler pro Konto setzen |
 | 📸 Social Media | Spielleitung | „Final Score“-Bild 1080×1080 aus den Daten + eigenen Fotos |
-| 📣 Push | alle | 3 Tage vor dem Match Day und nach „Resultat melden“; Trainingsleitung am Trainingstag ab 08:00 mit der Anzahl Angemeldeter (zusätzlich zur Mail) |
+| 📣 Push | alle | 3 Tage vor dem Match Day und nach „Resultat melden“; Trainingsleitung direkt bei Abmeldeschluss (23 h vorher) mit der Anzahl Angemeldeter (zusätzlich zur Mail) |
 | Forfait | Spielleitung & Captains | Setzt 0 : 5 gemäss Konzept |
 
 Beim Laden fliegt das Flying-Penguins-Logo ein (bei „Bewegung reduzieren“ im System ruhig).
@@ -64,7 +64,7 @@ Die Schlüssel liegen in `.secrets/push.env` (nicht im Git!). Den Wert `VAPID_SU
 2. `supabase/cron.sql` öffnen, `<PROJECT_REF>` und `<CRON_SECRET>` ersetzen, im SQL Editor ausführen (die Datei mit eingesetzten Werten nicht committen).
 3. Hinweis iPhone: Push funktioniert erst, wenn die App über *Teilen → Zum Home-Bildschirm* installiert ist (ab iOS 16.4).
 
-**Mail an die Trainingsleitung (optional):** Am Trainingstag ab 08:00 (nach dem Abmeldeschluss) bekommt die eingeteilte Trainingsleitung eine Dankes-Mail mit der Anzahl Feldspieler und Torhüter über alle Teams (inkl. Gastspieler) und den Abmeldungen; die Spielleitung erhält sie in Kopie (jede Person kann das unter **Teams → Mail und Benachrichtigung testen** abschalten). Dafür in [Brevo](https://www.brevo.com) unter *Senders, Domains & Dedicated IPs → Senders* die Absenderadresse verifizieren (Bestätigungsmail, keine DNS-Einträge nötig), unter *SMTP & API → API Keys* einen API-Schlüssel erstellen und in Supabase unter **Edge Functions → Secrets** eintragen:
+**Mail an die Trainingsleitung (optional):** Direkt bei Abmeldeschluss (23 h vor dem Training, meist am Vorabend) bekommt die eingeteilte Trainingsleitung eine Dankes-Mail mit der Anzahl Feldspieler und Torhüter über alle Teams (inkl. Gastspieler) und den Abmeldungen; die Spielleitung erhält sie in Kopie (jede Person kann das unter **Teams → Mail und Benachrichtigung testen** abschalten). Dafür in [Brevo](https://www.brevo.com) unter *Senders, Domains & Dedicated IPs → Senders* die Absenderadresse verifizieren (Bestätigungsmail, keine DNS-Einträge nötig), unter *SMTP & API → API Keys* einen API-Schlüssel erstellen und in Supabase unter **Edge Functions → Secrets** eintragen:
 - `BREVO_API_KEY` – der API-Schlüssel (nicht der SMTP-Schlüssel)
 - `MAIL_FROM` – die in Brevo verifizierte Absenderadresse, z. B. `app@deine-domain.ch` oder `Herren Inter <app@deine-domain.ch>`
 

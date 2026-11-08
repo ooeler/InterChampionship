@@ -289,7 +289,7 @@ test("Edge Function: Mail nennt unsichere und verspätete Spieler", async () => 
   expect(c.unsure).toEqual(["C D"]);
   expect(c.late).toEqual(["E F"]);
   expect(c.field).toBe(3); // zählen weiter als angemeldet
-  const [mail] = L.leadMailMessages(state, L.zurichToUtc("2026-11-11", "08:00") + 1000, "https://x");
+  const [mail] = L.leadMailMessages(state, L.zurichToUtc("2026-11-11", "18:45") - 23 * 36e5 + 1000, "https://x");
   expect(mail.text).toContain("Unsicher: C D");
   expect(mail.text).toContain("Verspätet: E F");
 });
