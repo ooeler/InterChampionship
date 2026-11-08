@@ -2,7 +2,7 @@
 //   { type: "matchday" }           – täglich per Cron (Header: Authorization: Bearer <CRON_SECRET>):
 //                                    Match Day in 3 Tagen (an alle) + Trainingsleitung in 2 Tagen (nur an den Leiter)
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
-//                                    + Mail an die Trainingsleitung am Trainingstag nach dem Abmeldeschluss (Spielleitung in Kopie):
+//                                    + Mail und Push an die Trainingsleitung direkt bei Abmeldeschluss, 23 h vorher (Spielleitung in Kopie):
 //                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
 //                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
 //                                    + um 8 Uhr nach dem Match Day: Skorerliste stimmt nicht → einmalige Push an Spielleitung und Captain des Teams

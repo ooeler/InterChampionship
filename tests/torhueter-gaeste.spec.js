@@ -95,35 +95,44 @@ test.describe("Mail an die Trainingsleitung (Edge Function)", () => {
   };
   test.beforeAll(async () => { L = await import("../supabase/functions/notify/logic.mjs"); });
 
-  test("am Trainingstag ab 08:00, mit Dank, Feldspielern, Torhütern, Gästen und Abmeldungen", () => {
+  test("direkt bei Abmeldeschluss (23 h vorher), mit Dank, Feldspielern, Torhütern, Gästen und Abmeldungen", () => {
     const at = (iso) => L.leadMailMessages(st, Date.parse(iso), "https://app");
-    expect(at("2026-11-10T17:45:00Z")).toEqual([]); // Vortag, vor dem Abmeldeschluss
-    expect(at("2026-11-11T06:55:00Z")).toEqual([]); // 07:55 Zürich
-    const [m] = at("2026-11-11T07:00:00Z"); // Winterzeit: 08:00 Zürich = 07:00 UTC
-    expect(m).toMatchObject({ key: "lead-mail:2026-11-11:Beat B", player: "Beat B", subject: "Training heute, Mi, 11.11.2026: 4 Feldspieler, 2 Torhüter" });
-    expect(m.text).toContain("Danke, dass du heute, Mi, 11.11.2026, 18:45 Uhr, das Training leitest!");
+    expect(at("2026-11-10T18:40:00Z")).toEqual([]); // Vorabend 19:40 Zürich, kurz vor dem Abmeldeschluss
+    const [m] = at("2026-11-10T18:45:00Z"); // Winterzeit: Di 19:45 Zürich = 23 h vor Mi 18:45
+    expect(m).toMatchObject({ key: "lead-mail:2026-11-11:Beat B", player: "Beat B", subject: "Training morgen, Mi, 11.11.2026: 4 Feldspieler, 2 Torhüter" });
+    expect(m.text).toContain("Danke, dass du morgen, Mi, 11.11.2026, 18:45 Uhr, das Training leitest!");
     expect(m.text).toContain("alle Teams zusammen");
     expect(m.text).not.toContain("23 h");
     expect(m.text).toContain("Angemeldet: 4 Feldspieler und 2 Torhüter (inkl. 2 Gastspieler).");
     expect(m.text).toContain("Torhüter: Anna Goalie, Gast G (Gast)");
     expect(m.text).toContain("Abgemeldet: Eva E");
     expect(m.text).toContain("https://app");
-    expect(at("2026-11-11T08:00:00Z")).toEqual([]); // Fenster vorbei
+    expect(at("2026-11-10T19:45:00Z")).toEqual([]); // Fenster (1 h) vorbei
+    expect(at("2026-11-11T07:00:00Z")).toEqual([]); // nicht mehr am Trainingsmorgen
   });
 
   test("Push an die Trainingsleitung im gleichen Fenster wie die Mail", () => {
     const at = (iso) => L.leadPushMessages(st, Date.parse(iso));
-    expect(at("2026-11-11T06:55:00Z")).toEqual([]);
-    const [p] = at("2026-11-11T07:00:00Z");
-    expect(p).toMatchObject({ key: "lead-push:2026-11-11:Beat B", tag: "lead-2026-11-11", player: "Beat B", title: "🙌 Danke, dass du heute das Training leitest" });
+    expect(at("2026-11-10T18:40:00Z")).toEqual([]);
+    const [p] = at("2026-11-10T19:00:00Z");
+    expect(p).toMatchObject({ key: "lead-push:2026-11-11:Beat B", tag: "lead-2026-11-11", player: "Beat B", title: "🙌 Danke, dass du morgen das Training leitest" });
     expect(p.body).toContain("Mi, 11.11.2026, 18:45 Uhr: 4 Feldspieler und 2 Torhüter angemeldet.");
-    expect(at("2026-11-11T08:00:00Z")).toEqual([]);
-    expect(L.leadPushMessages(st, Date.parse("2026-11-18T07:00:00Z"))).toEqual([]); // keine Leitung
-    expect(L.leadPushMessages(st, Date.parse("2026-12-02T07:00:00Z"))).toEqual([]); // Match Day
+    expect(at("2026-11-10T19:45:00Z")).toEqual([]);
+    expect(L.leadPushMessages(st, Date.parse("2026-11-17T18:45:00Z"))).toEqual([]); // keine Leitung
+    expect(L.leadPushMessages(st, Date.parse("2026-12-01T18:45:00Z"))).toEqual([]); // Match Day
   });
 
   test("ohne Leitung und am Match Day keine Mail", () => {
-    expect(L.leadMailMessages(st, Date.parse("2026-11-18T07:00:00Z"))).toEqual([]); // keine Leitung
-    expect(L.leadMailMessages(st, Date.parse("2026-12-02T07:00:00Z"))).toEqual([]); // Match Day
+    expect(L.leadMailMessages(st, Date.parse("2026-11-17T18:45:00Z"))).toEqual([]); // keine Leitung
+    expect(L.leadMailMessages(st, Date.parse("2026-12-01T18:45:00Z"))).toEqual([]); // Match Day
+  });
+
+  test("späte Trainingszeit: Abmeldeschluss am selben Tag → \"heute\"; Sommerzeit stimmt", () => {
+    const s2 = { t: st.t, m: [{ tr: [{ d: "2027-05-05", t: "23:30", p: [], lead: "Beat B" }, { d: "2027-05-12", p: [] }] }] };
+    const due = L.zurichToUtc("2027-05-05", "23:30") - 23 * 36e5; // 00:30 Zürich am Trainingstag
+    expect(L.leadPushMessages(s2, due - 60000)).toEqual([]);
+    expect(L.leadPushMessages(s2, due)[0].title).toBe("🙌 Danke, dass du heute das Training leitest");
+    const s3 = { t: st.t, m: [{ tr: [{ d: "2027-05-05", p: [], lead: "Beat B" }, { d: "2027-05-12", p: [] }] }] };
+    expect(L.leadMailMessages(s3, Date.parse("2027-05-04T17:45:00Z"))[0].subject).toContain("Training morgen"); // Sommerzeit: 19:45 Zürich = 17:45 UTC
   });
 });

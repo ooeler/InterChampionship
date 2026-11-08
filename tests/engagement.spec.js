@@ -91,8 +91,8 @@ test.describe("Events", () => {
     const state = { t: [{ p: ["A B"] }], evt: { d: "2027-05-07", p: [] }, m: [{ tr: [{ d: "2026-12-09", lead: "A B", p: [] }, { d: "2026-12-16", lead: "A B", p: [] }, { d: "2027-01-06", p: [] }] }] };
     expect(L.trainingLeadMessages(state, "2026-12-07")).toEqual([]);
     expect(L.trainingLeadMessages(state, "2026-12-14").length).toBe(1);
-    expect(L.leadMailMessages(state, L.zurichToUtc("2026-12-09", "08:00") + 1000)).toEqual([]);
-    expect(L.leadMailMessages(state, L.zurichToUtc("2026-12-16", "08:00") + 1000).length).toBe(1);
+    expect(L.leadMailMessages(state, L.zurichToUtc("2026-12-09", "18:45") - 23 * 36e5 + 1000)).toEqual([]);
+    expect(L.leadMailMessages(state, L.zurichToUtc("2026-12-16", "18:45") - 23 * 36e5 + 1000).length).toBe(1);
     expect(L.signupMessage(state, { player: "A B", d: "2027-05-07", off: true }, "u", 0).title).toContain("abgemeldet");
   });
 });
