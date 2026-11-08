@@ -128,7 +128,7 @@ jobs:
           if [ "$aus" != "true" ]; then echo "::error::In Supabase ist die freie Registrierung eingeschaltet. Unter Authentication → Sign In / Providers „Allow new users to sign up“ ausschalten (siehe README), dann das Release wiederholen."; exit 1; fi
           echo "Freie Registrierung ist ausgeschaltet"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3
         with:
           version: 2.122.0  # gleiche Version wie lokal getestet
 
@@ -284,7 +284,7 @@ jobs:
       REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3
         with:
           version: 2.122.0
       - name: Wartungsseite ausschalten
