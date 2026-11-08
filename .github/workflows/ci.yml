@@ -22,8 +22,10 @@ jobs:
         teil: [1, 2, 3, 4, 5]
     # Fertiges Playwright-Image: Browser und Systempakete sind schon drin, keine Installation mehr, die hängen bleiben kann.
     # Die Version muss zu @playwright/test in package.json passen (geprüft in tests/ci-container.spec.js).
+    # Per Digest gepinnt (ein Tag kann neu belegt werden). Dependabot aktualisiert Images in Workflows nicht:
+    # bei einem Playwright-Update Tag und Digest von Hand anpassen (Digest: Docker-Content-Digest von mcr.microsoft.com/v2/playwright/manifests/<tag>).
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
       options: --ipc=host
     env:
       HOME: /root
@@ -131,8 +133,9 @@ jobs:
     # Sicherheitsprüfung vor jedem Merge (zusätzlich: CodeQL und die statischen Tests in tests/sicherheit-statisch.spec.js)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Per Digest gepinnt (vorher implizit latest); Aktualisieren von Hand, siehe SECURITY.md
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep:1.183.0@sha256:2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Semgrep (Schwachstellen-Muster, Secrets, Workflows)
