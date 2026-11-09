@@ -36,7 +36,10 @@ function isObj(x){return !!x&&typeof x=="object"&&!Array.isArray(x)}
 function mgList(b,m,t,id){var B=Array.isArray(b)?b:[],has=function(L,x){return L.some(function(y){return id(y)==id(x)})},get=function(L,x){return L.filter(function(y){return id(y)==id(x)})[0]},r=[];t.forEach(function(x){if(!has(B,x)||has(m,x))r.push(has(m,x)?merge3(get(B,x),get(m,x),x):x)});m.forEach(function(x){if(!has(r,x)&&!has(B,x))r.push(x)});return r}
 function merge3(b,m,t){if(same(m,b))return t;if(same(t,b)||same(m,t))return m;
 if(Array.isArray(m)&&Array.isArray(t)){var A=m.concat(t);if(A.every(function(x){return x===null||typeof x!="object"}))return mgList(b,m,t,function(x){return x});
-var k=["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]});return k=="d"?r.sort(function(x,y){return x.d<y.d?-1:1}):r}
+var k=["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]});if(k!="d")return r;
+// Trainings eines Monats: nach Datum, der Match Day (letzter Eintrag) bleibt zuletzt – auch wenn ein zugeteiltes Training später liegt
+var ld=[m,t].map(function(L){return L.length?L[L.length-1].d:null}).filter(function(d){return d!=null&&r.some(function(x){return x.d==d})})[0];
+return r.filter(function(x){return x.d!=ld}).sort(function(x,y){return x.d<y.d?-1:1}).concat(r.filter(function(x){return x.d==ld}))}
 if(m.length==t.length)return m.map(function(x,i){return merge3(Array.isArray(b)?b[i]:undefined,x,t[i])});return m}
 if(isObj(m)&&isObj(t)){var o={},B=isObj(b)?b:{};Object.keys(m).concat(Object.keys(t)).forEach(function(q){var v=merge3(B[q],m[q],t[q]);if(v!==undefined)o[q]=v});return o}
 return m}

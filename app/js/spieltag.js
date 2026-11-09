@@ -16,7 +16,11 @@ return '<div class="card duel"><h3>Team-Duell · '+MON[i]+'</h3>'+blkInfo(i)+'<d
 function training(){return (PUSH===false||PUSH==="ios"?notifyCard():"")+myTr()+duel()+trOverview()+penBoard()+trMonth()+(PUSH===false||PUSH==="ios"?"":notifyCard())}
 // Neues Training dem Block des nächsten Match Days zuordnen (Match Day bleibt das letzte Training eines Monats)
 function sortBlock(T){var md=T.pop();T.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});if(md)T.push(md)}
-function placeTr(x){var mi=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>x.d});if(mi<0)mi=S.m.length-1;var T=S.m[mi].tr;if(!T.length)T.push(x);else{var md=T.pop();T.push(x);T.push(md);sortBlock(T)}return mi+","+T.indexOf(x)}
+// Block nach Datum: der erste Monat, dessen Match Day nach dem Datum liegt
+function natBlk(d){var mi=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>d});return mi<0?S.m.length-1:mi}
+// Training in Block mi einfügen: nach Datum sortiert, der Match Day bleibt zuletzt
+function insTr(mi,x){var T=S.m[mi].tr;if(!T.length)T.push(x);else{var md=T.pop();T.push(x);T.push(md);sortBlock(T)}return mi+","+T.indexOf(x)}
+function placeTr(x){return insTr(natBlk(x.d),x)}
 
 // Jeder Spieltag ist gesperrt, damit nichts aus Versehen ändert. ✏️ gibt ihn bis zum Monats- oder Reiterwechsel frei.
 // Plausibilität der Skorerliste (gleiche Regeln wie statsIssues in supabase/functions/notify/logic.mjs):
