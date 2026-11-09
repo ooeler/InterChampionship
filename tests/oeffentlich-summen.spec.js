@@ -1,5 +1,5 @@
-// Öffentliche Sicht nur mit Summen: Besucher bekommen keine Namenslisten pro Training und keine Restaurants,
-// sehen aber dieselben Ranglisten wie Mitglieder (ohne ▲/▼ bei der Anwesenheit und ohne Restaurant).
+// Öffentliche Sicht nur mit Summen: Besucher bekommen keine Namenslisten pro Training, keine Restaurants und keine
+// Trainingsserie, sehen aber dieselben Ranglisten wie Mitglieder (ohne ▲/▼ bei der Anwesenheit, ohne Restaurant, ohne 🔥).
 const fs = require("fs");
 const path = require("path");
 const { test, expect, login } = require("./fixtures");
@@ -35,11 +35,12 @@ async function seed(page) {
   });
 }
 
-// Werte, die Besucher und Mitglieder gleich sehen müssen
+// Werte, die Besucher und Mitglieder gleich sehen müssen (die Serie 🔥 separat: nur für Mitglieder)
 function werte() {
   const P = allP();
   return {
-    anw: P.map((p) => [p, tot("att", p), fullBadge(p), fire(p)]),
+    anw: P.map((p) => [p, tot("att", p), fullBadge(p)]),
+    fire: P.map((p) => [p, fire(p), streak(p).n, streak(p).b]),
     sk: P.map((p) => [p, tot("g", p) + tot("a", p), tot("g", p)]),
     pct: S.m.map((m) => [pct(m, 0), pct(m, 1)]),
     full: S.m.map((m) => P.filter((p) => full(m, p))),
@@ -50,7 +51,7 @@ function werte() {
 }
 
 test.describe("Öffentliche Sicht nur mit Summen", () => {
-  test("Besucher sehen dieselben Ranglisten wie Mitglieder, ohne Namenslisten und Restaurants", async ({ page }) => {
+  test("Besucher sehen dieselben Ranglisten wie Mitglieder, ohne Namenslisten, Restaurants und 🔥", async ({ page }) => {
     await seed(page);
     await page.reload();
     await expect(card(page, "Rückblick November")).toContainText("Spieler des Monats");
@@ -66,16 +67,29 @@ test.describe("Öffentliche Sicht nur mit Summen", () => {
     expect(JSON.stringify(pub.roh)).not.toMatch(/Moosburg|Sonne/);
     expect(pub.roh.m[2].tr.map((x) => x.n)).toEqual([5, 4, 6]);
     expect(pub.roh.m[2].anw["Silvan Frey"]).toBe(1 + 3);
-    expect(pub.roh.stk["Silvan Frey"]).toBe(5);
-    expect(Object.values(pub.roh.stk).every((n) => n >= 3)).toBe(true); // kürzere Serien zeigt die App nicht
+    // Trainingsserie nur für Mitglieder: weder in den Rohdaten noch im Stand der App
+    expect(pub.roh).not.toHaveProperty("stk");
+    expect(pub.S).not.toHaveProperty("stk");
     await expect(page.locator("main")).not.toContainText("Moosburg");
     await expect(card(page, "Rückblick November")).not.toContainText("Restaurant");
     await page.click('[data-more="Anwesenheit Saison"]');
-    await expect(card(page, "Anwesenheit Saison").locator(".row", { hasText: "Silvan Frey" })).toContainText("🔥5");
+    await expect(card(page, "Anwesenheit Saison").locator(".row", { hasText: "Silvan Frey" })).toBeVisible();
+    await expect(page.locator(".fire")).toHaveCount(0);
+    await expect(page.locator("body")).not.toContainText("🔥");
     await expect(card(page, "Anwesenheit Saison").locator(".mv.up, .mv.dn")).toHaveCount(0);
     await expect(card(page, "Torhüter")).toContainText(pub.roh.t[0].p[0]);
     await page.waitForFunction(() => starTop(2) != null);
     const besucher = await page.evaluate(werte);
+    expect(besucher.fire.every((f) => f[1] === "" && f[2] === 0 && f[3] === 0)).toBe(true);
+    // Auch wenn eine Serie in den Daten stünde (z. B. alte Server-Version), zeigt die App sie Besuchern nicht
+    const mitStk = await page.evaluate(() => {
+      S.stk = Object.fromEntries(allP().map((p) => [p, 7]));
+      render();
+      return { fire: allP().map((p) => fire(p)).join(""), html: document.querySelector("main").innerHTML };
+    });
+    expect(mitStk.fire).toBe("");
+    expect(mitStk.html).not.toContain("🔥");
+    await page.evaluate(() => { delete S.stk; render() });
     // Die Testdaten decken 100 %, Serie, Torhüter aus dem Match Day und Spieler des Monats ab
     expect(besucher.full[2].slice().sort()).toEqual([pub.roh.t[0].p[2], "Silvan Frey"].sort());
     expect(besucher.gk.map((q) => q.p).sort()).toEqual([pub.roh.t[0].p[0], pub.roh.t[1].p[0]].sort());
@@ -87,19 +101,27 @@ test.describe("Öffentliche Sicht nur mit Summen", () => {
     const mitglied = await page.evaluate(werte);
     expect(mitglied.rc.some((r) => r[0] == "🍽️")).toBe(true);
     expect(besucher.rc.some((r) => r[0] == "🍽️")).toBe(false);
-    expect(besucher).toEqual({ ...mitglied, rc: mitglied.rc.filter((r) => r[0] != "🍽️") });
+    // Mitglieder sehen die Serie weiterhin
+    expect(mitglied.fire.find((f) => f[0] == "Silvan Frey")[1]).toContain("🔥5");
+    expect(besucher).toEqual({ ...mitglied, fire: besucher.fire, rc: mitglied.rc.filter((r) => r[0] != "🍽️") });
+    await page.click("nav [data-tab=rang]");
+    await card(page, "Anwesenheit Saison").locator("[data-more]", { hasText: "Zeige mehr" }).click();
+    await expect(card(page, "Anwesenheit Saison").locator(".row", { hasText: "Silvan Frey" }).locator(".fire")).toHaveText("🔥5");
     // Mitglieder: Rückblick mit Restaurant
     await page.click("nav [data-tab=spiel]");
     await page.click("[data-c='2']");
     await expect(card(page, "Rückblick November")).toContainText("Moosburg");
   });
 
-  test("Neueste public_league-Definition gibt keine Namenslisten (p) und keine Restaurants (r) aus", () => {
+  test("Neueste public_league-Definition gibt keine Namenslisten (p), keine Restaurants (r) und keine Serie (stk) aus", () => {
     const dir = path.join(__dirname, "..", "supabase", "migrations");
     const defs = fs.readdirSync(dir).sort().map((f) => fs.readFileSync(path.join(dir, f), "utf8"))
       .flatMap((s) => [...s.matchAll(/create or replace function public\.public_league\s*\(\s*\)[\s\S]*?\n\$\$\s*;/gi)].map((m) => m[0]));
     const neu = defs[defs.length - 1];
     expect(neu).toBeTruthy();
+    // Keine Trainingsserie: kein Feld stk und keine Berechnung der Serie (Reihenfolge der Trainings, row_number, Fenster)
+    expect(neu).not.toMatch(/\bstk\b|streak/i);
+    expect(neu).not.toMatch(/row_number|\bover\s*\(|\blag\s*\(|\blead\s*\(/i);
     // Ausgabe pro Training ('tr', (…)): nur d, t (über jsonb_only) und n – kein 'p'/'r', auch nicht über
     // jsonb_build_object('p', …), tr.x->'p', tr.x #> '{p}' oder das ganze Objekt (|| tr.x)
     const i = neu.search(/'tr'\s*,\s*\(/);

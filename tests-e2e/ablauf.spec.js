@@ -130,7 +130,7 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect(pub.data.m.flatMap((m) => m.tr).map((x) => x.n)).toEqual(voll.m.flatMap((m) => m.tr).map((x) => (x.p || []).length));
   expect(pub.data.m.every((m) => m.anw && typeof m.anw == "object" && Array.isArray(m.kp) && m.kp.length == 2)).toBe(true);
   expect(Object.keys(pub.data.m[0].anw).sort()).toEqual(voll.t.flatMap((t) => t.p).filter((p, i, L) => L.indexOf(p) == i).sort());
-  expect(typeof pub.data.stk).toBe("object");
+  expect(pub.data).not.toHaveProperty("stk"); // Trainingsserie nur für Mitglieder
   const apOffen = await rest("/rest/v1/rpc/public_app_points", { key: ANON, method: "POST", body: { monat: 7 } });
   expect(apOffen.status).toBe(200);
   expect(apOffen.data).toEqual([]); // noch nicht gespielt: keine Punkte
@@ -148,7 +148,7 @@ test("Spieler meldet sich vom nächsten Training ab – gespeichert in der Daten
   expect(r).toContain("row-level security");
 });
 
-test("Öffentliche Rangliste: anw, n, stk und kp aus dem echten SQL stimmen mit der App überein", async () => {
+test("Öffentliche Rangliste: anw, n und kp aus dem echten SQL stimmen mit der App überein, ohne stk", async () => {
   const vorher = await state();
   const d = JSON.parse(JSON.stringify(vorher));
   const P = d.t.flatMap((t) => t.p).filter((p, i, L) => L.indexOf(p) == i);
@@ -167,23 +167,25 @@ test("Öffentliche Rangliste: anw, n, stk und kp aus dem echten SQL stimmen mit 
   expect((await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: d } })).status).toBe(200);
   try {
     const pub = (await rest("/rest/v1/rpc/public_league", { key: ANON, method: "POST", body: {} })).data;
-    // nachgerechnet wie an() und streak() in der App
+    // Trainingsserie nur für Mitglieder: nicht in der öffentlichen Sicht
+    expect(pub).not.toHaveProperty("stk");
+    // nachgerechnet wie an() in der App
     const num = (v) => (typeof v == "number" ? v : typeof v == "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? +v.trim() : 0);
     d.m.forEach((m, i) => {
       const T = m.tr.filter(gueltig);
       expect(pub.m[i].tr.map((x) => x.n), "n, Monat " + i).toEqual(T.map((x) => (x.p || []).filter((p) => typeof p == "string").length));
       expect(pub.m[i].anw, "anw, Monat " + i).toEqual(Object.fromEntries(P.map((p) => [p, num((m.base || {})[p]) + T.filter((x) => x.d < bis && x.p.includes(p)).length])));
     });
+    // Serie wie streak() in der App: nur noch für Mitglieder, aus den vollen Daten
     const stk = {};
     for (const p of P) {
       let last = 0;
       vergangen.forEach((x, k) => { if (!x.p.includes(p)) last = k + 1 });
       if (K - last >= 3) stk[p] = K - last;
     }
-    expect(pub.stk).toEqual(stk);
-    expect(pub.stk[P[0]]).toBe(K);
-    expect(pub.stk[P[1]]).toBe(3);
-    // dieselben Werte rechnet die App als Mitglied aus den vollen Daten (an, streak, gkOf)
+    expect(stk[P[0]]).toBe(K);
+    expect(stk[P[1]]).toBe(3);
+    // dieselben Werte rechnet die App als Mitglied aus den vollen Daten (an, gkOf wie public_league; streak nur für Mitglieder)
     await player.reload();
     await expect(player.locator("#lo")).toBeVisible();
     const app = () => player.evaluate(() => ({
@@ -191,7 +193,7 @@ test("Öffentliche Rangliste: anw, n, stk und kp aus dem echten SQL stimmen mit 
       anw: S.m.map((m) => Object.fromEntries(allP().map((p) => [p, an(m, p)]))),
       kp: S.m.map((m) => [0, 1].map((t) => gkOf(m, t))),
     }));
-    await expect.poll(async () => (await app()).stk).toEqual(pub.stk);
+    await expect.poll(async () => (await app()).stk).toEqual(stk);
     const a = await app();
     expect(a.anw).toEqual(pub.m.map((m) => m.anw));
     expect(a.kp).toEqual(pub.m.map((m) => m.kp));

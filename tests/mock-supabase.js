@@ -199,7 +199,7 @@
 
     // Spiegelt public_league() aus supabase/migrations
     function only(o, K) { var r = {}; K.forEach(function (k) { if (o && o[k] !== undefined) r[k] = o[k] }); return r }
-    // (20261108_36_oeffentlich_nur_summen): pro Training nur d, t und n; pro Monat anw, kp, gs; Serie stk ab 3. Keine Namenslisten, keine Restaurants.
+    // (20261109_37_serie_nur_mitglieder): pro Training nur d, t und n; pro Monat anw, kp, gs. Keine Namenslisten, keine Restaurants, keine Trainingsserie.
     function isO(x) { return !!x && typeof x == "object" && !Array.isArray(x) }
     function strL(a) { return Array.isArray(a) ? a.filter(function (x) { return typeof x == "string" }) : [] }
     function num(v) { return typeof v == "number" ? v : typeof v == "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? +v.trim() : 0 }
@@ -209,12 +209,7 @@
         T = Array.isArray(d.t) ? d.t : [], M = Array.isArray(d.m) ? d.m : [], sp = [];
       T.forEach(function (t) { strL(t && t.p).forEach(function (p) { if (sp.indexOf(p) < 0) sp.push(p) }) });
       var TR = M.map(function (m) { return (m && Array.isArray(m.tr) ? m.tr : []).filter(function (x) { return isO(x) && typeof x.d == "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.d) }) });
-      var Z = [];
-      TR.forEach(function (L, i) { L.forEach(function (x, j) { if (x.d <= heute && strL(x.p).length) Z.push({ x: x, i: i, j: j }) }) });
-      Z.sort(function (a, b) { return a.x.d < b.x.d ? -1 : a.x.d > b.x.d ? 1 : a.i - b.i || a.j - b.j });
-      var stk = {};
-      sp.forEach(function (p) { var last = 0; Z.forEach(function (z, k) { if (strL(z.x.p).indexOf(p) < 0) last = k + 1 }); if (Z.length - last >= 3) stk[p] = Z.length - last });
-      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: isO(d.evt) ? only(d.evt, ["d", "t"]) : null, stk: stk, m: M.map(function (m, i) {
+      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: isO(d.evt) ? only(d.evt, ["d", "t"]) : null, m: M.map(function (m, i) {
         var L = TR[i], gs = Array.isArray(m.gs) ? m.gs : [], base = isO(m.base) ? m.base : {}, anw = {};
         sp.forEach(function (p) { anw[p] = num(base[p]) + L.filter(function (x) { return x.d <= heute && strL(x.p).indexOf(p) >= 0 }).length });
         var kp = [0, 1].map(function (t) {
