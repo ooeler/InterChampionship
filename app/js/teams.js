@@ -124,8 +124,7 @@ function isWE(x){var e=evOn(x.d);return !!e&&e.n=="Winter Event"}
 function mdLate(T){return T.some(function(x){return x.d>T[T.length-1].d})}
 function termRow(i,j){var T=S.m[i].tr,x=T[j],k=i+","+j,md=j==T.length-1,we=!md&&isWE(x),lb=md?'Match Day ⚑':we?'🎉 Winter Event':'Training';
 return '<div class="tmr'+(md?' tmd':'')+'"><div class="sp"><b>'+lb+'</b> · '+wd(x.d)+'</div><div class="two"><input class="t" type="date" data-tmd="'+k+'" value="'+esc(x.d)+'" aria-label="Datum '+lb+' '+MON[i]+'"'+(we?' disabled':'')+'><input class="t" type="time" data-tmt="'+k+'" value="'+esc(tstart(x))+'" aria-label="Beginn '+lb+' '+MON[i]+'"></div>'
-+(md?''
-:we?'<div class="sp">Datum unten bei „Winter Event“ ändern; der Monat ergibt sich aus dem Datum.</div>':'<select class="t" data-tmm="'+k+'" aria-label="Monat für das Training vom '+wd(x.d)+'">'+MON.map(function(n,q){return '<option value="'+q+'"'+(q==i?' selected':'')+(q==i||S.m[q].tr.length?'':' disabled')+'>'+n+'</option>'}).join("")+'</select>')+'</div>'}
++(we?'<div class="sp">Datum unten bei „Winter Event“ ändern; der Monat ergibt sich aus dem Datum.</div>':'<select class="t" data-tmm="'+k+'" aria-label="Monat für '+(md?'den Match Day':'das Training')+' vom '+wd(x.d)+'">'+MON.map(function(n,q){return '<option value="'+q+'"'+(q==i?' selected':'')+'>'+n+'</option>'}).join("")+'</select>')+'</div>'}
 function evRow(n,k,d,def,extra,hint){return '<div class="tmr tev"><div class="sp"><b>🎉 '+n+'</b> · '+wd(d)+(d==def?' · berechnet':' · gewählt')+'</div><div class="two"><input class="t" type="date" data-'+k+'="1" value="'+esc(d)+'" aria-label="Datum '+n+'">'+extra+'</div><div class="sp">'+hint+'</div></div>'}
 function termCard(){if(ROLE!="admin")return "";var h='<div class="card" id="term"><h3>📅 Trainings und Spieldaten</h3>';
 if(!TERM)return h+'<div class="sp">Datum und Beginn aller Trainings und Match Days ändern, Trainings einem anderen Monat zuteilen, Event-Daten wählen.</div><button class="add" data-term="1" aria-expanded="false">📅 Trainings und Spieldaten bearbeiten</button></div>';
@@ -162,7 +161,7 @@ var a=k.split(","),mi=+a[0],T=S.m[mi].tr,ti=+a[1],x=T[ti],md=ti==T.length-1;if(!
 if(D.tmt!=null){if(!/^\d{2}:\d{2}$/.test(v)){render();return}x.t=v}
 else if(D.tmd!=null){if(isWE(x)||!isDay(v)){render();return}if(v==x.d)return;if(allTr().some(function(r){return r.x.d==v})){alert("Am "+wd(v)+" gibt es schon ein Training.");render();return}
 var od=x.d;if(!mdGuard(function(){x.d=v;sortBlock(T)})){render();return}if(sb)sb.from("absence_reasons").update({d:v}).eq("d",od).then(function(){ABS=null;render()})}
-else{var to=+v;if(md||isWE(x)||to==mi||!S.m[to]||!S.m[to].tr.length){render();return}var R=[mi,to].filter(hasRes).map(function(i){return MON[i]});
-if(R.length&&!confirm("Im "+R.join(" und im ")+" ist schon ein Resultat eingetragen. Das Verschieben ändert dort Anwesenheitsbonus, Team-Duell und Spieler des Monats.\n\nTraining vom "+wd(x.d)+" trotzdem von "+MON[mi]+" nach "+MON[to]+" verschieben?")){render();return}
-if(!mdGuard(function(){T.splice(ti,1);insTr(to,x)})){render();return}toast("📅 Training vom "+wd(x.d)+" gehört jetzt zum "+MON[to]+".")}
+else{var to=+v;if(isWE(x)||to==mi||!S.m[to]){render();return}var R=[mi,to].filter(hasRes).map(function(i){return MON[i]});
+if(R.length&&!confirm("Im "+R.join(" und im ")+" ist schon ein Resultat eingetragen. Das Verschieben ändert dort Anwesenheitsbonus, Team-Duell und Spieler des Monats.\n\n"+(md?"Match Day":"Training")+" vom "+wd(x.d)+" trotzdem von "+MON[mi]+" nach "+MON[to]+" verschieben?")){render();return}
+if(!mdGuard(function(){T.splice(ti,1);insTr(to,x)})){render();return}toast("📅 "+(md?"Match Day":"Training")+" vom "+wd(x.d)+" gehört jetzt zum "+MON[to]+(md&&S.m[mi].tr.length?" – im "+MON[mi]+" ist neu der späteste verbliebene Termin Match Day.":"."))}
 TSEL=null;save();render()});

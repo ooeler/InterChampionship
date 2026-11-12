@@ -93,9 +93,9 @@ test("Training von Oktober nach November: Daten bleiben, Zählungen wandern mit"
   const vorher = (await db(page)).m[1].tr[1];
   const before = await page.evaluate(() => ({ an: [an(S.m[1], "Andreas Scherrer"), an(S.m[2], "Andreas Scherrer")], pct: [pct(S.m[1], 0), pct(S.m[2], 0), pct(S.m[2], 1)] }));
   expect(before).toEqual({ an: [7, 1], pct: [56, 88, 100] });
-  // Match Day hat keine Monatsauswahl, Trainings schon
+  // Trainings und Match Day haben eine Monatsauswahl
   await expect(block(page, 1).locator(".tmr")).toHaveCount(3);
-  await expect(block(page, 1).locator("[data-tmm]")).toHaveCount(2);
+  await expect(block(page, 1).locator("[data-tmm]")).toHaveCount(3);
   await expect(block(page, 1).locator(".tmr").last()).toContainText("Match Day");
   let dlg = 0; page.on("dialog", () => dlg++);
   await block(page, 1).locator('[data-tmm="1,1"]').selectOption("2");
@@ -205,18 +205,15 @@ test("Winter Event wird nie Match Day", async ({ page }) => {
 });
 
 
-test("Match Day: Datum und Beginn änderbar, aber keine Monatsauswahl; Winter Event fest", async ({ page }) => {
+test("Match Day: Datum und Beginn änderbar; Winter Event fest", async ({ page }) => {
   await seed(page);
   await openEditor(page);
   const md = block(page, 2).locator(".tmr").last();
   await expect(md).toContainText("Match Day");
-  await expect(md.locator("[data-tmm]")).toHaveCount(0);
   await put(md.locator("[data-tmt]"), "19:30");
   await expect.poll(async () => (await db(page)).m[2].tr[2].t).toBe("19:30");
   await put(block(page, 2).locator('[data-tmd="2,2"]'), "2026-11-05");
   await expect.poll(async () => dates(await db(page), 2)).toEqual(["2026-10-21", "2026-10-28", "2026-11-05"]);
-  // Jeder Monat hat genau einen Match Day: keine Monatsauswahl in irgendeiner Match-Day-Zeile
-  expect(await page.locator("#term .tmr.tmd [data-tmm]").count()).toBe(0);
   await expect(page.locator("#term .tmr.tmd")).toHaveCount(6); // Sep/Okt haben in den Testdaten keine Trainings
   // Winter Event (09.12., im Januar-Block): Datum und Monat fest, Beginn änderbar
   const we = block(page, 4).locator(".tmr").first();
@@ -224,9 +221,35 @@ test("Match Day: Datum und Beginn änderbar, aber keine Monatsauswahl; Winter Ev
   await expect(we.locator("[data-tmd]")).toBeDisabled();
   await expect(we.locator("[data-tmm]")).toHaveCount(0);
   await expect(we.locator("[data-tmt]")).toBeEnabled();
-  // Monate ohne Match Day lassen sich nicht wählen
-  await expect(block(page, 2).locator('[data-tmm="2,0"] option[value="0"]')).toBeDisabled();
   await expect(page.locator("#term")).toContainText("Sommer Event");
+});
+
+// Match Day wie ein Training in einen anderen Monat verschieben: im alten Monat wird der späteste verbliebene Termin Match Day
+test("Match Day in den nächsten Monat verschieben: dort neuer Match Day, im alten Monat das letzte verbliebene Training", async ({ page }) => {
+  await seed(page);
+  await openEditor(page);
+  const vorher = await db(page);
+  const nov = dates(vorher, 2), dez = dates(vorher, 3), mdNov = vorher.m[2].tr[nov.length - 1];
+  const L = []; page.on("dialog", (d) => L.push(d.message()));
+  await block(page, 2).locator(`[data-tmm="2,${nov.length - 1}"]`).selectOption("3");
+  await expect.poll(async () => dates(await db(page), 2)).toEqual(nov.slice(0, -1));
+  const nach = await db(page);
+  // November: das letzte verbliebene Training ist jetzt Match Day
+  expect(nach.m[2].tr[nach.m[2].tr.length - 1].d).toBe(nov[nov.length - 2]);
+  // Dezember: der verschobene Termin ist nach Datum eingeordnet (vor den Dezember-Terminen), mit seinen Daten
+  expect(dates(nach, 3)).toEqual([...dez, mdNov.d].sort());
+  expect(nach.m[3].tr.find((x) => x.d == mdNov.d)).toEqual(mdNov);
+  expect(L.join(" | ")).toContain("November: Match Day neu am");
+  await expect(block(page, 2).locator(".tmr").last()).toContainText("Match Day");
+});
+
+test("Match Day in einen leeren Monat: wird dort Match Day", async ({ page }) => {
+  await seed(page);
+  await openEditor(page);
+  const nov = dates(await db(page), 2);
+  await block(page, 2).locator(`[data-tmm="2,${nov.length - 1}"]`).selectOption("1");
+  await expect.poll(async () => dates(await db(page), 1)).toEqual([nov[nov.length - 1]]);
+  await expect(block(page, 1).locator(".tmr").last()).toContainText("Match Day");
 });
 
 test("Monat mit Resultat: Rückfrage, Abbrechen lässt alles unverändert", async ({ page }) => {
