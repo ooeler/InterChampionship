@@ -117,7 +117,7 @@ function viewBar(){if(PUB||REAL.role!="admin")return "";var pv=VIEW=="player";re
 // Match Day, fragt mdGuard vorher nach. Ein zugeteiltes Training bleibt in seinem Monat, auch wenn sich sein Datum ändert.
 // Winter Event: das Training am Datum wevD() (S.wev oder 2. Mittwoch im Dezember), nie ein Match Day.
 // Sommer Event: S.evt, ausserhalb der Monate, Datum sevD() (S.sev oder 1. Freitag im Mai).
-var TERM=false;
+var TERM=false,TPAST={}; // TPAST[Monat]: vergangene Termine dieses Monats aufgeklappt
 function hasRes(i){var r=S.m[i].res;return r[0]!=null||r[1]!=null}
 function isWE(x){var e=evOn(x.d);return !!e&&e.n=="Winter Event"}
 // Alt-Daten: liegt ein Training nach dem Match Day (vor dieser Regel zugeteilt), bleibt der Block bis zur nächsten Änderung so
@@ -131,7 +131,7 @@ function termCard(){if(ROLE!="admin")return "";var h='<div class="card" id="term
 if(!TERM)return h+'<div class="sp">Datum und Beginn aller Trainings und Match Days ändern, Trainings einem anderen Monat zuteilen, Event-Daten wählen.</div><button class="add" data-term="1" aria-expanded="false">📅 Trainings und Spieldaten bearbeiten</button></div>';
 var e=evTr();
 return h+'<div class="sp">Der Match Day ist immer der späteste Termin eines Monats. Ein Training lässt sich einem anderen Monat zuteilen – Anwesenheit, Abmeldungen, Leitung, Gäste und Restaurant bleiben erhalten.</div>'
-+S.m.map(function(m,i){return '<div class="sk tmb" data-tmb="'+i+'"><div class="tmh"><b>'+MON[i]+'</b>'+(hasRes(i)?' <span class="sp">· Resultat eingetragen</span>':'')+(m.tr.length&&mdLate(m.tr)?' <span class="sp">· ⚠ Training nach dem Match Day – bei der nächsten Änderung wird der späteste Termin Match Day</span>':'')+'</div>'+(m.tr.length?m.tr.map(function(x,j){return termRow(i,j)}).join(""):'<div class="sp">Noch keine Trainings und kein Match Day.</div>')+'</div>'}).join("")
++S.m.map(function(m,i){return '<div class="sk tmb" data-tmb="'+i+'"><div class="tmh"><b>'+MON[i]+'</b>'+(hasRes(i)?' <span class="sp">· Resultat eingetragen</span>':'')+(m.tr.length&&mdLate(m.tr)?' <span class="sp">· ⚠ Training nach dem Match Day – bei der nächsten Änderung wird der späteste Termin Match Day</span>':'')+'</div>'+(m.tr.length?(function(){var np=m.tr.filter(function(x){return x.d<TD}).length,op=!!TPAST[i];return (np?'<button class="lnk tpast" data-tpast="'+i+'" aria-expanded="'+op+'">'+(op?"▾ ":"▸ ")+np+(np==1?" vergangener Termin":" vergangene Termine")+(op?" ausblenden":" anzeigen")+'</button>':'')+m.tr.map(function(x,j){return x.d<TD&&!op?'':termRow(i,j)}).join("")})():'<div class="sp">Noch keine Trainings und kein Match Day.</div>')+'</div>'}).join("")
 +'<div class="sk" id="tev"><div class="tmh"><b>Events</b></div>'
 +evRow("Winter Event","wev",wevD(),wevDef(),'','Das Training an diesem Datum ist der Winter Event (ohne Leitung). Gibt es dort noch kein Training, wandert das bisherige mit Anwesenheit dorthin. Ohne Wahl: 2. Mittwoch im Dezember.')
 +evRow("Sommer Event","sev",e.d,sevDef(),'<input class="t" type="time" data-sevt="1" value="'+esc(tstart(e))+'" aria-label="Beginn Sommer Event">','Gehört zu keinem Monat. Ohne Wahl: 1. Freitag im Mai.')+'</div>'
@@ -151,6 +151,7 @@ function setSev(v){var Y=sy(),od=sevD();if(v==od)return false;
 if(v<Y+"-09-01"||v>(Y+1)+"-08-31"){alert("Der Sommer Event muss in der Saison liegen (September bis August).");return false}
 if(allTr().some(function(r){return !r.xe&&r.x.d==v})){alert("Am "+wd(v)+" gibt es schon ein Training.");return false}
 if(v==sevDef())delete S.sev;else S.sev=v;evTr();if(sb)sb.from("absence_reasons").update({d:v}).eq("d",od).then(function(){ABS=null;render()});toast("🎉 Sommer Event am "+wd(v)+".");return true}
+document.addEventListener("click",function(e){var p=e.target.closest&&e.target.closest("#term [data-tpast]");if(p){var q=+p.dataset.tpast;TPAST[q]=!TPAST[q];render();var c=document.querySelector('#term [data-tpast="'+q+'"]');if(c)c.focus({preventScroll:true})}});
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("#app [data-term]");if(!b||ROLE!="admin")return;TERM=!TERM;render();var c=document.querySelector("#term [data-term]");if(c)c.focus({preventScroll:!TERM})});
 document.addEventListener("change",function(e){var t=e.target,D=t.dataset||{},v=String(t.value||"").trim();if(!t.closest||!t.closest("#term"))return;
 if(D.wev!=null||D.sev!=null||D.sevt!=null){if(ROLE!="admin"||!v){render();return}var ok;
