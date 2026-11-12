@@ -195,7 +195,9 @@ test("Migration 38: Event-Daten prüfen, nur Spielleitung/Captains ändern, öff
     expect(pl).toContain(`'${k}', s.d->'${k}'`);
   }
   expect(g.replace(/\s+/g, " ")).toContain("coalesce(public.my_role(), '') not in ('admin', 'captain') then foreach k in array array['wev', 'sev'] loop if new.data->k is distinct from old.data->k then new.data := case when old.data ? k then jsonb_set(new.data, array[k], old.data->k) else new.data - k end;");
-  for (const f of [lp, g, pl]) expect(sql).toContain(f);
+  for (const f of [lp, pl]) expect(sql).toContain(f);
+  // guard_league_state wurde später neu definiert (20261112_39, Trainingsleitung); die Regel für wev/sev steht in 38 und in der neuesten Fassung
+  expect(sql.replace(/\s+/g, " ")).toContain("foreach k in array array['wev', 'sev'] loop");
   // Rechte unverändert, nur create or replace (idempotent)
   expect(sql).toMatch(/revoke execute on function public\.public_league\(\) from public;\s*grant execute on function public\.public_league\(\) to anon, authenticated;/);
   expect(sql).toMatch(/revoke execute on function public\.league_problem\(jsonb\) from public, anon, authenticated;/);

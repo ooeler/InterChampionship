@@ -283,6 +283,39 @@ test("Event-Daten: nur Spielleitung und Captains ändern sie, ungültige abgeleh
   }
 });
 
+test("Trainingsleitung: nur die Spielleitung teilt ein, ein Spieler trägt nur sich selbst ein oder aus (serverseitig)", async () => {
+  const vorher = await state();
+  // Leitung von zwei Trainings direkt über den Client setzen (wie ein manipulierter Client); Fehler oder null
+  const send = (page, a, b) => page.evaluate(async ([a, b]) => {
+    const cur = (await sb.from("league_state").select("data").eq("id", "main").single()).data.data;
+    const set = (x, v) => { if (v) x.lead = v; else delete x.lead };
+    set(cur.m[0].tr[0], a);
+    set(cur.m[0].tr[1], b);
+    return (await sb.from("league_state").update({ data: cur }).eq("id", "main")).error?.message || null;
+  }, [a, b]);
+  const leads = async () => { const s = await state(); return [s.m[0].tr[0].lead, s.m[0].tr[1].lead] };
+  try {
+    const s = await state();
+    s.m[0].tr[0].lead = "Tobias Keller";
+    delete s.m[0].tr[1].lead;
+    await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: s } });
+    // Spieler: fremde Leitung entfernen und jemand anderen einteilen – still verworfen, Speichern scheitert nicht
+    expect(await send(player, null, "Tobias Keller")).toBeNull();
+    expect(await leads()).toEqual(["Tobias Keller", undefined]);
+    // sich selbst eintragen, auch anstelle einer anderen Leitung („Übernehmen“) – gilt
+    expect(await send(player, "Silvan Frey", "Silvan Frey")).toBeNull();
+    expect(await leads()).toEqual(["Silvan Frey", "Silvan Frey"]);
+    // die eigene Leitung jemand anderem geben: verworfen; sich austragen: gilt
+    expect(await send(player, "Tobias Keller", null)).toBeNull();
+    expect(await leads()).toEqual(["Silvan Frey", undefined]);
+    // Spielleitung: beliebig
+    expect(await send(admin, "Tobias Keller", "Silvan Frey")).toBeNull();
+    expect(await leads()).toEqual(["Tobias Keller", "Silvan Frey"]);
+  } finally {
+    await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: vorher } });
+  }
+});
+
 test("Konto ohne Einladung wird kein Mitglied und sieht keine geschützten Daten", async () => {
   const fremd = { email: "fremd@e2e.test", password: pw() };
   // auch wenn das Konto Benutzerdaten mitbringt, die nach Einladung aussehen (die kann jede Person selbst setzen)

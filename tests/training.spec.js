@@ -178,9 +178,10 @@ test.describe("Training-Tab", () => {
   });
 
   test("Trainingsleitung in der Übersicht und in Meine Trainings", async ({ page }) => {
-    await seed(page);
+    await seed(page, { patch: `d.m[2].tr[1].lead = "Beat Rentsch"` });
     await openTraining(page, SPIELER);
-    await overview(page).locator("select[data-lead='2,1']").selectOption("Beat Rentsch");
+    await expect(overview(page).locator("select[data-lead]")).toHaveCount(0); // einteilen nur die Spielleitung
+    await expect(overview(page).locator(".tlro")).toContainText("Leitung: Beat Rentsch");
     await expect(mine(page).locator(".row").first()).toContainText("Leitung: Beat Rentsch");
     await mine(page).locator(".row").first().locator("[data-leadme]").click(); // Übernehmen (Bestätigung)
     await expect(mine(page).locator(".row").first()).toContainText("Du leitest das Training");

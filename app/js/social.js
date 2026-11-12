@@ -35,7 +35,7 @@ if(D.ntf!=null){var on=e.target.checked;sb.rpc("set_notify",{on_changes:on}).the
 // Der späteste Termin eines Monats ist sein Match Day: ändert sich dadurch ein Match Day, fragt mdGuard vorher nach. Das Datum des Winter Events setzt die Spielleitung im Termin-Editor.
 if(D.tdt!=null||D.ttm!=null){if(!canTeam()||!v)return;var er=trAt(TSEL),ex=er.x,od=ex.d;if(D.ttm!=null){ex.t=v}else if(v!=od){if(isWE(ex)){alert("Das Datum des Winter Events ändert die Spielleitung unter Teams → Trainings und Spieldaten.");render();return}
 if(!mdGuard(function(){if(er.md||natBlk(od)!=er.mi){ex.d=v;sortBlock(S.m[er.mi].tr)}else{S.m[er.mi].tr.splice(er.ti,1);ex.d=v;placeTr(ex)}})){render();return}S.m.forEach(function(m,i){var j=m.tr.indexOf(ex);if(j>=0)TSEL=i+","+j})}if(od!=ex.d)sb.from("absence_reasons").update({d:ex.d}).eq("d",od).then(function(){ABS=null;render()});save();render();return}
-if(D.lead!=null){var ld=D.lead.split(","),lt=S.m[+ld[0]].tr[+ld[1]];if(v)lt.lead=v;else delete lt.lead;save();render();return}
+if(D.lead!=null){if(ROLE!="admin"){render();return}var ld=D.lead.split(","),lt=S.m[+ld[0]].tr[+ld[1]];if(v)lt.lead=v;else delete lt.lead;save();render();return}
 if(D.mrole!=null){setMem(D.mrole,"role",e.target.value);return}
 if(D.mpl!=null){setMem(D.mpl,"player",e.target.value);return}
 if(D.smimg!=null){var sf=e.target.files[0],si=+D.smimg;if(!sf)return;var im=new Image();im.onload=function(){SMI[si]=im;render()};im.src=URL.createObjectURL(sf);return}

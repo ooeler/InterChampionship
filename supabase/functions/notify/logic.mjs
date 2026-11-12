@@ -135,6 +135,32 @@ export function signupMessage(state, { player, d, off }, uid = "", now = 0) {
   };
 }
 
+// Verspätet am Trainingstag: Push an die Trainingsleitung und die Spielleitung.
+// Prüft gegen den gespeicherten Stand: echter Spieler, echtes Training an diesem Datum, dort als verspätet ("v") und nicht abgemeldet,
+// heute (Zürich) und vor Beginn. Beginn und Leitung kommen aus den Daten, nie vom Client.
+// Der Schlüssel erlaubt eine Nachricht pro Spieler und Training (push_log).
+export function lateMessage(state, { player, d } = {}, now = 0) {
+  if (typeof player !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return null;
+  if (!(state.t || []).some((t) => (t.p || []).includes(player))) return null;
+  const x = (state.m || []).flatMap((m) => m.tr || []).concat(state.evt || []).find((tr) => tr && tr.d === d);
+  if (!x || (x.st || {})[player] !== "v" || (x.ab || []).includes(player)) return null;
+  const t = x.t || "18:45";
+  if (zurichDate(new Date(now)) !== d || now >= zurichToUtc(d, t)) return null;
+  return {
+    key: `late:${d}:${player}`,
+    tag: `late-${d}`,
+    lead: typeof x.lead === "string" && x.lead ? x.lead : null,
+    title: `⏰ ${player} kommt später`,
+    body: `Training heute, ${t} Uhr: ${player} hat sich als verspätet gemeldet.`,
+  };
+}
+// Empfänger (user_ids): die Konten der Trainingsleitung und die Spielleitung – nie die verspätete Person selbst und nicht, wer meldet
+export function lateRecipients(members, lead, player, uid) {
+  return [...new Set((members || [])
+    .filter((m) => (m.role === "admin" || (!!lead && m.player === lead)) && m.player !== player && m.user_id !== uid)
+    .map((m) => m.user_id))];
+}
+
 // Wer kommt zum Training (Stand: Anmeldungen): Spieler ohne Abmeldung + Gastspieler; Torhüter separat gezählt
 export function trainingCount(state, x) {
   const gkSet = new Set((state.t || []).flatMap((t) => t.gk || []));
