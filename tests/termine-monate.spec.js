@@ -1,4 +1,4 @@
-// Spielleitung: Trainings und Match Days bearbeiten, Trainings einem anderen Monat zuteilen, Match Days tauschen (Teams-Reiter)
+// Spielleitung: Trainings und Match Days bearbeiten, Trainings einem anderen Monat zuteilen (Teams-Reiter)
 // Der Match Day eines Monats ist immer sein spätester Termin.
 const { test, expect, login } = require("./fixtures");
 
@@ -243,63 +243,11 @@ test("Alt-Daten mit einem Training nach dem Match Day werden beim Laden nicht st
   await expect(block(page, 2).locator(".tmr").last()).toContainText("04.11.2026");
 });
 
-// November-Match-Day auf den 05.12. verschoben (nach dem Dezember-Match-Day): Tauschen bringt die Monate wieder in Reihenfolge
-const VERSCHOBEN = `d.m[2].tr[2] = { d: "2026-12-05", t: "19:15", p: ["Andreas Scherrer", "Silvan Frey"], ab: ["Beat Rentsch"], st: { "Julien Stadler": "v" }, gs: [{ n: "Gast N" }], r: "Pizzeria Roma" };
-  d.m[3].tr[3] = { d: "2026-12-02", p: ["Tobias Keller"], ab: ["Manuel Ammann"] };
-  d.m[3].res = [2, 1]; d.m[3].pre = [2, 1]; d.m[3].g = { "Andreas Scherrer": 2 }; d.m[3].a = { "Silvan Frey": 1 }; d.m[3].ref = "Ref R"; d.m[3].gs = [{ n: "Gast D", k: "g:x", t: 0 }]; d.m[3].kp = [["Thomas Allemann"], null];
-  d.m[2].res = [null, null];`;
-
-test("Match Days tauschen (Nov ↔ Dez): Termine mit Anwesenheit wechseln, Resultate und „zählt doppelt“ bleiben beim Monat", async ({ page }) => {
-  await seed(page, { patch: VERSCHOBEN });
-  await openEditor(page);
-  const vorher = await db(page);
-  const nov = vorher.m[2].tr[2], dez = vorher.m[3].tr[3];
-  const monat = (m) => ({ res: m.res, pre: m.pre, g: m.g, a: m.a, ref: m.ref, gs: m.gs, kp: m.kp, base: m.base, ff: m.ff });
-  // nur auf Match-Day-Zeilen, Optionen = andere Monate mit Match Day
-  await expect(page.locator("#term [data-tsw]")).toHaveCount(6);
-  expect(await page.locator("#term .tmr:not(.tmd) [data-tsw]").count()).toBe(0);
-  const sel = block(page, 2).locator('[data-tsw="2"]');
-  await expect(sel.locator("option")).toHaveText(["⇄ Match Day tauschen mit …", "Match Day Dezember (02.12.2026)", "Match Day Januar (06.01.2027)", "Match Day Februar (03.02.2027)", "Match Day März (03.03.2027)", "Match Day April (07.04.2027)"]);
-  // Dezember hat ein Resultat: Rückfrage, Abbrechen lässt alles unverändert
-  let L = dialogs(page, () => false);
-  await sel.selectOption("3");
-  await expect.poll(() => L.length).toBe(1);
-  expect(L[0]).toContain("confirm: Im Dezember ist schon ein Resultat eingetragen");
-  expect(L[0]).toContain("bleiben beim Monat");
-  expect(L[0]).toContain("Match Day November (Sa, 05.12.2026) mit Match Day Dezember (Mi, 02.12.2026) tauschen?");
-  await page.waitForTimeout(600);
-  expect(await db(page)).toEqual(vorher);
-  await expect(sel).toHaveValue("");
-  // Bestätigen
-  L = dialogs(page, () => true);
-  await sel.selectOption("3");
-  await expect.poll(async () => dates(await db(page), 2)).toEqual(["2026-10-21", "2026-10-28", "2026-12-02"]);
-  const d = await db(page);
-  expect(dates(d, 3)).toEqual(["2026-11-11", "2026-11-18", "2026-11-25", "2026-12-05"]);
-  // die ganzen Einträge (Datum, Beginn, Anwesenheit, Abmeldungen, Status, Gäste, Restaurant) haben getauscht
-  expect(d.m[2].tr[2]).toEqual(dez);
-  expect(d.m[3].tr[3]).toEqual(nov);
-  // Monatsdaten bleiben beim Monat
-  expect(monat(d.m[3])).toEqual(monat(vorher.m[3]));
-  expect(monat(d.m[2])).toEqual(monat(vorher.m[2]));
-  // „zählt doppelt“ bleibt beim Dezember: das Resultat zählt dort weiterhin 2 Punkte
-  expect(await page.evaluate(() => ({ dbl: DBL.slice(), p: pts(3, 3), dez: S.m[3].res }))).toEqual({ dbl: [3, 7], p: [2, 0], dez: [2, 1] });
-  await expect(block(page, 2).locator(".tmr").last()).toContainText("02.12.2026");
-  await expect(block(page, 3).locator(".tmr").last()).toContainText("05.12.2026");
-  await expect(block(page, 3).locator(".tmr").last()).toContainText("Match Day");
-  // Anwesenheit am Match Day zählt jetzt im Dezember
-  expect(await page.evaluate(() => [S.m[2].tr[2].p, S.m[3].tr[3].p])).toEqual([["Tobias Keller"], ["Andreas Scherrer", "Silvan Frey"]]);
-});
-
-test("Match Days tauschen geht nicht, wenn ein Match Day im anderen Monat vor einem Training läge", async ({ page }) => {
+// Match Days lassen sich nicht tauschen (Funktion entfernt): ein verschobener Spieltag bekommt einfach ein späteres Datum
+test("kein Match-Day-Tausch im Editor", async ({ page }) => {
   await seed(page);
   await openEditor(page);
-  const L = dialogs(page, () => true);
-  const vorher = await db(page);
-  await block(page, 2).locator('[data-tsw="2"]').selectOption("3");
-  await expect.poll(() => L.length).toBe(1);
-  expect(L[0]).toContain("alert: Tauschen geht nicht");
-  expect(L[0]).toContain("Match Day vom Mi, 04.11.2026 läge im Dezember vor dem Training vom Mi, 25.11.2026");
-  await page.waitForTimeout(600);
-  expect(await db(page)).toEqual(vorher);
+  await expect(page.locator("#term [data-tsw]")).toHaveCount(0);
+  await expect(page.locator("#term")).not.toContainText("tauschen");
+  expect(await page.evaluate(() => typeof swapMD)).toBe("undefined");
 });
