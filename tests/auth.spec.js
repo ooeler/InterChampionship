@@ -8,6 +8,7 @@ test.describe("Login", () => {
     await page.click("nav [data-tab=info]");
     await expect(page.locator("main")).toContainText("Die interne Flying Penguins Meisterschaft.");
     await expect(page.locator("main")).not.toContainText("Verbesserungsvorschlag"); // braucht ein Konto
+    await expect(page.locator("#regeln")).toHaveCount(0); // Abmelde- und Push-Regeln nur für Mitglieder
     await page.click("nav [data-tab=rang]");
     await expect(page.locator("main")).toContainText("Meisterschaft");
     await expect(page.locator("#lo")).toBeHidden();
