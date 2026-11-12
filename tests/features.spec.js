@@ -98,8 +98,10 @@ test.describe("Konzept", () => {
       await expect(main).toContainText(t);
     }
     await expect(main).toContainText("Nächster Match-Tag: Mi, 04.11.2026");
-    await expect(main).toContainText("zweiten Dezember-Mittwoch (09.12.2026)");
-    await expect(main).toContainText("ersten Mai-Freitag (07.05.2027)");
+    await expect(main).toContainText("Verlierer organisieren den Winter Event am 09.12.2026");
+    await expect(main).toContainText("Verlierer organisieren den Sommer Event am 07.05.2027");
+    await expect(main).not.toContainText("Dezember-Mittwoch");
+    await expect(main).not.toContainText("Mai-Freitag");
   });
 
   test("Spieltag zeigt den Ablauf des Matchtags", async ({ page }) => {
