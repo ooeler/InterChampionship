@@ -18,7 +18,7 @@ test.describe("Infos im Markdown-Format", () => {
     const c = page.locator(".card", { has: page.locator("h3", { hasText: "Sommermeisterschaft" }) });
     await expect(c).toContainText("Sommermeister = Jahres-Intermeister");
     await expect(c).toContainText("werden auf den Pokal graviert");
-    await expect(c).toContainText("(07.05.2027)");
+    await expect(c).toContainText("Sommer Event am 07.05.2027");
     await expect(page.locator("main")).not.toContainText("{");
     await expect(page.locator("[data-infoe]")).toHaveCount(0);
   });
