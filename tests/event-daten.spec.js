@@ -157,7 +157,7 @@ test("Besucher sehen das gewählte Datum des Winter Events", async ({ page }) =>
 });
 
 for (const [wer, user, player] of [["Captain", undefined, "Andreas Scherrer"], ["Spieler", SPIELER, null]]) {
-  test(`${wer}: kein Termin-Editor, keine Event-Felder, kein Tauschen`, async ({ page }) => {
+  test(`${wer}: kein Termin-Editor, keine Event-Felder`, async ({ page }) => {
     await seed(page, { player });
     await login(page, user);
     await page.click("nav [data-tab=team]");
