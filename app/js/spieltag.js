@@ -14,12 +14,20 @@ return '<div class="dprog"><div class="sp">Prognose nach dem Training vom '+wd(P
 function duel(){var i=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>=TD});if(i<0)return "";var m=S.m[i],a=avg(m,0),b=avg(m,1),s=a+b,pa=s?Math.round(a/s*100):50,f=function(t){return pct(m,t)+" %"},lead=a>b?0:b>a?1:-1;
 return '<div class="card duel"><h3>Team-Duell · '+MON[i]+'</h3>'+blkInfo(i)+'<div class="kv"><b class="ta">'+esc(S.t[0].n)+'</b><b class="tb">'+esc(S.t[1].n)+'</b></div><div class="dbar" role="img" aria-label="Anwesenheit '+esc(S.t[0].n)+' '+f(0)+', '+esc(S.t[1].n)+' '+f(1)+'"><div class="da" style="width:'+pa+'%"></div><div class="db"></div></div><div class="kv"><b>'+f(0)+'</b><span class="sp">Anwesenheit</span><b>'+f(1)+'</b></div><div class="sp" style="margin-top:4px">'+(!s?'Noch keine bestätigten Trainings in diesem Block.':lead<0?'Gleichstand – beide Teams holen ein Bonustor. Das nächste Training kann das noch ändern.':esc(S.t[lead].n)+' führt und holt damit das Bonustor am Match Day.')+'</div>'+duelProg(m)+'</div>'}
 function training(){return (PUSH===false||PUSH==="ios"?notifyCard():"")+myTr()+duel()+trOverview()+penBoard()+trMonth()+(PUSH===false||PUSH==="ios"?"":notifyCard())}
-// Neues Training dem Block des nächsten Match Days zuordnen (Match Day bleibt das letzte Training eines Monats)
-function sortBlock(T){var md=T.pop();T.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});if(md)T.push(md)}
+// Der Match Day eines Monats ist immer sein spätester Termin: ein Block ist ganz nach Datum sortiert, der letzte Eintrag ist der Match Day
+function sortBlock(T){T.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0})}
 // Block nach Datum: der erste Monat, dessen Match Day nach dem Datum liegt
 function natBlk(d){var mi=S.m.findIndex(function(m){return m.tr.length&&m.tr[m.tr.length-1].d>d});return mi<0?S.m.length-1:mi}
-// Training in Block mi einfügen: nach Datum sortiert, der Match Day bleibt zuletzt
-function insTr(mi,x){var T=S.m[mi].tr;if(!T.length)T.push(x);else{var md=T.pop();T.push(x);T.push(md);sortBlock(T)}return mi+","+T.indexOf(x)}
+// Training in Block mi einfügen (nach Datum sortiert)
+function insTr(mi,x){var T=S.m[mi].tr;T.push(x);sortBlock(T);return mi+","+T.indexOf(x)}
+// Führt f aus (ändert Trainings). Wird dadurch ein anderer Termin Match Day eines Monats, fragt die App vorher nach (mit Hinweis auf ein
+// eingetragenes Resultat); der Winter Event wird nie Match Day. Abbrechen stellt alle Trainings wieder her. true = die Änderung gilt.
+function mdGuard(f){var M=clone(S.m.map(function(m){return m.tr})),ls=function(T){return T.length?T[T.length-1]:null},B=S.m.map(function(m){return ls(m.tr)}),BD=B.map(function(x){return x&&x.d});f();
+var back=function(){S.m.forEach(function(m,i){m.tr=M[i]})},ch=[],we=-1;S.m.forEach(function(m,i){var l=ls(m.tr);if(l!==B[i])ch.push(i);if(l&&l.d==wevD()&&(l!==B[i]||l.d!=BD[i]))we=i});
+if(we>=0){back();alert("Der Winter Event kann nicht Match Day sein – er wäre der späteste Termin im "+MON[we]+". Der Match Day ist immer der späteste Termin eines Monats.");return false}
+if(!ch.length)return true;
+if(confirm("Der Match Day ist immer der späteste Termin eines Monats. Damit ändert sich:\n"+ch.map(function(i){var l=ls(S.m[i].tr);return "• "+MON[i]+": Match Day "+(l?"neu am "+wd(l.d):"keiner mehr")+(BD[i]?" (bisher "+wd(BD[i])+")":"")+(hasRes(i)?" – Resultat schon eingetragen: Anwesenheitsbonus, Team-Duell und Spieler des Monats ändern sich":"")}).join("\n")+"\n\nTrotzdem ändern?"))return true;
+back();return false}
 function placeTr(x){return insTr(natBlk(x.d),x)}
 
 // Jeder Spieltag ist gesperrt, damit nichts aus Versehen ändert. ✏️ gibt ihn bis zum Monats- oder Reiterwechsel frei.
@@ -96,7 +104,7 @@ function recapShare(i){var d=recapData(i);if(!d)return;var t="Herren Inter · R�
 if(navigator.share){navigator.share({title:"Rückblick "+MON[d.i],text:t}).catch(function(){});return}if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){toast("Rückblick kopiert – jetzt im Gruppenchat einfügen.")},function(){toast("Kopieren ging nicht. Bitte manuell teilen.")});else toast("Teilen wird von diesem Browser nicht unterstützt.")}
 function rang(){var se=serie(),a=se.p;
 var h='<div class="card"><h3>Meisterschaft</h3><div class="score"><div class="tn ta">'+lg(0)+esc(S.t[0].n)+'</div><div class="vs">'+se.n+'</div><div class="tn tb">'+lg(1)+esc(S.t[1].n)+'</div><b class="ta">'+a[0]+'</b><span class="vs">🏆</span><b class="tb">'+a[1]+'</b></div>'
-+mst("Wintermeister","Sep–Dez",0,3,"den Winter Event am "+fd(nthWd(sy(),11,3,2)))+mst("Sommermeister","Jan–Apr",4,7,"den Sommer Event am "+fd(nthWd(sy()+1,4,5,1)))+'</div>';
++mst("Wintermeister","Sep–Dez",0,3,"den Winter Event am "+fd(wevD()))+mst("Sommermeister","Jan–Apr",4,7,"den Sommer Event am "+fd(sevD()))+'</div>';
 h+=(S.sp?'<div class="card"><h3>Teamsponsor</h3><div style="text-align:center"><img src="'+img(S.sp)+'" style="max-width:100%;max-height:120px"></div></div>':"");
 h+='<div class="card"><h3>Spieltage</h3>'+S.m.map(function(m,j){var x=win(m);return '<div class="row"><span>'+MON[j]+(DBL.indexOf(j)>=0?" ×2":"")+'</span><span>'+(m.res[0]==null?"–":m.res[0]+" : "+m.res[1])+'</span><span class="pill '+(x>=0?"win":"")+'">'+(m.res[0]==null?"offen":x<0?"Unentschieden":esc(S.t[x].n))+'</span></div>'}).join("")+'</div>';
 return h+(PUB?recap():"")+board("Anwesenheit Saison",function(p){return tot("att",p)},0,function(p){return fullBadge(p)+fire(p)},sums())+board("Skorerpunkte",function(p){return tot("g",p)+tot("a",p)},1)+board("Tore",function(p){return tot("g",p)},1)+gkBoard()+restoBoard()}

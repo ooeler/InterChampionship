@@ -35,8 +35,11 @@ export function matchdayMessages(state, today, daysBefore = 3) {
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const wd = (d) => WD[new Date(d + "T12:00:00Z").getUTCDay()] + ", " + fd(d);
 
-// Winter Event (2. Mittwoch im Dezember, wie evts() in app/index.html): kein Training mit Leitung
-export function isWinterEvent(d) {
+// Winter Event (wie wevD() in app/js/training.js): das von der Spielleitung gewählte Datum state.wev,
+// ohne Wahl der 2. Mittwoch im Dezember. Kein Training mit Leitung.
+const isDay = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v + "T12:00:00Z")) && new Date(v + "T12:00:00Z").toISOString().slice(0, 10) === v;
+export function isWinterEvent(state, d) {
+  if (isDay(state?.wev)) return d === state.wev;
   const x = new Date(d + "T12:00:00Z");
   return x.getUTCMonth() === 11 && x.getUTCDay() === 3 && x.getUTCDate() >= 8 && x.getUTCDate() <= 14;
 }
@@ -48,7 +51,7 @@ export function trainingLeadMessages(state, today, daysBefore = 2) {
   const out = [];
   state.m.forEach((m) => {
     m.tr.forEach((x, ti) => {
-      if (ti === m.tr.length - 1 || !x.lead || x.d !== target || isWinterEvent(x.d)) return;
+      if (ti === m.tr.length - 1 || !x.lead || x.d !== target || isWinterEvent(state, x.d)) return;
       const off = (x.ab || []).includes(x.lead);
       out.push({
         key: `training:${x.d}:${x.lead}`,
@@ -189,7 +192,7 @@ function leadDue(state, nowMs) {
   const out = [];
   (state.m || []).forEach((m) => {
     m.tr.forEach((x, ti) => {
-      if (ti === m.tr.length - 1 || !x.lead || isWinterEvent(x.d)) return; // Match Day und Winter Event haben keine Trainingsleitung
+      if (ti === m.tr.length - 1 || !x.lead || isWinterEvent(state, x.d)) return; // Match Day und Winter Event haben keine Trainingsleitung
       const start = leadStart(x), from = start - DEADLINE_H * 36e5;
       if (nowMs < from || nowMs >= Math.min(from + 36e5, start)) return;
       out.push(x);
@@ -300,7 +303,7 @@ export function testLeadMail(state, nowMs, appUrl = "") {
   for (const m of state.m || []) {
     for (let ti = 0; ti < m.tr.length - 1; ti++) {
       const x = m.tr[ti];
-      if (zurichToUtc(x.d, x.t || "18:45") <= nowMs || isWinterEvent(x.d)) continue;
+      if (zurichToUtc(x.d, x.t || "18:45") <= nowMs || isWinterEvent(state, x.d)) continue;
       const mail = leadMail(state, { ...x, lead: x.lead || "Trainingsleitung" }, appUrl);
       return { subject: "[Test] " + mail.subject, text: "Dies ist eine Test-Mail aus Herren Inter (Teams → Mail testen).\n\n" + mail.text };
     }

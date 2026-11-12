@@ -259,6 +259,30 @@ test("Spieler darf Teams, Rollen und Strafen nicht ändern (serverseitig)", asyn
   expect((await state()).info).toBeUndefined();
 });
 
+test("Event-Daten: nur Spielleitung und Captains ändern sie, ungültige abgelehnt, öffentlich sichtbar (serverseitig)", async () => {
+  const vorher = await state();
+  const send = (page, patch) => page.evaluate(async (patch) => {
+    const cur = (await sb.from("league_state").select("data").eq("id", "main").single()).data.data;
+    Object.assign(cur, patch);
+    return (await sb.from("league_state").update({ data: cur }).eq("id", "main")).error?.message || null;
+  }, patch);
+  try {
+    expect(await send(admin, { wev: "2026-12-16", sev: "2027-05-14" })).toBeNull();
+    expect((await state()).wev).toBe("2026-12-16");
+    // Spieler: Änderung still verworfen (wie info), Speichern scheitert nicht
+    expect(await send(player, { wev: "2026-12-30", sev: null })).toBeNull();
+    expect([(await state()).wev, (await state()).sev]).toEqual(["2026-12-16", "2027-05-14"]);
+    // ungültig: abgelehnt, auch für die Spielleitung
+    expect(await send(admin, { wev: "<b>" })).toContain("Ungültige Daten: Event-Datum");
+    expect(await send(admin, { sev: 20270514 })).toContain("Ungültige Daten: Event-Datum");
+    // Besucher sehen die gewählten Daten
+    const pub = (await rest("/rest/v1/rpc/public_league", { key: ANON, method: "POST", body: {} })).data;
+    expect([pub.wev, pub.sev]).toEqual(["2026-12-16", "2027-05-14"]);
+  } finally {
+    await rest("/rest/v1/league_state?id=eq.main", { method: "PATCH", body: { data: vorher } });
+  }
+});
+
 test("Konto ohne Einladung wird kein Mitglied und sieht keine geschützten Daten", async () => {
   const fremd = { email: "fremd@e2e.test", password: pw() };
   // auch wenn das Konto Benutzerdaten mitbringt, die nach Einladung aussehen (die kann jede Person selbst setzen)
