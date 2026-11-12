@@ -70,6 +70,13 @@ Die Schlüssel liegen in `.secrets/push.env` (nicht im Git!). Den Wert `VAPID_SU
 - `BREVO_API_KEY` – der API-Schlüssel (nicht der SMTP-Schlüssel)
 - `MAIL_FROM` – die in Brevo verifizierte Absenderadresse, z. B. `app@deine-domain.ch` oder `Herren Inter <app@deine-domain.ch>`
 
+**Statt Brevo: SMTP, z. B. [Mailomat](https://mailomat.swiss) (Server in der Schweiz).** Im Mailomat-Konto die Absender-Domain per DNS-Eintrag verifizieren und SMTP-Zugangsdaten erstellen, dann in Supabase unter **Edge Functions → Secrets** eintragen:
+- `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` – die SMTP-Zugangsdaten aus Mailomat
+- `SMTP_PORT` – optional, Standard `465` (Supabase Edge Functions blockieren die Ports 25 und 587)
+- `MAIL_FROM` – eine Adresse der verifizierten Domain, z. B. `Herren Inter <app@deine-domain.ch>`
+
+Sind die drei SMTP-Werte gesetzt, geht jede Mail über SMTP, sonst über Brevo. Zurück zu Brevo: `SMTP_HOST` löschen.
+
 Falls in Brevo unter *Security → Authorised IPs* die IP-Sperre aktiv ist, diese ausschalten: die Edge Functions haben wechselnde Adressen. Test: in der App **Teams → Mail und Benachrichtigung testen → ✉️ Test-Mail an mich**.
 
 Ohne diese beiden Werte wird keine Mail verschickt (die App funktioniert trotzdem). Die Mail geht an die Adresse des Kontos, das dem Spieler zugeordnet ist (Teams → Benutzer & Rollen).
