@@ -90,6 +90,19 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
 });
 
 test.describe("Konzept", () => {
+  test("Infos zeigen eingeloggten Mitgliedern die Regeln zu Abmelden und Push", async ({ page }) => {
+    const errs = [];
+    page.on("pageerror", (e) => errs.push(e.message));
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=info]");
+    const r = page.locator("#regeln");
+    await expect(r.locator("h3")).toHaveText("Abmelden & Benachrichtigungen");
+    for (const t of ["bis 23 h vor Trainingsbeginn", "bis 30 Min. vor Beginn", "Unsicher bis Trainingsbeginn", "Match Day in 3 Tagen", "26 h vor Beginn", "Trainingsleitung und die Spielleitung", "Skorerliste prüfen"]) {
+      await expect(r).toContainText(t);
+    }
+    await expect(r.locator("[data-infoe]")).toHaveCount(0); // fester Text, nicht bearbeitbar
+    expect(errs).toEqual([]);
+  });
   test("Infos-Tab zeigt das Konzept für alle", async ({ page }) => {
     await login(page, SPIELER);
     await page.click("nav [data-tab=info]");

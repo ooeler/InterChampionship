@@ -4,7 +4,7 @@ const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" }
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db") || "{}").data);
 
-const sektion = (page, t) => page.locator("main .card.md", { has: page.locator("h3", { hasText: t }) });
+const sektion = (page, t) => page.locator("main .card.md:not(#regeln)", { has: page.locator("h3", { hasText: t }) });
 
 async function infos(page, user = ADMIN) {
   await login(page, user);
@@ -25,7 +25,7 @@ test.describe("Infos im Markdown-Format", () => {
 
   test("Spielleitung bearbeitet einen Abschnitt mit Vorschau, die anderen bleiben unverändert", async ({ page }) => {
     await infos(page);
-    const karten = page.locator("main .card.md");
+    const karten = page.locator("main .card.md:not(#regeln)");
     await expect(page.locator("[data-infoe]").first()).toHaveText("✎ Bearbeiten");
     await sektion(page, "Hauptmatch").locator("[data-infoe]").click();
     await expect(page.locator("#infoti")).toHaveValue("Hauptmatch");
@@ -71,7 +71,7 @@ test.describe("Infos im Markdown-Format", () => {
     expect((await msg).message()).toContain("Titel");
     await page.locator("#infoti").fill("Kasse");
     await page.click("[data-infos]");
-    await expect(page.locator("main .card.md h3").last()).toHaveText("Kasse");
+    await expect(page.locator("main .card.md:not(#regeln) h3").last()).toHaveText("Kasse");
 
     // ganz unten: nur nach oben möglich, bearbeitete Texte bleiben beim Verschieben im Formular
     await sektion(page, "Kasse").locator("[data-infoe]").click();
@@ -81,7 +81,7 @@ test.describe("Infos im Markdown-Format", () => {
     await expect(page.locator("#infot")).toHaveValue("Geänderter Text");
     await expect(page.locator("[data-infom='1']")).toBeVisible();
     await page.click("[data-infos]");
-    const T = page.locator("main .card.md h3");
+    const T = page.locator("main .card.md:not(#regeln) h3");
     await expect(T.last()).toHaveText("Captains & Spielleitung");
     await expect(T.nth((await T.count()) - 2)).toHaveText("Kasse");
     await expect(sektion(page, "Kasse")).toContainText("Geänderter Text");
@@ -126,7 +126,7 @@ test.describe("Infos im Markdown-Format", () => {
     expect((await msg).message()).toContain("nicht leer");
     await page.locator("#infot").fill("Text bleibt ohne Titel");
     await page.click("[data-infos]"); // Abschnitt ohne Titel vor dem ersten Titel bleibt erlaubt
-    await expect(page.locator("main .card.md")).toContainText("Text bleibt ohne Titel");
+    await expect(page.locator("main .card.md:not(#regeln)")).toContainText("Text bleibt ohne Titel");
   });
 
   test("Bearbeiten übersteht das Verlassen eines Felds", async ({ page }) => {
