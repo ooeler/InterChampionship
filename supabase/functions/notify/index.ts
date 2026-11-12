@@ -13,12 +13,15 @@
 //   { type: "signup", d, player, off } – aus der App: An-/Abmeldung an alle mit notify_changes (ausser der Person selbst);
 //                                    Spieler und Training müssen existieren, max. eine Nachricht pro Person/Training/10 Min.
 //                                    Für andere nur Spielleitung und Captains. Beim Resultat höchstens eine Nachricht pro Monat und 10 Min.
+//   { type: "late", d, player }    – aus der App: am Trainingstag als verspätet gemeldet → Push an die Trainingsleitung und die Spielleitung
+//                                    (nicht an die Person selbst). Nur heute (Zürich) und vor Beginn, nur wenn der gespeicherte Stand
+//                                    den Spieler als verspätet zeigt; für andere nur Spielleitung und Captains; eine Nachricht pro Spieler und Training.
 // Jede Nachricht wird nur einmal verschickt (Tabelle push_log).
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mail.mjs";
-import { statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { lateMessage, lateRecipients, statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -121,6 +124,18 @@ Deno.serve(async (req) => {
     onlyUsers = (fans ?? []).map((x) => x.user_id);
     if (!onlyUsers.length) return json({ sent: 0 });
     msgs = [m];
+  } else if (body.type === "late") {
+    const { data: { user } } = await db.auth.getUser(token);
+    if (!user) return json({ error: "unauthorized" }, 401);
+    const { data: member } = await db.from("members").select("role, player").eq("user_id", user.id).maybeSingle();
+    if (!member || !mayNotifyFor(member, body.player)) return json({ error: "forbidden" }, 403);
+    const m = lateMessage(row.data, body, Date.now());
+    if (!m) return json({ error: "ungültig" }, 400);
+    const { data: mem } = await db.from("members").select("user_id, role, player");
+    onlyUsers = lateRecipients(mem ?? [], m.lead, body.player, user.id);
+    if (!onlyUsers.length) return json({ sent: 0 });
+    const { lead: _l, ...msg } = m; // ohne player/teams: die Empfänger stehen in onlyUsers
+    msgs = [msg];
   } else if (body.type === "matchday") {
     if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
     const today = zurichDate(new Date());

@@ -27,6 +27,22 @@
   var RLS = function (t) { return fail("new row violates row-level security policy for table \"" + t + "\"") };
   function myPlayer() { var s = get(SESS); return s && (localStorage.getItem("__mock_player") || (USERS[s.user.email] || {}).player) }
   function canAbs(x) { return ["admin", "captain"].indexOf(role()) >= 0 || x.player == myPlayer() }
+  // Spiegelt keep_leads: Änderung von tr[].lead bleibt nur, wenn die neue Leitung man selbst ist, man sich selbst austrägt
+  // oder (Captain) die bisherige Leitung kein Spieler der Teams mehr ist (umbenannt/entfernt); bisherige Leitung über das Datum, sonst die Stelle
+  function keepLeads(alt, neu, ich, cap) {
+    var sp = [].concat.apply([], (neu.t || []).map(function (t) { return t.p || [] }));
+    var ok = function (a, n) { return n == a || (!!ich && n == ich) || (!!ich && a == ich && !n) || (cap && !!a && sp.indexOf(a) < 0 && (!n || sp.indexOf(n) >= 0)) };
+    var put = function (x, a) { if (a) x.lead = a; else delete x.lead };
+    var all = [].concat.apply([], (alt.m || []).map(function (m) { return m.tr || [] }));
+    (neu.m || []).forEach(function (m, i) {
+      (m.tr || []).forEach(function (x, j) {
+        var o = all.filter(function (y) { return y.d == x.d })[0] || ((alt.m[i] || {}).tr || [])[j] || {};
+        var a = o.lead || null, n = x.lead || null;
+        if (!ok(a, n)) put(x, a);
+      });
+    });
+    if (neu.evt && typeof neu.evt == "object") { var a = (alt.evt || {}).lead || null; if (!ok(a, neu.evt.lead || null)) put(neu.evt, a) }
+  }
   function role() { var s = get(SESS); return s && (USERS[s.user.email] || { role: "player" }).role }
 
   function createClient() {
@@ -143,6 +159,8 @@
             // Event-Daten (20261110_38_event_daten): ungültig → abgelehnt; nur Spielleitung und Captains ändern sie, sonst still verworfen
             if (["wev", "sev"].some(function (k) { return row.data[k] != null && !/^\d{4}-\d{2}-\d{2}$/.test(row.data[k]) })) return fail("Ungültige Daten: Event-Datum");
             if (old && ["admin", "captain"].indexOf(role()) < 0) ["wev", "sev"].forEach(function (k) { if (old.data[k] === undefined) delete row.data[k]; else row.data[k] = old.data[k] });
+            // Trainingsleitung (20261112_39_leitung_nur_spielleitung, keep_leads): nur die Spielleitung teilt ein, alle anderen still verworfen
+            if (old && role() != "admin") keepLeads(old.data, row.data, myPlayer(), role() == "captain");
             if (old) hist(old.data, "Änderung"); // spiegelt den Trigger keep_league_history
             set(DB, JSON.parse(JSON.stringify(row)));
           }

@@ -69,7 +69,7 @@ test.describe("Usability", () => {
   test("Auswahllisten und Anmelden-Knopf sind gross genug zum Tippen", async ({ page }) => {
     await page.goto("/");
     expect((await page.locator("#li").boundingBox()).height).toBeGreaterThanOrEqual(36);
-    await login(page);
+    await login(page, { email: "admin@flyingpenguins.test", password: "admin123" }); // Leitung einteilen: nur die Spielleitung
     await page.click("nav [data-tab=train]");
     expect((await page.locator("select[data-lead]").boundingBox()).height).toBeGreaterThanOrEqual(44);
   });
