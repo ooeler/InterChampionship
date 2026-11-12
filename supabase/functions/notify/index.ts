@@ -4,7 +4,7 @@
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
 //                                    + Mail und Push an die Trainingsleitung direkt bei Abmeldeschluss, 23 h vorher (Spielleitung in Kopie):
 //                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
-//                                    (über Brevo, nur wenn BREVO_API_KEY und MAIL_FROM als Secrets gesetzt sind)
+//                                    (über SMTP, z. B. Mailomat, oder Brevo – siehe _shared/mail.mjs; ohne Secrets keine Mail)
 //                                    + um 8 Uhr nach dem Match Day: Skorerliste stimmt nicht → einmalige Push an Spielleitung und Captain des Teams
 //   { type: "testmail" }           – aus der App, nur Spielleitung: Beispiel-Mail fürs nächste Training an die eigene Adresse
 //                                    (prüft die Mail-Einrichtung; höchstens eine pro Person und 10 Min.)
@@ -20,7 +20,7 @@
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
-import { mailReady, sendMail } from "../_shared/mail.mjs";
+import { mailReady, sendMail } from "../_shared/mailer.ts";
 import { lateMessage, lateRecipients, statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
@@ -42,7 +42,7 @@ const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampi
 type Mail = { key: string; player: string; subject: string; text: string };
 async function sendLeadMails(db: ReturnType<typeof createClient>, mails: Mail[]) {
   if (!mails.length) return 0;
-  if (!mailReady()) { console.log("Mail an Trainingsleitung übersprungen: BREVO_API_KEY/MAIL_FROM fehlen"); return 0; }
+  if (!mailReady()) { console.log("Mail an Trainingsleitung übersprungen: Mail-Secrets fehlen"); return 0; }
   let n = 0;
   const { data: admins } = await db.from("members").select("email").eq("role", "admin").eq("lead_mail_cc", true);
   for (const m of mails) {

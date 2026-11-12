@@ -7,7 +7,7 @@
 //   { action: "closed", id, completed, notify }    – Issue geschlossen; bei completed + notify bekommt die Person eine Mail
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual } from "../_shared/sicherheit.mjs";
-import { sendMail } from "../_shared/mail.mjs";
+import { sendMail } from "../_shared/mailer.ts";
 
 const APP_URL = Deno.env.get("APP_URL") || "https://ooeler.github.io/InterChampionship/";
 
