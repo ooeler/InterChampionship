@@ -72,7 +72,7 @@ test("Winter Event auf ein Datum ohne Training: das Event-Training wandert mit s
   await page.click("nav [data-tab=rang]");
   await expect(card(page, "Meisterschaft")).toContainText("den Winter Event am 30.12.2026");
   await page.click("nav [data-tab=info]");
-  await expect(page.locator("main")).toContainText("(30.12.2026)");
+  await expect(page.locator("main")).toContainText("Winter Event am 30.12.2026");
   // Edge Function: Event am gewählten Datum, das alte Datum ist ein normales Datum
   const L2 = await import("../supabase/functions/notify/logic.mjs");
   const s = await db(page);
@@ -144,7 +144,7 @@ test("Sommer Event: gewähltes Datum bleibt nach Neuladen und fix(), erscheint i
   await page.click("nav [data-tab=rang]");
   await expect(card(page, "Meisterschaft")).toContainText("den Sommer Event am 14.05.2027");
   await page.click("nav [data-tab=info]");
-  await expect(page.locator("main")).toContainText("(14.05.2027)");
+  await expect(page.locator("main")).toContainText("Sommer Event am 14.05.2027");
 });
 
 test("Besucher sehen das gewählte Datum des Winter Events", async ({ page }) => {
