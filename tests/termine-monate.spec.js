@@ -31,7 +31,34 @@ async function openEditor(page) {
   await page.click("nav [data-tab=team]");
   await page.locator("#term [data-term]").click();
   await expect(page.locator("#term .tmb")).toHaveCount(8);
+  // vergangene Termine sind zugeklappt – für die Bearbeitungstests alle aufklappen
+  const zu = page.locator("#term [data-tpast][aria-expanded=false]");
+  while (await zu.count()) await zu.first().click();
 }
+
+test("vergangene Termine sind im Editor zugeklappt, pro Monat aufklappbar", async ({ page }) => {
+  await seed(page);
+  await login(page, ADMIN);
+  await page.click("nav [data-tab=team]");
+  await page.locator("#term [data-term]").click();
+  const td = await page.evaluate(() => TD);
+  const vergangen = await page.evaluate(() => S.m.map((m) => m.tr.filter((x) => x.d < TD).length));
+  const nov = block(page, 2), t = vergangen[2]; // November-Block: 21.10. ist vorbei
+  expect(t).toBeGreaterThan(0);
+  // nur kommende Termine sichtbar, Knopf mit Anzahl
+  await expect(nov.locator(".tmr")).toHaveCount(await page.evaluate(() => S.m[2].tr.filter((x) => x.d >= TD).length));
+  await expect(nov.locator("[data-tpast]")).toHaveText(`▸ ${t} ${t == 1 ? "vergangener Termin" : "vergangene Termine"} anzeigen`);
+  for (const d of await nov.locator("[data-tmd]").evaluateAll((L) => L.map((e) => e.value))) expect(d >= td).toBe(true);
+  // Monat ohne vergangene Termine: kein Knopf
+  await expect(block(page, 3).locator("[data-tpast]")).toHaveCount(0);
+  // aufklappen und wieder zuklappen
+  await nov.locator("[data-tpast]").click();
+  await expect(nov.locator("[data-tpast]")).toHaveAttribute("aria-expanded", "true");
+  await expect(nov.locator(".tmr")).toHaveCount(await page.evaluate(() => S.m[2].tr.length));
+  await nov.locator("[data-tpast]").click();
+  await expect(nov.locator("[data-tpast]")).toHaveAttribute("aria-expanded", "false");
+  await expect(nov.locator(".tmr", { hasText: "21.10.2026" })).toHaveCount(0);
+});
 const block = (page, i) => page.locator(`#term [data-tmb="${i}"]`);
 const monat = (page) => page.locator(".card", { has: page.locator("h3", { hasText: "Monatsübersicht" }) });
 const overview = (page) => page.locator(".card", { has: page.locator("h3", { hasText: "Übersicht pro Training" }) });
