@@ -19,7 +19,10 @@ if(x.st!=null){var st={};if(typeof x.st=="object")Object.keys(x.st).forEach(func
 if(x.gs!=null)x.gs=(Array.isArray(x.gs)?x.gs:[]).filter(function(g){return g&&typeof g.n=="string"})}
 function clean(s){s.sn=String(s.sn);s.t.forEach(function(t){t.n=String(t.n);t.p=strs(t.p);if(t.gk!=null)t.gk=strs(t.gk);if(t.c!=null&&typeof t.c!="string")delete t.c});
 s.m.forEach(function(m){m.res=nuL(m.res,2);m.pre=nuL(m.pre,2).map(nu);m.g=nuM(m.g);m.a=nuM(m.a);m.base=nuM(m.base);m.ref=typeof m.ref=="string"?m.ref:"";m.gs=(Array.isArray(m.gs)?m.gs:[]).filter(function(g){return g&&typeof g.n=="string"&&typeof g.k=="string"&&(g.t===0||g.t===1)});if(m.ff!==0&&m.ff!==1)delete m.ff;if(m.kp!=null)m.kp=Array.isArray(m.kp)?m.kp.map(function(L){return L==null?null:strs(L)}):[null,null];if(m.anw!=null)m.anw=nuM(m.anw);m.tr.forEach(cleanTr)});delete s.stk;
-if(isTr(s.evt))cleanTr(s.evt);else delete s.evt;return s}
+if(isTr(s.evt))cleanTr(s.evt);else delete s.evt;
+// Event-Daten der Spielleitung (S.wev Winter Event, S.sev Sommer Event): nur ein gültiges Datum, sonst gilt das berechnete
+["wev","sev"].forEach(function(k){if(s[k]!=null&&!isDay(s[k]))delete s[k]});return s}
+function isDay(v){if(typeof v!="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;var x=new Date(v+"T12:00:00Z");return !isNaN(x)&&x.toISOString().slice(0,10)==v}
 function fix(s){if(s.sn==null)s.sn="26/27";s.t.forEach(function(t){t.p=strs(t.p)});var all=s.t[0].p.concat(s.t[1].p);s.t.forEach(function(t){if(!t.c)t.c=t.p[0];t.p.sort(function(a,b){return a.localeCompare(b,"de")})});s.m.forEach(function(m,i){if(!m.tr){m.base=i<2?(m.att||{}):{};m.tr=DT[i].map(function(d){return{d:d,p:[]}});delete m.att}m.tr=(Array.isArray(m.tr)?m.tr:[]).filter(isTr);if(!m.ref)m.ref="";if(!m.gs)m.gs=[];m.tr.forEach(function(x){if(x.abs){x.p=x.abs.length?all.filter(function(q){return x.abs.indexOf(q)<0}):[];delete x.abs}})});return migrate(clean(s))}
 // Datenformat-Version. Bei jeder Format-Änderung SV erhöhen und hier migrieren – alte Daten bleiben erhalten.
 // Daten einer neueren App-Version werden nie mit einem älteren Format überschrieben (NEWER → nur lesen).
@@ -36,10 +39,9 @@ function isObj(x){return !!x&&typeof x=="object"&&!Array.isArray(x)}
 function mgList(b,m,t,id){var B=Array.isArray(b)?b:[],has=function(L,x){return L.some(function(y){return id(y)==id(x)})},get=function(L,x){return L.filter(function(y){return id(y)==id(x)})[0]},r=[];t.forEach(function(x){if(!has(B,x)||has(m,x))r.push(has(m,x)?merge3(get(B,x),get(m,x),x):x)});m.forEach(function(x){if(!has(r,x)&&!has(B,x))r.push(x)});return r}
 function merge3(b,m,t){if(same(m,b))return t;if(same(t,b)||same(m,t))return m;
 if(Array.isArray(m)&&Array.isArray(t)){var A=m.concat(t);if(A.every(function(x){return x===null||typeof x!="object"}))return mgList(b,m,t,function(x){return x});
-var k=["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]});if(k!="d")return r;
-// Trainings eines Monats: nach Datum, der Match Day (letzter Eintrag) bleibt zuletzt – auch wenn ein zugeteiltes Training später liegt
-var ld=[m,t].map(function(L){return L.length?L[L.length-1].d:null}).filter(function(d){return d!=null&&r.some(function(x){return x.d==d})})[0];
-return r.filter(function(x){return x.d!=ld}).sort(function(x,y){return x.d<y.d?-1:1}).concat(r.filter(function(x){return x.d==ld}))}
+var k=["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]});
+// Trainings eines Monats: rein nach Datum – der späteste Termin ist der Match Day (siehe sortBlock)
+return k=="d"?r.sort(function(x,y){return x.d<y.d?-1:1}):r}
 if(m.length==t.length)return m.map(function(x,i){return merge3(Array.isArray(b)?b[i]:undefined,x,t[i])});return m}
 if(isObj(m)&&isObj(t)){var o={},B=isObj(b)?b:{};Object.keys(m).concat(Object.keys(t)).forEach(function(q){var v=merge3(B[q],m[q],t[q]);if(v!==undefined)o[q]=v});return o}
 return m}

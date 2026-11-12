@@ -140,6 +140,9 @@
             if (role() == "player" && (!old || ["t", "sn", "logo", "sp"].some(function (k) { return JSON.stringify(old.data[k]) != JSON.stringify(row.data[k]) })))
               return fail("Nur Admins und Captains dürfen Teams und Einstellungen ändern");
             if (old && role() != "admin") { if (old.data.info === undefined) delete row.data.info; else row.data.info = old.data.info }
+            // Event-Daten (20261110_38_event_daten): ungültig → abgelehnt; nur Spielleitung und Captains ändern sie, sonst still verworfen
+            if (["wev", "sev"].some(function (k) { return row.data[k] != null && !/^\d{4}-\d{2}-\d{2}$/.test(row.data[k]) })) return fail("Ungültige Daten: Event-Datum");
+            if (old && ["admin", "captain"].indexOf(role()) < 0) ["wev", "sev"].forEach(function (k) { if (old.data[k] === undefined) delete row.data[k]; else row.data[k] = old.data[k] });
             if (old) hist(old.data, "Änderung"); // spiegelt den Trigger keep_league_history
             set(DB, JSON.parse(JSON.stringify(row)));
           }
@@ -199,7 +202,7 @@
 
     // Spiegelt public_league() aus supabase/migrations
     function only(o, K) { var r = {}; K.forEach(function (k) { if (o && o[k] !== undefined) r[k] = o[k] }); return r }
-    // (20261109_37_serie_nur_mitglieder): pro Training nur d, t und n; pro Monat anw, kp, gs. Keine Namenslisten, keine Restaurants, keine Trainingsserie.
+    // (20261109_37_serie_nur_mitglieder, dazu wev/sev aus 20261110_38_event_daten): pro Training nur d, t und n; pro Monat anw, kp, gs. Keine Namenslisten, keine Restaurants, keine Trainingsserie.
     function isO(x) { return !!x && typeof x == "object" && !Array.isArray(x) }
     function strL(a) { return Array.isArray(a) ? a.filter(function (x) { return typeof x == "string" }) : [] }
     function num(v) { return typeof v == "number" ? v : typeof v == "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? +v.trim() : 0 }
@@ -209,7 +212,7 @@
         T = Array.isArray(d.t) ? d.t : [], M = Array.isArray(d.m) ? d.m : [], sp = [];
       T.forEach(function (t) { strL(t && t.p).forEach(function (p) { if (sp.indexOf(p) < 0) sp.push(p) }) });
       var TR = M.map(function (m) { return (m && Array.isArray(m.tr) ? m.tr : []).filter(function (x) { return isO(x) && typeof x.d == "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.d) }) });
-      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info"]), { evt: isO(d.evt) ? only(d.evt, ["d", "t"]) : null, m: M.map(function (m, i) {
+      return Object.assign(only(d, ["v", "sn", "t", "logo", "sp", "info", "wev", "sev"]), { evt: isO(d.evt) ? only(d.evt, ["d", "t"]) : null, m: M.map(function (m, i) {
         var L = TR[i], gs = Array.isArray(m.gs) ? m.gs : [], base = isO(m.base) ? m.base : {}, anw = {};
         sp.forEach(function (p) { anw[p] = num(base[p]) + L.filter(function (x) { return x.d <= heute && strL(x.p).indexOf(p) >= 0 }).length });
         var kp = [0, 1].map(function (t) {

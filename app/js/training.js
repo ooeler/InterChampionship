@@ -63,9 +63,15 @@ function confOpen(x){return Date.now()>=tms(x)-6*36e5} // Anwesenheit bestätige
 function canOff(x){return Date.now()<tms(x)-23*36e5}
 function allTr(){var L=[];S.m.forEach(function(m,mi){m.tr.forEach(function(x,ti){L.push({x:x,mi:mi,ti:ti,md:ti==m.tr.length-1})})});L.push({x:evTr(),mi:7,ti:"e",md:false,xe:true});return L.sort(function(a,b){return a.x.d<b.x.d?-1:a.x.d>b.x.d?1:0})}
 // Sommer Event: liegt nach dem letzten Match, darum nicht in S.m (dort wäre es sonst der Match Day und zählte zur Anwesenheit)
-function evTr(){var d=nthWd(sy()+1,4,5,1),e=S.evt||(S.evt={d:d,p:[]});e.d=d;if(!e.p)e.p=[];return e}
+// Event-Daten: von der Spielleitung gewählt (S.wev, S.sev – siehe termCard), sonst berechnet (2. Mittwoch im Dezember, 1. Freitag im Mai).
+// S.evt.d folgt immer sevD(): so überschreibt evTr() ein gewähltes Datum nie, und ohne Wahl gilt wie bisher das berechnete.
+function wevDef(){return nthWd(sy(),11,3,2)}
+function sevDef(){return nthWd(sy()+1,4,5,1)}
+function wevD(){return isDay(S.wev)?S.wev:wevDef()}
+function sevD(){return isDay(S.sev)?S.sev:sevDef()}
+function evTr(){var d=sevD(),e=S.evt||(S.evt={d:d,p:[]});e.d=d;if(!e.p)e.p=[];return e}
 function noLead(r){return r.md||!!evOn(r.x.d)}
-function evts(){var Y=sy();return [{d:nthWd(Y,11,3,2),n:"Winter Event"},{d:nthWd(Y+1,4,5,1),n:"Sommer Event"}]}
+function evts(){return [{d:wevD(),n:"Winter Event"},{d:sevD(),n:"Sommer Event"}]}
 function evOn(d){return evts().filter(function(e){return e.d==d})[0]}
 function marks(r){var e=evOn(r.x.d);return (r.md?' · <b class="fl">Match Day ⚑</b>':'')+(e?' · <b class="ev">🎉 '+e.n+'</b>':'')}
 function trKey(r){return r.mi+","+r.ti}

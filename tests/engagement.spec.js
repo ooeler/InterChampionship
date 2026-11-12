@@ -85,9 +85,11 @@ test.describe("Events", () => {
 
   test("Edge Function: keine Leitung am Winter Event, Sommer Event bei An-/Abmeldungen", async () => {
     const L = await import("../supabase/functions/notify/logic.mjs");
-    expect(L.isWinterEvent("2026-12-09")).toBe(true);
-    expect(L.isWinterEvent("2026-12-02")).toBe(false);
-    expect(L.isWinterEvent("2026-11-11")).toBe(false);
+    // ohne gewähltes Datum: 2. Mittwoch im Dezember
+    expect(L.isWinterEvent({}, "2026-12-09")).toBe(true);
+    expect(L.isWinterEvent({}, "2026-12-02")).toBe(false);
+    expect(L.isWinterEvent({}, "2026-11-11")).toBe(false);
+    expect(L.isWinterEvent({ wev: "kaputt" }, "2026-12-09")).toBe(true);
     const state = { t: [{ p: ["A B"] }], evt: { d: "2027-05-07", p: [] }, m: [{ tr: [{ d: "2026-12-09", lead: "A B", p: [] }, { d: "2026-12-16", lead: "A B", p: [] }, { d: "2027-01-06", p: [] }] }] };
     expect(L.trainingLeadMessages(state, "2026-12-07")).toEqual([]);
     expect(L.trainingLeadMessages(state, "2026-12-14").length).toBe(1);

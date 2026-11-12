@@ -111,28 +111,66 @@ var REAL={role:"player",resto:false,strafen:false},VIEW=(function(){try{return l
 // Zusatzrollen (Restaurant-Chef, Strafenchef) gelten auch in der Spieleransicht
 function applyRole(){var pv=REAL.role=="admin"&&VIEW=="player";ROLE=pv?"player":REAL.role;RESTO=REAL.resto;STRAF=REAL.strafen}
 function viewBar(){if(PUB||REAL.role!="admin")return "";var pv=VIEW=="player";return '<div class="vw'+(pv?" pv":"")+'" role="group" aria-label="Ansicht"><span class="sp">'+(pv?"Du siehst die App als Spieler":"Ansicht")+'</span><button class="chip'+(pv?"":" on")+'" data-view="admin" aria-pressed="'+!pv+'">🛠 Spielleitung</button><button class="chip'+(pv?" on":"")+'" data-view="player" aria-pressed="'+pv+'">👤 Spieler</button></div>'}
-// Termine (nur Spielleitung): Datum und Beginn aller Trainings und Match Days, Trainings einem anderen Monat zuteilen.
-// Ein zugeteiltes Training bleibt in seinem Monat, auch wenn sich sein Datum ändert (hier sortiert sich nur der Block neu;
-// im Training-Reiter wandert es nur, wenn es noch im Block seines Datums liegt – siehe natBlk). Der Match Day bleibt der letzte Eintrag.
-// Winter Event (Training am festen Datum, zählt zum Winter Sep–Dez) und Sommer Event (S.evt, ausserhalb der Monate) bleiben fest.
+// Termine (nur Spielleitung): Datum und Beginn aller Trainings und Match Days, Trainings einem anderen Monat zuteilen,
+// Match Days zweier Monate tauschen, Datum von Winter Event und Sommer Event wählen.
+// Der Match Day eines Monats ist immer sein spätester Termin (Block nach Datum sortiert, siehe sortBlock); ändert sich dadurch ein
+// Match Day, fragt mdGuard vorher nach. Ein zugeteiltes Training bleibt in seinem Monat, auch wenn sich sein Datum ändert.
+// Winter Event: das Training am Datum wevD() (S.wev oder 2. Mittwoch im Dezember), nie ein Match Day.
+// Sommer Event: S.evt, ausserhalb der Monate, Datum sevD() (S.sev oder 1. Freitag im Mai).
 var TERM=false;
 function hasRes(i){var r=S.m[i].res;return r[0]!=null||r[1]!=null}
 function isWE(x){var e=evOn(x.d);return !!e&&e.n=="Winter Event"}
+// Alt-Daten: liegt ein Training nach dem Match Day (vor dieser Regel zugeteilt), bleibt der Block bis zur nächsten Änderung so
+function mdLate(T){return T.some(function(x){return x.d>T[T.length-1].d})}
 function termRow(i,j){var T=S.m[i].tr,x=T[j],k=i+","+j,md=j==T.length-1,we=!md&&isWE(x),lb=md?'Match Day ⚑':we?'🎉 Winter Event':'Training';
 return '<div class="tmr'+(md?' tmd':'')+'"><div class="sp"><b>'+lb+'</b> · '+wd(x.d)+'</div><div class="two"><input class="t" type="date" data-tmd="'+k+'" value="'+esc(x.d)+'" aria-label="Datum '+lb+' '+MON[i]+'"'+(we?' disabled':'')+'><input class="t" type="time" data-tmt="'+k+'" value="'+esc(tstart(x))+'" aria-label="Beginn '+lb+' '+MON[i]+'"></div>'
-+(md?'':we?'<div class="sp">Datum und Monat des Winter Events sind fest.</div>':'<select class="t" data-tmm="'+k+'" aria-label="Monat für das Training vom '+wd(x.d)+'">'+MON.map(function(n,q){return '<option value="'+q+'"'+(q==i?' selected':'')+(q==i||S.m[q].tr.length?'':' disabled')+'>'+n+'</option>'}).join("")+'</select>')+'</div>'}
++(md?'<select class="t" data-tsw="'+i+'" aria-label="Match Day '+MON[i]+' tauschen"><option value="">⇄ Match Day tauschen mit …</option>'+MON.map(function(n,q){return q==i||!S.m[q].tr.length?'':'<option value="'+q+'">Match Day '+n+' ('+fd(S.m[q].tr[S.m[q].tr.length-1].d)+')</option>'}).join("")+'</select>'
+:we?'<div class="sp">Datum unten bei „Winter Event“ ändern; der Monat ergibt sich aus dem Datum.</div>':'<select class="t" data-tmm="'+k+'" aria-label="Monat für das Training vom '+wd(x.d)+'">'+MON.map(function(n,q){return '<option value="'+q+'"'+(q==i?' selected':'')+(q==i||S.m[q].tr.length?'':' disabled')+'>'+n+'</option>'}).join("")+'</select>')+'</div>'}
+function evRow(n,k,d,def,extra,hint){return '<div class="tmr tev"><div class="sp"><b>🎉 '+n+'</b> · '+wd(d)+(d==def?' · berechnet':' · gewählt')+'</div><div class="two"><input class="t" type="date" data-'+k+'="1" value="'+esc(d)+'" aria-label="Datum '+n+'">'+extra+'</div><div class="sp">'+hint+'</div></div>'}
 function termCard(){if(ROLE!="admin")return "";var h='<div class="card" id="term"><h3>📅 Trainings und Spieldaten</h3>';
-if(!TERM)return h+'<div class="sp">Datum und Beginn aller Trainings und Match Days ändern, Trainings einem anderen Monat zuteilen.</div><button class="add" data-term="1" aria-expanded="false">📅 Trainings und Spieldaten bearbeiten</button></div>';
-return h+'<div class="sp">Ein Training lässt sich einem anderen Monat zuteilen – Anwesenheit, Abmeldungen, Leitung, Gäste und Restaurant bleiben erhalten, und es bleibt dort, auch wenn du sein Datum änderst. Jeder Monat hat genau einen Match Day; er bleibt in seinem Monat.</div>'
-+S.m.map(function(m,i){return '<div class="sk tmb" data-tmb="'+i+'"><div class="tmh"><b>'+MON[i]+'</b>'+(hasRes(i)?' <span class="sp">· Resultat eingetragen</span>':'')+'</div>'+(m.tr.length?m.tr.map(function(x,j){return termRow(i,j)}).join(""):'<div class="sp">Noch keine Trainings und kein Match Day.</div>')+'</div>'}).join("")
-+'<div class="sp" style="margin-top:8px">🎉 Sommer Event am '+wd(evTr().d)+': Datum fest, gehört zu keinem Monat.</div><button class="add" data-term="1" aria-expanded="true">✓ Fertig bearbeitet</button></div>'}
+if(!TERM)return h+'<div class="sp">Datum und Beginn aller Trainings und Match Days ändern, Trainings einem anderen Monat zuteilen, Match Days tauschen, Event-Daten wählen.</div><button class="add" data-term="1" aria-expanded="false">📅 Trainings und Spieldaten bearbeiten</button></div>';
+var e=evTr();
+return h+'<div class="sp">Der Match Day ist immer der späteste Termin eines Monats. Ein Training lässt sich einem anderen Monat zuteilen – Anwesenheit, Abmeldungen, Leitung, Gäste und Restaurant bleiben erhalten. Beim Tauschen zweier Match Days wechseln die Termine (mit Anwesenheit) den Monat; Resultate bleiben beim Monat.</div>'
++S.m.map(function(m,i){return '<div class="sk tmb" data-tmb="'+i+'"><div class="tmh"><b>'+MON[i]+'</b>'+(hasRes(i)?' <span class="sp">· Resultat eingetragen</span>':'')+(m.tr.length&&mdLate(m.tr)?' <span class="sp">· ⚠ Training nach dem Match Day – bei der nächsten Änderung wird der späteste Termin Match Day</span>':'')+'</div>'+(m.tr.length?m.tr.map(function(x,j){return termRow(i,j)}).join(""):'<div class="sp">Noch keine Trainings und kein Match Day.</div>')+'</div>'}).join("")
++'<div class="sk" id="tev"><div class="tmh"><b>Events</b></div>'
++evRow("Winter Event","wev",wevD(),wevDef(),'','Das Training an diesem Datum ist der Winter Event (ohne Leitung). Gibt es dort noch kein Training, wandert das bisherige mit Anwesenheit dorthin. Ohne Wahl: 2. Mittwoch im Dezember.')
++evRow("Sommer Event","sev",e.d,sevDef(),'<input class="t" type="time" data-sevt="1" value="'+esc(tstart(e))+'" aria-label="Beginn Sommer Event">','Gehört zu keinem Monat. Ohne Wahl: 1. Freitag im Mai.')+'</div>'
++'<button class="add" data-term="1" aria-expanded="true">✓ Fertig bearbeitet</button></div>'}
+// Match Days zweier Monate tauschen: die beiden Termine (Datum, Beginn, Anwesenheit, Abmeldungen, Status, Gäste, Restaurant …) wechseln den Block.
+// Resultat, Pre-Game, Tore, Assists, Forfait, Torhüter, Schiedsrichter, Gäste des Monats, Grundwerte und „zählt doppelt“ bleiben beim Monat.
+// Weil der Match Day der späteste Termin ist, geht das nur, wenn jeder Match Day auch im anderen Monat nach allen Trainings liegt.
+function swapMD(i,j){var A=S.m[i].tr,B=S.m[j].tr;if(i==j||!A.length||!B.length)return false;var a=A[A.length-1],b=B[B.length-1],
+late=function(T,x,own){return T.filter(function(y){return y!==own&&y.d>x.d})},la=late(B,a,b),lb=late(A,b,a);
+if(la.length||lb.length){var w=la.length?{x:a,m:j,L:la}:{x:b,m:i,L:lb};alert("Tauschen geht nicht: Der Match Day ist immer der späteste Termin eines Monats, und der Match Day vom "+wd(w.x.d)+" läge im "+MON[w.m]+" vor dem Training vom "+wd(w.L[w.L.length-1].d)+".\n\nÄndere zuerst die Daten oder teile die Trainings einem anderen Monat zu.");return false}
+var R=[i,j].filter(hasRes).map(function(q){return MON[q]});
+if(R.length&&!confirm("Im "+R.join(" und im ")+" ist schon ein Resultat eingetragen. Resultat, Tore, Assists, Torhüter, Schiedsrichter, Gäste und „zählt doppelt“ bleiben beim Monat; der Match-Day-Termin wechselt mit seiner Anwesenheit den Monat – Anwesenheitsbonus, Team-Duell und Spieler des Monats ändern sich.\n\nMatch Day "+MON[i]+" ("+wd(a.d)+") mit Match Day "+MON[j]+" ("+wd(b.d)+") tauschen?"))return false;
+A[A.length-1]=b;B[B.length-1]=a;sortBlock(A);sortBlock(B);toast("⇄ Match Day "+MON[i]+": "+wd(b.d)+" · Match Day "+MON[j]+": "+wd(a.d)+".");return true}
+// Winter Event auf ein anderes Datum: gibt es dort ein Training, wird es der Event (das bisherige bleibt ein normales Training);
+// sonst wandert das bisherige Event-Training mit seinen Daten dorthin (in den Block nach Datum). In der Saison, nie am Match Day.
+function setWev(v){var Y=sy(),od=wevD(),ow=S.wev,put=function(){if(v==wevDef())delete S.wev;else S.wev=v};if(v==od)return false;
+if(v<Y+"-09-01"||v>(Y+1)+"-04-30"){alert("Der Winter Event muss in der Saison liegen (September bis April).");return false}
+if(isMD(v)){alert("Am "+wd(v)+" ist ein Match Day – der Winter Event kann nicht am Match Day sein.");return false}
+if(v==sevD()){alert("Am "+wd(v)+" ist der Sommer Event.");return false}
+var at=function(d){return allTr().filter(function(r){return !r.xe&&r.x.d==d})[0]},nx=at(v),ox=at(od);
+if(nx||!ox||ox.md){put();toast("🎉 Winter Event am "+wd(v)+(nx?"":" (noch kein Training an diesem Datum)")+".");return true}
+if(!mdGuard(function(){put();S.m[ox.mi].tr.splice(ox.ti,1);ox.x.d=v;placeTr(ox.x)})){if(ow==null)delete S.wev;else S.wev=ow;return false}
+if(sb)sb.from("absence_reasons").update({d:v}).eq("d",od).then(function(){ABS=null;render()});toast("🎉 Winter Event vom "+wd(od)+" auf den "+wd(v)+" verschoben.");return true}
+// Sommer Event: nicht an einem Training; S.evt.d folgt über evTr() dem gewählten Datum
+function setSev(v){var Y=sy(),od=sevD();if(v==od)return false;
+if(v<Y+"-09-01"||v>(Y+1)+"-08-31"){alert("Der Sommer Event muss in der Saison liegen (September bis August).");return false}
+if(allTr().some(function(r){return !r.xe&&r.x.d==v})){alert("Am "+wd(v)+" gibt es schon ein Training.");return false}
+if(v==sevDef())delete S.sev;else S.sev=v;evTr();if(sb)sb.from("absence_reasons").update({d:v}).eq("d",od).then(function(){ABS=null;render()});toast("🎉 Sommer Event am "+wd(v)+".");return true}
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("#app [data-term]");if(!b||ROLE!="admin")return;TERM=!TERM;render();var c=document.querySelector("#term [data-term]");if(c)c.focus({preventScroll:!TERM})});
-document.addEventListener("change",function(e){var t=e.target,D=t.dataset||{},k=D.tmd||D.tmt||D.tmm;if(k==null||!t.closest("#term"))return;if(ROLE!="admin"){render();return}
-var a=k.split(","),mi=+a[0],T=S.m[mi].tr,ti=+a[1],x=T[ti],v=t.value.trim(),md=ti==T.length-1;if(!x||!v){render();return}
+document.addEventListener("change",function(e){var t=e.target,D=t.dataset||{},v=String(t.value||"").trim();if(!t.closest||!t.closest("#term"))return;
+if(D.tsw!=null||D.wev!=null||D.sev!=null||D.sevt!=null){if(ROLE!="admin"||!v){render();return}var ok;
+if(D.tsw!=null)ok=swapMD(+D.tsw,+v);else if(D.sevt!=null){ok=/^\d{2}:\d{2}$/.test(v);if(ok)evTr().t=v}else ok=isDay(v)&&(D.wev!=null?setWev(v):setSev(v));
+if(ok){TSEL=null;save()}render();return}
+var k=D.tmd||D.tmt||D.tmm;if(k==null)return;if(ROLE!="admin"){render();return}
+var a=k.split(","),mi=+a[0],T=S.m[mi].tr,ti=+a[1],x=T[ti],md=ti==T.length-1;if(!x||!v){render();return}
 if(D.tmt!=null){if(!/^\d{2}:\d{2}$/.test(v)){render();return}x.t=v}
-else if(D.tmd!=null){if(isWE(x)||!/^\d{4}-\d{2}-\d{2}$/.test(v)){render();return}if(v==x.d)return;if(allTr().some(function(r){return r.x.d==v})){alert("Am "+wd(v)+" gibt es schon ein Training.");render();return}
-var od=x.d;x.d=v;sortBlock(T);if(sb)sb.from("absence_reasons").update({d:v}).eq("d",od).then(function(){ABS=null;render()})}
+else if(D.tmd!=null){if(isWE(x)||!isDay(v)){render();return}if(v==x.d)return;if(allTr().some(function(r){return r.x.d==v})){alert("Am "+wd(v)+" gibt es schon ein Training.");render();return}
+var od=x.d;if(!mdGuard(function(){x.d=v;sortBlock(T)})){render();return}if(sb)sb.from("absence_reasons").update({d:v}).eq("d",od).then(function(){ABS=null;render()})}
 else{var to=+v;if(md||isWE(x)||to==mi||!S.m[to]||!S.m[to].tr.length){render();return}var R=[mi,to].filter(hasRes).map(function(i){return MON[i]});
 if(R.length&&!confirm("Im "+R.join(" und im ")+" ist schon ein Resultat eingetragen. Das Verschieben ändert dort Anwesenheitsbonus, Team-Duell und Spieler des Monats.\n\nTraining vom "+wd(x.d)+" trotzdem von "+MON[mi]+" nach "+MON[to]+" verschieben?")){render();return}
-T.splice(ti,1);insTr(to,x);toast("📅 Training vom "+wd(x.d)+" gehört jetzt zum "+MON[to]+".")}
+if(!mdGuard(function(){T.splice(ti,1);insTr(to,x)})){render();return}toast("📅 Training vom "+wd(x.d)+" gehört jetzt zum "+MON[to]+".")}
 TSEL=null;save();render()});
