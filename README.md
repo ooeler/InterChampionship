@@ -32,7 +32,7 @@ supabase/
   setup.sql               Tabellen, Rollen, Sicherheitsregeln
   cron.sql                Täglicher Match-Day-Check
   functions/notify/       Edge Function für Push-Nachrichten
-tests/                    Playwright-Tests mit nachgebauter Datenbank (Android, iPhone, Desktop)
+tests/                    Playwright-Tests mit nachgebauter Datenbank (Android, iPhone, Desktop; reine Logiktests mit @logik nur einmal)
 tests-e2e/                E2E-Ablauf gegen eine echte, lokale Supabase (im CI per Docker)
 .github/                  Tests, Release-Deploy, Dependabot, CodeQL
 ```

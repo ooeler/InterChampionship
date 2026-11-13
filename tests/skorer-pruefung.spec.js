@@ -101,7 +101,7 @@ test.describe("Skorerliste prüfen", () => {
 
   // Der Fehler vor b8caf27: Der Empfängerfilter wurde erst nach "await q" gesetzt und wirkte nicht.
   // Die Attrappe führt die Abfrage beim await mit den bis dahin gesetzten Filtern aus – wie der Supabase-Client.
-  test("Push-Empfänger: alle Filter stehen vor der Abfrage (nur Spielleitung und Captains bekommen die Skorer-Meldung)", async () => {
+  test("Push-Empfänger: alle Filter stehen vor der Abfrage (nur Spielleitung und Captains bekommen die Skorer-Meldung)", { tag: "@logik" }, async () => {
     const L = await import("../supabase/functions/notify/logic.mjs");
     const tabellen = {
       members: [{ user_id: "a", role: "admin", player: null }, { user_id: "c0", role: "captain", player: "A1" }, { user_id: "c1", role: "captain", player: "B1" },

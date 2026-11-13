@@ -124,7 +124,7 @@ test.describe("Sachstrafen (z. B. Kiste Bier)", () => {
     await expect(board.locator(".row", { hasText: "Tobias Keller" })).toContainText("1× Kiste Bier");
   });
 
-  test("Katalog der Herren Inter wird per Migration übernommen", () => {
+  test("Katalog der Herren Inter wird per Migration übernommen", { tag: "@logik" }, () => {
     const sql = require("fs").readFileSync(require("path").join(__dirname, "..", "supabase", "migrations", "20261029_14_sachstrafen_katalog.sql"), "utf8");
     const rows = [...sql.matchAll(/\('([^']+)', (\d+), (null|'([^']+)')\)/g)].map((m) => [m[1], +m[2], m[4] || null]);
     expect(rows).toEqual([

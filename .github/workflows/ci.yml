@@ -11,15 +11,25 @@ permissions:
 
 jobs:
   shard:
-    # Alle Tests auf allen Geräten, auf 5 gleichzeitig laufende Maschinen verteilt (jeder Test läuft genau einmal).
+    # Alle Tests auf allen Geräten, auf 6 gleichzeitig laufende Maschinen verteilt (jeder Test läuft genau einmal).
     # Der Job "test" unten sammelt die Teile ein; er ist die Pflicht-Prüfung für den Merge.
-    name: test (Teil ${{ matrix.teil }}/5)
+    # Aufteilung nach Projekt: WebKit (iphone) ist in der CI rund fünfmal langsamer als Chromium. Mit --shard über
+    # alle Projekte landete das ganze iphone-Projekt in einem Teil (ca. 15 statt 3–5 Minuten).
+    # Chromium-Geräte und Logiktests: 2 Teile, iphone: 4 Teile. Jedes Projekt muss genau einer Gruppe angehören
+    # und jede Gruppe vollständig aufgeteilt sein (geprüft in tests/workflows.spec.js).
+    name: test (Teil ${{ matrix.teil }}/6)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        teil: [1, 2, 3, 4, 5]
+        include:
+          - { teil: 1, projekte: "--project=android --project=desktop --project=logik", shard: 1/2 }
+          - { teil: 2, projekte: "--project=android --project=desktop --project=logik", shard: 2/2 }
+          - { teil: 3, projekte: "--project=iphone", shard: 1/4 }
+          - { teil: 4, projekte: "--project=iphone", shard: 2/4 }
+          - { teil: 5, projekte: "--project=iphone", shard: 3/4 }
+          - { teil: 6, projekte: "--project=iphone", shard: 4/4 }
     # Fertiges Playwright-Image: Browser und Systempakete sind schon drin, keine Installation mehr, die hängen bleiben kann.
     # Die Version muss zu @playwright/test in package.json passen (geprüft in tests/ci-container.spec.js).
     # Per Digest gepinnt (ein Tag kann neu belegt werden). Dependabot aktualisiert Images in Workflows nicht:
@@ -35,7 +45,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: npx playwright test --shard=${{ matrix.teil }}/5
+      - env:
+          PROJEKTE: ${{ matrix.projekte }}
+          SHARD: ${{ matrix.shard }}
+        run: npx playwright test $PROJEKTE --shard="$SHARD"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
@@ -44,7 +57,7 @@ jobs:
           retention-days: 14
 
   test:
-    # Sammelt die 5 Teile: nur grün, wenn jeder Teil grün ist (auch ein abgebrochener oder übersprungener Teil zählt als Fehler)
+    # Sammelt die 6 Teile: nur grün, wenn jeder Teil grün ist (auch ein abgebrochener oder übersprungener Teil zählt als Fehler)
     needs: shard
     if: always()
     runs-on: ubuntu-latest
@@ -54,7 +67,7 @@ jobs:
           ERGEBNIS: ${{ needs.shard.result }}
         run: |
           [ "$ERGEBNIS" = "success" ] || { echo "::error::Mindestens ein Testteil ist nicht grün ($ERGEBNIS)"; exit 1; }
-          echo "Alle 5 Testteile grün"
+          echo "Alle 6 Testteile grün"
 
   e2e:
     # End-to-End gegen eine echte, lokale Supabase (Docker): Migrationen, Row Level Security, Trigger, Edge Functions.

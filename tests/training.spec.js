@@ -218,12 +218,12 @@ test.describe("Push-Texte Training (Edge Function)", () => {
     state = { t: [{ n: "A" }, { n: "B" }], m: [{ tr: [{ d: "2026-10-28", p: [] }, { d: "2026-11-04", p: [] }], res: [null, null] }, { tr: [{ d: "2027-03-31", t: "19:30", p: [] }, { d: "2027-04-07", p: [] }], res: [null, null] }] };
   });
 
-  test("Zürcher Zeit inkl. Sommerzeit", () => {
+  test("Zürcher Zeit inkl. Sommerzeit", { tag: "@logik" }, () => {
     expect(new Date(L.zurichToUtc("2026-10-28", "18:45")).toISOString()).toBe("2026-10-28T17:45:00.000Z"); // Winterzeit
     expect(new Date(L.zurichToUtc("2027-03-31", "19:30")).toISOString()).toBe("2027-03-31T17:30:00.000Z"); // Sommerzeit
   });
 
-  test("Erinnerung 26 h vor dem Training, genau einmal pro Stunde-Fenster", () => {
+  test("Erinnerung 26 h vor dem Training, genau einmal pro Stunde-Fenster", { tag: "@logik" }, () => {
     const at = (iso) => L.trainingSoonMessages(state, Date.parse(iso));
     expect(at("2026-10-27T15:40:00Z")).toEqual([]); // 26 h 05 min vorher
     const [m] = at("2026-10-27T15:45:00Z"); // genau 26 h vorher
@@ -234,7 +234,7 @@ test.describe("Push-Texte Training (Edge Function)", () => {
     expect(at("2027-03-30T15:30:00Z")[0].body).toContain("19:30 Uhr"); // eigene Startzeit, Sommerzeit
   });
 
-  test("An-/Abmeldung als Nachricht, nur für echte Spieler und Trainings", () => {
+  test("An-/Abmeldung als Nachricht, nur für echte Spieler und Trainings", { tag: "@logik" }, () => {
     const st = { ...state, t: [{ n: "A", p: ["Silvan Frey"] }, { n: "B", p: [] }] };
     const now = Date.parse("2026-10-27T10:00:00Z");
     const m = L.signupMessage(st, { player: "Silvan Frey", d: "2026-10-28", off: true }, "u1", now);

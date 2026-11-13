@@ -95,7 +95,7 @@ test.describe("Mail an die Trainingsleitung (Edge Function)", () => {
   };
   test.beforeAll(async () => { L = await import("../supabase/functions/notify/logic.mjs"); });
 
-  test("direkt bei Abmeldeschluss (23 h vorher), mit Dank, Feldspielern, Torhütern, Gästen und Abmeldungen", () => {
+  test("direkt bei Abmeldeschluss (23 h vorher), mit Dank, Feldspielern, Torhütern, Gästen und Abmeldungen", { tag: "@logik" }, () => {
     const at = (iso) => L.leadMailMessages(st, Date.parse(iso), "https://app");
     expect(at("2026-11-10T18:40:00Z")).toEqual([]); // Vorabend 19:40 Zürich, kurz vor dem Abmeldeschluss
     const [m] = at("2026-11-10T18:45:00Z"); // Winterzeit: Di 19:45 Zürich = 23 h vor Mi 18:45
@@ -111,7 +111,7 @@ test.describe("Mail an die Trainingsleitung (Edge Function)", () => {
     expect(at("2026-11-11T07:00:00Z")).toEqual([]); // nicht mehr am Trainingsmorgen
   });
 
-  test("Push an die Trainingsleitung im gleichen Fenster wie die Mail", () => {
+  test("Push an die Trainingsleitung im gleichen Fenster wie die Mail", { tag: "@logik" }, () => {
     const at = (iso) => L.leadPushMessages(st, Date.parse(iso));
     expect(at("2026-11-10T18:40:00Z")).toEqual([]);
     const [p] = at("2026-11-10T19:00:00Z");
@@ -122,12 +122,12 @@ test.describe("Mail an die Trainingsleitung (Edge Function)", () => {
     expect(L.leadPushMessages(st, Date.parse("2026-12-01T18:45:00Z"))).toEqual([]); // Match Day
   });
 
-  test("ohne Leitung und am Match Day keine Mail", () => {
+  test("ohne Leitung und am Match Day keine Mail", { tag: "@logik" }, () => {
     expect(L.leadMailMessages(st, Date.parse("2026-11-17T18:45:00Z"))).toEqual([]); // keine Leitung
     expect(L.leadMailMessages(st, Date.parse("2026-12-01T18:45:00Z"))).toEqual([]); // Match Day
   });
 
-  test("späte Trainingszeit: Abmeldeschluss am selben Tag → \"heute\"; Sommerzeit stimmt", () => {
+  test("späte Trainingszeit: Abmeldeschluss am selben Tag → \"heute\"; Sommerzeit stimmt", { tag: "@logik" }, () => {
     const s2 = { t: st.t, m: [{ tr: [{ d: "2027-05-05", t: "23:30", p: [], lead: "Beat B" }, { d: "2027-05-12", p: [] }] }] };
     const due = L.zurichToUtc("2027-05-05", "23:30") - 23 * 36e5; // 00:30 Zürich am Trainingstag
     expect(L.leadPushMessages(s2, due - 60000)).toEqual([]);

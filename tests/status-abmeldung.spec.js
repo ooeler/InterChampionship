@@ -282,7 +282,7 @@ test.describe("Grund beim Abmelden", () => {
   });
 });
 
-test("Edge Function: Mail nennt unsichere und verspätete Spieler", async () => {
+test("Edge Function: Mail nennt unsichere und verspätete Spieler", { tag: "@logik" }, async () => {
   const L = await import("../supabase/functions/notify/logic.mjs");
   const state = { t: [{ p: ["A B", "C D", "E F"] }], m: [{ tr: [{ d: "2026-11-11", lead: "A B", p: [], st: { "C D": "u", "E F": "v" } }, { d: "2026-11-18", p: [] }] }] };
   const c = L.trainingCount(state, state.m[0].tr[0]);

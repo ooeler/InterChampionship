@@ -92,7 +92,7 @@ test.describe("Fremde Saisondaten", () => {
     expect(alerts.join()).toContain("neu geladen");
   });
 
-  test("Formatversion der App passt zur Prüfung auf dem Server", async () => {
+  test("Formatversion der App passt zur Prüfung auf dem Server", { tag: "@logik" }, async () => {
     const html = fs.readFileSync(path.join(__dirname, "../app/js/kern.js"), "utf8");
     const dir = path.join(__dirname, "../supabase/migrations");
     const sql = fs.readdirSync(dir).sort().map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("\n");
@@ -100,7 +100,7 @@ test.describe("Fremde Saisondaten", () => {
     expect(html.match(/var SV=(\d+)/)[1]).toBe(srv);
   });
 
-  test("Push: für andere melden nur Spielleitung und Captains, Resultat nur als Zahl", async () => {
+  test("Push: für andere melden nur Spielleitung und Captains, Resultat nur als Zahl", { tag: "@logik" }, async () => {
     const L = await import("../supabase/functions/notify/logic.mjs");
     expect(L.mayNotifyFor({ role: "player", player: "A B" }, "A B")).toBe(true);
     expect(L.mayNotifyFor({ role: "player", player: "A B" }, "C D")).toBe(false);
