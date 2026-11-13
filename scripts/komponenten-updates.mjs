@@ -431,7 +431,7 @@ export function registryQuellen({ token } = {}) {
   const cache = new Map();
   const einmal = (k, f) => (cache.has(k) ? cache.get(k) : (cache.set(k, f()), cache.get(k)));
   return {
-    npm: (name) => einmal(`npm:${name}`, () => json(`https://registry.npmjs.org/${name.replace("/", "%2f")}`)),
+    npm: (name) => einmal(`npm:${name}`, () => json(`https://registry.npmjs.org/${encodeURIComponent(name)}`)),
     osv: async (queries) => (await json("https://api.osv.dev/v1/querybatch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ queries }) })).results || [],
     vuln: (id) => einmal(`osv:${id}`, () => json(`https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`)),
     digest: async (bild, v) => {

@@ -335,7 +335,8 @@ test("Komponenten-Updates: Zeitplan, Rechte je Job, gleiche Action-SHAs, GH_TOKE
   expect(y).toMatch(/^on:\n  schedule:\n    - cron: "\d+ \d+ \* \* \*"\n  workflow_dispatch:\n/m); // täglich; montags wöchentlich (im Skript)
   expect(y).toMatch(/^permissions:\n  contents: read\n\n/m);
   expect(y).toMatch(/^concurrency:\n  group: komponenten-updates\n  cancel-in-progress: false\n/m);
-  expect(y).not.toMatch(/^  pull_request|secrets\./m);
+  expect(y).not.toMatch(/^ {2}pull_request/m);
+  expect(y).not.toContain("secrets.");
   const J = relJobs("komponenten-updates.yml");
   expect(Object.keys(J)).toEqual(["planen", "branch", "pr"]);
   const rechte = (j) => block(J[j], "    permissions:").filter((l) => l.trim()).map((l) => l.trim());
