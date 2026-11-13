@@ -126,4 +126,4 @@ nav button.on i{animation:pop .3s ease-out}
 .tmr{border-top:1px solid var(--ln);padding:8px 0 4px}.tmr .two{margin:4px 0}.tmh b{font-size:15px}.tmh+.tmr{border-top:0}.tmr input[type=time].t{min-height:42px}
 
 /* Rangliste: Name öffnet das Spielerprofil (nur Mitglieder) */
-.rpl{flex:none;display:inline;min-height:0;padding:0;text-decoration:underline dotted;text-underline-offset:3px}
+.rpl{flex:none;display:inline;min-height:0;padding:0;text-decoration:none}
