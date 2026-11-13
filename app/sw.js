@@ -1,6 +1,6 @@
 // Bei jeder Änderung an der App die Version erhöhen, damit Handys das Update laden.
 var V = "ic-v1";
-var SHELL = ["./", "index.html", "css/app.css", "js/kern.js", "js/allgemein.js", "js/infos-hall.js", "js/training.js", "js/spieltag.js", "js/teams.js", "js/ui.js", "js/social.js", "js/start.js", "config.js", "vendor/supabase.js", "manifest.webmanifest", "logo.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"];
+var SHELL = ["./", "index.html", "css/app.css", "js/kern.js", "js/allgemein.js", "js/infos-hall.js", "js/training.js", "js/spieltag.js", "js/teams.js", "js/ui.js", "js/social.js", "js/start.js", "config.js", "vendor/supabase.js", "manifest.webmanifest", "logo.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png", "icon-192-club.png", "icon-512-club.png", "icon-maskable-512-club.png"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(V).then(function (c) { return c.addAll(SHELL) }).then(function () { return self.skipWaiting() }));
