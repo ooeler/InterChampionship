@@ -14,6 +14,25 @@ async function seed(page, extra = () => {}) {
 const prof = (page) => page.locator("#prof");
 
 test.describe("Spielerprofil (#103)", () => {
+  test("Rangliste zeigt die Trikotnummer vor dem Namen, Besucher nicht", async ({ page }) => {
+    // alle Spieler mit Nummer 10, 11, … in der Reihenfolge der Teams; danach ohne Nummer: kein leeres Feld
+    await seed(page, () => {
+      const d = fix(def()), P = d.t.flatMap((t) => t.p);
+      localStorage.setItem("__mock_prof", JSON.stringify(P.map((p, i) => ({ player: p, pos: "f", nr: 10 + i }))));
+    });
+    await page.goto("/"); // Besucher: keine Profile, keine Nummer
+    await expect(page.locator("main .row.brd").first()).toBeVisible();
+    await expect(page.locator("main .row.brd .nr")).toHaveCount(0);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=rang]");
+    const first = page.locator("main .row.brd").first();
+    const txt = await first.locator(".nm").innerText();
+    const nr = await page.evaluate((t) => { const P = S.t[0].p.concat(S.t[1].p); return 10 + P.findIndex((p) => t.includes(p)); }, txt);
+    await expect(first.locator(".nr")).toHaveText(String(nr));
+    await page.evaluate(() => { const L = JSON.parse(localStorage.getItem("__mock_prof")); PRF = null; localStorage.setItem("__mock_prof", JSON.stringify(L.map((q) => ({ ...q, nr: null })))); render(); });
+    await expect(first.locator(".nr")).toHaveCount(0);
+  });
+
   test("Spieler sehen beide Teams nur lesend, Antippen öffnet das Profil", async ({ page }) => {
     await seed(page, () => localStorage.setItem("__mock_prof", JSON.stringify([{ player: "Beat Rentsch", pos: "f", stick: "l", nr: 7 }])));
     await login(page, SPIELER);
