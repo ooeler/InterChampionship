@@ -34,11 +34,19 @@ function goTr(){if(GOSP!=null){SPGO=+GOSP;GOSP=null;history.replaceState(null,""
 function start(){PUB=false;SPGO=null;hideSplash();var a=document.getElementById("auth");a.hidden=true;a.innerHTML="";document.body.classList.remove("lo");load();if(!BASE)try{localStorage.removeItem("ic_dirty")}catch(e){}goNow();render();
 setTimeout(function(){sb.rpc("me").then(function(r){var d=r.data||{};REAL={role:d.role||"player",resto:!!d.resto,strafen:!!d.strafen};applyRole();PLAYER=d.player||null;PREV=d.prev_seen||null;NOTIFY=!!d.notify_changes;LEADCC=d.lead_cc!==false;render();goTr();fbDone();act()});pushState();
 sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error)return;if(r.data&&r.data.data&&!isDirty()){adopt(r.data.data);goNow();if(SPGO!=null){spGo();SPGO=null}else render()}else push()});
-stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm||isDirty())return;adopt(n.data);if(idle())render()}).subscribe()},0)}
+stop();live=sb.channel("league").on("postgres_changes",{event:"*",schema:"public",table:"league_state",filter:"id=eq.main"},function(p){var n=p.new;if(!n||!n.data||n.client==CID||tm)return;if(isDirty()){dirtySync();return}adopt(n.data);if(idle())render()}).subscribe()},0)}
+// Eigene Änderung noch offen, aber ein fremder Stand ist da: nicht ignorieren, sondern sofort zusammenführen und speichern
+function dirtySync(){if(!tm&&!PIF&&me){clearTimeout(RT);RT=null;push()}}
 function stop(){if(live){sb.removeChannel(live);live=null}}
+// Neuer Tag bei offener App (Rückkehr in die App, Fokus, kurz nach Mitternacht): Tagesdatum, aktueller Monat und Anzeige neu.
+// Wird gerade getippt, bleibt die Ansicht stehen; das neue Datum gilt ab dem nächsten Neuzeichnen.
+var TDT=null;function newDay(){var t=heute();if(t!=TD){TD=t;CRW=null;SK=null;document.querySelector("header .tag").classList.toggle("xm",isAdvent(TD));if((me||PUB)&&idle()){goNow();render()}}dayTimer()}
+function dayTimer(){clearTimeout(TDT);var n=new Date(),m=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,2);TDT=setTimeout(newDay,Math.max(1e3,Math.min(m-n,36e5)))}
+addEventListener("focus",newDay);dayTimer();
 addEventListener("online",function(){if(isDirty())push()});
 // Zurück in der App: Hintergrund-Verbindungen brechen auf dem Handy ab, darum den Stand frisch holen
-document.addEventListener("visibilitychange",function(){if(document.hidden||!sb||!me||PUB||tm||isDirty())return;sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(!r.error&&r.data&&r.data.data&&!tm&&!isDirty()){adopt(r.data.data);if(idle())render()}})});
+// Ist eine eigene Änderung noch offen, wird sie dabei gleich nachgeholt (push führt mit dem Serverstand zusammen)
+document.addEventListener("visibilitychange",function(){if(document.hidden)return;newDay();if(!sb||!me||PUB||tm)return;if(isDirty()){dirtySync();return}sb.from("league_state").select("data").eq("id","main").maybeSingle().then(function(r){if(!r.error&&r.data&&r.data.data&&!tm&&!isDirty()){adopt(r.data.data);if(idle())render()}})});
 (function(){var C=window.IM_CONFIG||{};if(!C.url||!C.key||!window.supabase){ascr("cfg");return}
 sb=supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});watchMaint();
 sb.auth.onAuthStateChange(function(ev,s){var u=s&&s.user;if(ev=="PASSWORD_RECOVERY")INV=true;if(ev=="USER_UPDATED")return;
