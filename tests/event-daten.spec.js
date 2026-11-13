@@ -39,6 +39,16 @@ const WE = `const w = d.m[4].tr[0]; w.p = ["Silvan Frey"]; w.ab = ["Beat Rentsch
 // Winter und Sommer entschieden: die Meisterschaft nennt das Verliererteam mit dem Event-Datum
 const ENT = `d.m[2].res = [4, 1]; d.m[3].res = [6, 2]; [4, 5, 6, 7].forEach((i) => { d.m[i].res = [1, 0] });`;
 
+test("Events stehen im Termin-Editor zuoberst, vor den Monaten", async ({ page }) => {
+  await seed(page);
+  await openEditor(page);
+  const vorher = await page.evaluate(() => {
+    const ev = document.querySelector("#term #tev"), m = document.querySelector("#term .tmb");
+    return !!(ev.compareDocumentPosition(m) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(vorher).toBe(true);
+});
+
 test("Winter Event auf ein Datum ohne Training: das Event-Training wandert mit seinen Daten, Label und keine Leitung", async ({ page }) => {
   await seed(page, { patch: WE + ENT });
   await openEditor(page);
