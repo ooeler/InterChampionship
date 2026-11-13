@@ -202,7 +202,7 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
   test("Nachricht nur mit gespeichertem „verspätet“, heute (Zürich) und vor Beginn", () => {
     const st = state();
     const m = L.lateMessage(st, { player: "Silvan Frey", d: "2026-10-28" }, at("2026-10-28T17:10:00Z")); // 18:10 in Zürich
-    expect(m).toEqual({ key: "late:2026-10-28:Silvan Frey", tag: "late-2026-10-28", lead: "Beat Rentsch", title: "⏰ Silvan Frey kommt später", body: "Training heute, 18:45 Uhr: Silvan Frey hat sich als verspätet gemeldet." });
+    expect(m).toEqual({ key: "late:2026-10-28:Silvan Frey", tag: "late-2026-10-28", lead: "Beat Rentsch", title: "⏰ Silvan Frey kommt später", body: "Training heute, 18:45 Uhr: Silvan Frey hat sich als verspätet gemeldet.", url: "./#trainings" });
     expect(L.lateMessage(st, { player: "Silvan Frey", d: "2026-10-28" }, at("2026-10-28T17:40:00Z")).key).toBe(m.key); // gleicher Schlüssel: eine Push pro Spieler und Training
     expect(L.lateMessage(st, { player: "Tobias Keller", d: "2026-10-28" }, at("2026-10-28T17:10:00Z"))).toBeNull(); // unsicher, nicht verspätet
     expect(L.lateMessage(st, { player: "Beat Rentsch", d: "2026-10-28" }, at("2026-10-28T17:10:00Z"))).toBeNull(); // kein Status gespeichert

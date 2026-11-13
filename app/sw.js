@@ -21,11 +21,19 @@ self.addEventListener("push", function (e) {
   }));
 });
 
+// Antippen: Ziel der Nachricht öffnen (z. B. ./#trainings, ./#spieltag=2), nur innerhalb der App.
+// Ist die App schon offen, wird sie nach vorne geholt und bekommt das Ziel per Nachricht (app/js/start.js wechselt den Reiter),
+// ohne Neuladen – so gehen ungespeicherte Eingaben nicht verloren.
 self.addEventListener("notificationclick", function (e) {
   e.notification.close();
+  var url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope);
+  if (url.origin != location.origin) url = new URL("./", self.registration.scope);
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (ws) {
-    for (var i = 0; i < ws.length; i++) if ("focus" in ws[i]) return ws[i].focus();
-    return self.clients.openWindow(e.notification.data.url);
+    for (var i = 0; i < ws.length; i++) if ("focus" in ws[i]) {
+      ws[i].postMessage({ type: "nav", url: url.href });
+      return ws[i].focus();
+    }
+    return self.clients.openWindow(url.href);
   }));
 });
 

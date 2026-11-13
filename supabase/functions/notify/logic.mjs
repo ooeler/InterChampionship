@@ -15,6 +15,11 @@ export function addDays(day, n) {
 
 const fd = (d) => d.split("-").reverse().join(".");
 
+// Ziel beim Antippen der Push-Nachricht (Deep-Links wie in app/js/start.js):
+// "Meine Trainings" im Reiter Training bzw. der Spieltag eines Monats (0-7)
+export const URL_TRAININGS = "./#trainings";
+export const urlSpieltag = (i) => `./#spieltag=${i}`;
+
 // Match Day = letztes Training eines Monats.
 export function matchdayMessages(state, today, daysBefore = 3) {
   const target = addDays(today, daysBefore);
@@ -27,6 +32,7 @@ export function matchdayMessages(state, today, daysBefore = 3) {
       tag: `matchday-${i}`,
       title: "⚑ Match Day in 3 Tagen!",
       body: `${MON[i]}: ${state.t[0].n} vs ${state.t[1].n} am ${fd(md)}` + (DBL.includes(i) ? " – zählt doppelt!" : ""),
+      url: urlSpieltag(i),
     });
   });
   return out;
@@ -61,6 +67,7 @@ export function trainingLeadMessages(state, today, daysBefore = 2) {
         body: off
           ? `${wd(x.d)}: Bitte Ersatz für die Trainingsleitung suchen und in der App eintragen.`
           : `${wd(x.d)}: Denk an Einlaufen, Passübungen und deine 3 Übungen.`,
+        url: URL_TRAININGS,
       });
     });
   });
@@ -80,6 +87,7 @@ export function resultMessage(state, i) {
     tag: `result-${i}`,
     title: `Endstand ${MON[i]}`,
     body: `${state.t[0].n} ${a} : ${b} ${state.t[1].n} – ${verdict}`,
+    url: urlSpieltag(i),
   };
 }
 
@@ -96,7 +104,7 @@ export function zurichToUtc(day, time = "18:45") {
 // Erinnerung an alle: 26 h vor jedem Training (läuft alle 15 Min.; push_log verhindert Doppelte)
 export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
   const out = [];
-  state.m.forEach((m) => {
+  state.m.forEach((m, i) => {
     m.tr.forEach((x, ti) => {
       const t = x.t || "18:45";
       const start = zurichToUtc(x.d, t);
@@ -108,6 +116,7 @@ export function trainingSoonMessages(state, nowMs, hoursBefore = 26) {
         tag: `training-soon-${x.d}`,
         title: md ? "⚑ Morgen ist Match Day" : "🏑 Morgen ist Training",
         body: `${wd(x.d)}, ${t} Uhr. Kannst du nicht? Abmelden bis 23 h vorher in der App.`,
+        url: md ? urlSpieltag(i) : URL_TRAININGS,
       });
     });
   });
@@ -132,6 +141,7 @@ export function signupMessage(state, { player, d, off }, uid = "", now = 0) {
     tag: `signup-${d}`,
     title: off ? `✗ ${player} hat sich abgemeldet` : `✓ ${player} ist wieder angemeldet`,
     body: `Training ${wd(d)}, ${x.t || "18:45"} Uhr`,
+    url: URL_TRAININGS,
   };
 }
 
@@ -152,6 +162,7 @@ export function lateMessage(state, { player, d } = {}, now = 0) {
     lead: typeof x.lead === "string" && x.lead ? x.lead : null,
     title: `⏰ ${player} kommt später`,
     body: `Training heute, ${t} Uhr: ${player} hat sich als verspätet gemeldet.`,
+    url: URL_TRAININGS,
   };
 }
 // Empfänger (user_ids): die Konten der Trainingsleitung und die Spielleitung – nie die verspätete Person selbst und nicht, wer meldet
@@ -240,8 +251,41 @@ export function leadPushMessages(state, nowMs) {
       player: x.lead,
       title: `🙌 Danke, dass du ${leadWhen(x)} das Training leitest`,
       body: `${wd(x.d)}, ${x.t || "18:45"} Uhr: ${c.field} Feldspieler und ${c.gk} Torhüter angemeldet.` + (c.late.length ? ` Verspätet: ${c.late.length}.` : "") + (c.unsure.length ? ` Unsicher: ${c.unsure.length}.` : ""),
+      url: URL_TRAININGS,
     };
   });
+}
+
+// Erinnerung an die Unsicheren: 2,5 h vor dem Abmeldeschluss (25,5 h vor Beginn, eine halbe Stunde nach
+// "Morgen ist Training"), eine Stunde lang fällig (Cron alle 15 Min.). Eine Nachricht pro Spieler und Training (push_log),
+// nur an die Geräte der Konten dieses Spielers (msg.player). Gilt für alle Trainings inkl. Match Day, Winter Event
+// und Sommer Event: "Unsicher" ist überall wählbar und der Abmeldeschluss gilt überall gleich (canOff in app/js/training.js).
+const hhmm = (ms) => new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hourCycle: "h23", hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
+const relDay = (from, d) => (d === from ? "heute" : d === addDays(from, 1) ? "morgen" : d === addDays(from, 2) ? "übermorgen" : "am " + wd(d));
+export function unsureMessages(state, nowMs, hoursBefore = 2.5) {
+  const players = new Set((state.t || []).flatMap((t) => t.p || []));
+  const L = [];
+  (state.m || []).forEach((m) => (m.tr || []).forEach((x, ti) => L.push({ x, md: ti === m.tr.length - 1 })));
+  if (state.evt && isDay(state.evt.d)) L.push({ x: state.evt, ev: true });
+  const today = zurichDate(new Date(nowMs)), out = [];
+  L.forEach(({ x, md, ev }) => {
+    if (!x || !isDay(x.d)) return;
+    const t = x.t || "18:45", dl = leadStart(x) - DEADLINE_H * 36e5, from = dl - hoursBefore * 36e5;
+    if (nowMs < from || nowMs >= Math.min(from + 36e5, dl)) return;
+    const was = md ? "Match Day" : ev ? "Sommer Event" : isWinterEvent(state, x.d) ? "Winter Event" : "Training";
+    Object.entries(x.st || {}).forEach(([p, st]) => {
+      if (st !== "u" || !players.has(p) || (x.ab || []).includes(p)) return;
+      out.push({
+        key: `unsure:${x.d}:${p}`,
+        tag: `unsure-${x.d}`,
+        player: p,
+        title: `❔ Bist du ${relDay(today, x.d)} dabei?`,
+        body: `${was} ${wd(x.d)}, ${t} Uhr: Du bist noch unsicher – Abmeldeschluss ${relDay(today, zurichDate(new Date(dl)))} um ${hhmm(dl)}.`,
+        url: URL_TRAININGS,
+      });
+    });
+  });
+  return out;
 }
 
 // Plausibilität der Skorerliste (gleiche Regeln wie skIssues in app/js/spieltag.js):
@@ -319,6 +363,7 @@ export function statsMessages(state, nowMs, sendAt = "08:00", days = 14) {
       teams: [...new Set(Q.map((q) => q.t))],
       title: `⚠️ Skorerliste ${MON[i]} prüfen`,
       body: Q.map((q) => statsText(state, q)).join(" "),
+      url: urlSpieltag(i),
     });
   });
   return out;

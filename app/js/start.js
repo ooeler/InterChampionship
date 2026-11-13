@@ -55,3 +55,8 @@ function snow(){var b=document.createElement("div");b.id="snow";b.setAttribute("
 (function(){document.querySelector("header .tag").classList.toggle("xm",isAdvent(TD));if(calm())return;var F=fxDay(TD);if(F){var go=function(){spook(F);setTimeout(go,4e4+Math.random()*5e4)};setTimeout(go,2500)}if(isSnow(TD))setTimeout(snow,1500)})();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
+// Push-Nachricht angetippt, während die App offen ist: der Service Worker (sw.js) schickt das Ziel, oder der Link ändert nur den Hash.
+// Gleiche Ziele wie beim Laden (#trainings, #spieltag=<Monat>); ohne Login bleibt das Ziel für nach dem Anmelden gemerkt.
+function hashGo(){var h=location.hash,m=h.match(/^#spieltag=([0-7])$/);if(m){GOSP=m[1];GOTR=false}else if(h=="#trainings"){GOTR=true;GOSP=null}else return;if(me&&!PUB)goTr()}
+addEventListener("hashchange",hashGo);
+if("serviceWorker"in navigator)navigator.serviceWorker.addEventListener("message",function(e){var d=e.data||{},h=typeof d.url=="string"&&(d.url.match(/#[^#]*$/)||[])[0];if(d.type!="nav"||!h)return;if(h!=location.hash)location.hash=h;else hashGo()});
