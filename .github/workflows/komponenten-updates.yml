@@ -1,0 +1,121 @@
+# Updates für Komponenten, die Dependabot nicht abdeckt: npm-Pakete in package.json (mit package-lock.json),
+# npm:-Imports der Edge Functions und die Container-Images der CI (.github/container-images.json).
+# Regeln und Ablauf: scripts/komponenten-updates.mjs und SECURITY.md (Komponenten-Updates).
+#   Montag:   neueste Versionen, die mindestens 7 Tage alt sind, plus Sicherheitsprüfung
+#   täglich:  Sicherheitsprüfung (OSV); bei einer bekannten Lücke sofort die kleinste behobene Version, ohne Wartezeit
+# Ergebnis: je ein Pull Request fix/abhaengigkeiten-<datum> (Patch/Minor, automatischer Merge nach grünen Prüfungen)
+# und fix/abhaengigkeiten-major-<datum> (Major, bleibt offen). Offene PRs werden aktualisiert, nie doppelt geöffnet.
+# Ein mit dem GITHUB_TOKEN erstellter PR startet keine pull_request-Workflows: die Prüfung startet der Job "pr"
+# per workflow_dispatch (komponenten-pruefen.yml) auf dem Branch, die Check-Runs hängen am Commit des PRs.
+# Härtung: keine Secrets ausser dem GITHUB_TOKEN, Rechte je Job, Antworten der Registries werden im Skript geprüft
+# (Versionen, Digests, Branches per Regex) und gelangen nur über env und execFile (ohne Shell) in Befehle.
+name: Komponenten-Updates
+
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+    inputs:
+      modus:
+        description: "auto = montags wöchentlich, sonst Sicherheitsprüfung"
+        type: choice
+        options: [auto, woechentlich, sicherheit]
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: komponenten-updates
+  cancel-in-progress: false
+
+jobs:
+  planen:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      aenderung: ${{ steps.plan.outputs.aenderung }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Versionen und bekannte Lücken ermitteln
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }} # nur Leserechte (permissions oben)
+          MODUS: ${{ inputs.modus || 'auto' }}
+        run: node scripts/komponenten-updates.mjs planen
+
+  branch:
+    # Baut je Gruppe einen Commit auf main (nur Versionen, package-lock.json ohne Skripte) und pusht ihn, wenn er sich geändert hat
+    needs: planen
+    if: needs.planen.outputs.aenderung == 'ja'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      ergebnis: ${{ steps.bauen.outputs.ergebnis }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Branches bauen
+        id: bauen
+        env:
+          PLAN: ${{ needs.planen.outputs.plan }}
+        run: node scripts/komponenten-updates.mjs bauen
+      - name: Branches pushen
+        if: steps.bauen.outputs.push != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSH: ${{ steps.bauen.outputs.push }}
+        # Einträge branch=commit=bisheriger-commit; --force-with-lease überschreibt nur den erwarteten Stand
+        run: |
+          gh auth setup-git
+          for e in $PUSH; do
+            b=${e%%=*}; r=${e#*=}; sha=${r%%=*}; alt=${r#*=}
+            echo "$b" | grep -qxE 'fix/abhaengigkeiten-(major-)?[0-9]{4}-[0-9]{2}-[0-9]{2}' || { echo "::error::Branch ungültig"; exit 1; }
+            echo "$sha" | grep -qxE '[0-9a-f]{40}' || { echo "::error::Commit ungültig"; exit 1; }
+            [ -z "$alt" ] || echo "$alt" | grep -qxE '[0-9a-f]{40}' || { echo "::error::Commit ungültig"; exit 1; }
+            git push --force-with-lease="refs/heads/$b:$alt" origin "$sha:refs/heads/$b"
+          done
+
+  pr:
+    # Pull Requests anlegen oder aktualisieren, Labels setzen, Prüfung (komponenten-pruefen.yml) auf dem Branch starten
+    needs: [planen, branch]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/komponenten-updates.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Pull Requests und Prüfung
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ needs.planen.outputs.plan }}
+          ERGEBNIS: ${{ needs.branch.outputs.ergebnis }}
+        run: node scripts/komponenten-updates.mjs veroeffentlichen

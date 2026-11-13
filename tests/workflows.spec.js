@@ -326,3 +326,126 @@ test("Tests: jedes Projekt läuft in genau einer Gruppe, jede Gruppe vollständi
   // Der Pflicht-Check heisst weiterhin "test" und sammelt alle Teile ein
   expect(ci).toMatch(/\n  test:\n    # Sammelt die \d+ Teile[^\n]*\n    needs: shard\n    if: always\(\)\n/);
 });
+
+// ---- Komponenten-Updates: npm-Pakete, Function-Imports und CI-Images ausserhalb von Dependabot ----
+const usesShas = (y) => [...y.matchAll(/uses: ([^\s.][^\s@]*)@([0-9a-f]{40}) # (v\d+)/g)].map((m) => `${m[1]}@${m[2]} # ${m[3]}`);
+
+test("Komponenten-Updates: Zeitplan, Rechte je Job, gleiche Action-SHAs, GH_TOKEN nur in einzelnen Schritten", { tag: "@logik" }, () => {
+  const y = wf("komponenten-updates.yml").replace(/\r/g, "");
+  expect(y).toMatch(/^on:\n  schedule:\n    - cron: "\d+ \d+ \* \* \*"\n  workflow_dispatch:\n/m); // täglich; montags wöchentlich (im Skript)
+  expect(y).toMatch(/^permissions:\n  contents: read\n\n/m);
+  expect(y).toMatch(/^concurrency:\n  group: komponenten-updates\n  cancel-in-progress: false\n/m);
+  expect(y).not.toMatch(/^  pull_request|secrets\./m);
+  const J = relJobs("komponenten-updates.yml");
+  expect(Object.keys(J)).toEqual(["planen", "branch", "pr"]);
+  const rechte = (j) => block(J[j], "    permissions:").filter((l) => l.trim()).map((l) => l.trim());
+  expect(rechte("planen")).toEqual(["contents: read", "pull-requests: read"]);
+  expect(rechte("branch")).toEqual(["contents: write"]);
+  expect(rechte("pr")).toEqual(["contents: read", "pull-requests: write", "issues: write", "actions: write"]);
+  expect(jobKey(J.planen, "if")).toBe("github.ref == 'refs/heads/main'");
+  expect(jobKey(J.branch, "needs")).toBe("planen");
+  expect(jobKey(J.branch, "if")).toBe("needs.planen.outputs.aenderung == 'ja'");
+  expect(jobKey(J.pr, "needs")).toBe("[planen, branch]");
+  // Fremde Actions: nur SHAs, die schon in den anderen Workflows stehen; Checkout ohne gespeichertes Token
+  const andere = new Set(fs.readdirSync(path.join(__dirname, "..", ".github", "workflows")).filter((f) => !f.startsWith("komponenten-")).flatMap((f) => usesShas(wf(f))));
+  for (const d of ["komponenten-updates.yml", "komponenten-pruefen.yml"]) {
+    const u = usesShas(wf(d));
+    expect(u.length, d).toBeGreaterThanOrEqual(2);
+    for (const x of u) expect(andere.has(x), `${d}: ${x}`).toBe(true);
+  }
+  for (const [n, j] of Object.entries(J)) {
+    for (const s of schritte(j).filter((s) => s.includes("actions/checkout@"))) expect(s, n).toContain("persist-credentials: false");
+    expect(block(j, "    env:"), n).toBeNull();
+  }
+  const S = Object.fromEntries(Object.entries(J).map(([n, j]) => [n, schritte(j)]));
+  const mitToken = Object.entries(S).flatMap(([n, L]) => L.filter((s) => s.includes("GH_TOKEN")).map((s) => `${n}: ${schrittName(s)}`));
+  expect(mitToken).toEqual(["planen: Versionen und bekannte Lücken ermitteln", "branch: Branches pushen", "pr: Pull Requests und Prüfung"]);
+  for (const L of Object.values(S)) for (const s of L.filter((s) => s.includes("GH_TOKEN"))) expect(s).toContain("GH_TOKEN: ${{ github.token }}");
+  // Registry-Antworten nur übers Skript (Prüfung per Regex) und über env, nie als ${{ }} im Skript
+  expect(S.planen.find((s) => s.includes("run:"))).toContain("run: node scripts/komponenten-updates.mjs planen");
+  expect(S.branch.find((s) => s.includes("Branches bauen"))).toContain("run: node scripts/komponenten-updates.mjs bauen");
+  expect(S.pr.find((s) => s.includes("Pull Requests und Prüfung"))).toContain("run: node scripts/komponenten-updates.mjs veroeffentlichen");
+  for (const L of Object.values(S)) for (const s of L) expect((block(s, "        run: |") || []).join("\n")).not.toContain("${{");
+  // Branch-Job holt main vollständig (Vergleich mit vorhandenen Branches), npm nur ohne Skripte (im Skript)
+  expect(S.branch[0]).toContain("ref: main");
+  expect(S.branch[0]).toContain("fetch-depth: 0");
+  expect(fs.readFileSync(path.join(__dirname, "..", "scripts", "komponenten-updates.mjs"), "utf8")).toContain(`["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"]`);
+});
+
+// Der Push-Schritt prüft jeden Eintrag, bevor er git aufruft, und überschreibt nur den erwarteten Stand
+test("Komponenten-Updates: Push nur für gültige Branches und Commits, mit --force-with-lease", { tag: "@logik" }, () => {
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+  const s = schritte(relJobs("komponenten-updates.yml").branch).find((x) => x.includes("Branches pushen"));
+  expect(s).toContain("if: steps.bauen.outputs.push != ''");
+  const skript = block(s, "        run: |").map((l) => l.slice(10)).join("\n");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "push-"));
+  const a = "a".repeat(40), b = "b".repeat(40);
+  const lauf = (PUSH) => {
+    const log = path.join(dir, "log");
+    fs.writeFileSync(log, "");
+    const stubs = 'gh() { echo "gh $*" >> "$T_LOG"; }\ngit() { echo "git $*" >> "$T_LOG"; }\n';
+    const r = spawnSync("bash", ["-c", stubs + skript], { env: { ...process.env, PUSH, T_LOG: log }, encoding: "utf8" });
+    if (r.error && r.error.code == "ENOENT" && !process.env.CI) test.skip(true, "bash fehlt");
+    return { status: r.status, log: fs.readFileSync(log, "utf8").trim().split("\n").filter(Boolean) };
+  };
+  try {
+    expect(lauf(`fix/abhaengigkeiten-2026-11-16=${a}= fix/abhaengigkeiten-major-2026-11-09=${b}=${a}`)).toEqual({ status: 0, log: [
+      "gh auth setup-git",
+      `git push --force-with-lease=refs/heads/fix/abhaengigkeiten-2026-11-16: origin ${a}:refs/heads/fix/abhaengigkeiten-2026-11-16`,
+      `git push --force-with-lease=refs/heads/fix/abhaengigkeiten-major-2026-11-09:${a} origin ${b}:refs/heads/fix/abhaengigkeiten-major-2026-11-09`,
+    ] });
+    const boese = [`main=${a}=`, `fix/abhaengigkeiten-2026-11-16;id=${a}=`, `fix/abhaengigkeiten-2026-11-16=HEAD=`, `fix/abhaengigkeiten-2026-11-16=${a}=x`, `fix/abhaengigkeiten-2026-11-16=${a}$(id)=`];
+    for (const e of boese) {
+      const r = lauf(e);
+      expect(r.status, e).not.toBe(0);
+      expect(r.log.filter((l) => l.startsWith("git")), e).toEqual([]);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Komponenten prüfen: Pflicht-Checks wie auto-merge.yml, Regeln mit Leserechten vom main-Stand, Merge nur bei ok", { tag: "@logik" }, () => {
+  const y = wf("komponenten-pruefen.yml").replace(/\r/g, "");
+  expect(y).toMatch(/^on:\n  workflow_dispatch:\n/m);
+  expect(y).not.toMatch(/^  (push|pull_request|schedule)/m);
+  expect(y).toMatch(/^permissions:\n  contents: read\n\n/m);
+  expect(y).toContain("group: komponenten-pruefen-${{ inputs.pr }}");
+  const J = relJobs("komponenten-pruefen.yml"), A = relJobs("auto-merge.yml");
+  expect(Object.keys(J)).toEqual(["test", "codeql", "regeln", "merge"]);
+  // gleiche Job-Namen und Unterabläufe → gleiche Check-Namen am Commit (test / test, test / e2e, test / security, codeql / analyze …)
+  expect(jobKey(J.test, "uses")).toBe(jobKey(A.test, "uses"));
+  expect(jobKey(J.codeql, "uses")).toBe(jobKey(A.codeql, "uses"));
+  expect(block(J.codeql, "    permissions:")).toEqual(block(A.codeql, "    permissions:"));
+  for (const j of ["test", "codeql"]) expect(jobKey(J[j], "if")).toBe("startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-')");
+  // regeln: nur lesen, Skript von main
+  expect(jobKey(J.regeln, "needs")).toBe("[test, codeql]");
+  expect(block(J.regeln, "    permissions:").filter((l) => l.trim()).map((l) => l.trim())).toEqual(["contents: read", "pull-requests: read"]);
+  const R = schritte(J.regeln);
+  expect(R[0]).toMatch(/uses: actions\/checkout@[0-9a-f]{40} # v\d+/);
+  expect(R[0]).toContain("ref: main");
+  expect(R[0]).toContain("persist-credentials: false");
+  expect(R[2]).toContain("run: node scripts/komponenten-updates.mjs regeln");
+  for (const k of ["GH_TOKEN: ${{ github.token }}", "PR: ${{ inputs.pr }}", "KOPF: ${{ github.sha }}", "REF: ${{ github.ref_name }}", "FREIGABE: ${{ inputs.major_freigeben }}", "AUSLOESER: ${{ github.triggering_actor }}"]) expect(R[2]).toContain(k);
+  // merge: nach allem, nur bei ok; genau der geprüfte Stand; Release nur bei App/Functions
+  expect(jobKey(J.merge, "needs").replace(/ #.*/, "")).toBe("[test, codeql, regeln]");
+  expect(jobKey(J.merge, "if")).toBe("needs.regeln.outputs.ergebnis == 'ok'");
+  expect(block(J.merge, "    env:").join("\n")).not.toContain("GH_TOKEN");
+  expect(block(J.merge, "    env:").join("\n")).toContain("KOPF: ${{ github.sha }}");
+  const M = schritte(J.merge);
+  expect(M.map(schrittName)).toEqual(["Mergen", "Release erstellen und deployen"]);
+  expect(M[0]).toContain(`gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch --match-head-commit "$KOPF"`);
+  expect(M[1]).toContain("if: needs.regeln.outputs.release == 'ja'");
+  expect(M[1]).toContain("gh workflow run release.yml");
+  for (const [n, j] of Object.entries(J)) for (const l of j.split("\n").filter((l) => l.includes("secrets."))) expect(l, n).toMatch(/^ {10}GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}$/);
+});
+
+test("Tests: Container-Images aus .github/container-images.json, nicht aus der Workflow-Datei", { tag: "@logik" }, () => {
+  // Der Workflow Komponenten-Updates darf mit dem GITHUB_TOKEN keine Workflow-Dateien ändern – darum stehen Tag und Digest daneben
+  const J = relJobs("ci.yml");
+  expect(Object.keys(J)).toEqual(["bilder", "shard", "test", "e2e", "security"]);
+  expect(jobKey(J.shard, "needs")).toBe("bilder");
+  expect(jobKey(J.security, "needs")).toBe("bilder");
+  expect(schritte(J.bilder)[0]).toContain("persist-credentials: false");
+});

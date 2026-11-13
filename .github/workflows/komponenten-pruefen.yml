@@ -1,0 +1,103 @@
+# Prüfung und Merge der Pull Requests von Komponenten-Updates (gestartet von komponenten-updates.yml per workflow_dispatch
+# auf dem Branch des PRs – ein mit dem GITHUB_TOKEN erstellter PR löst auto-merge.yml nicht aus).
+# Die Jobs test und codeql heissen wie in auto-merge.yml: ihre Check-Runs (test / test, test / e2e, test / security,
+# codeql / analyze …) hängen am Commit des PRs und erfüllen die Pflicht-Prüfungen von main.
+# Gemergt wird nur, wenn alles grün ist und die Regelprüfung (scripts/komponenten-updates.mjs regeln, Skript von main,
+# nur Leserechte) ok meldet. Major-Updates nur, wenn eine Person diesen Ablauf mit major_freigeben startet.
+# Release (Patch) nur, wenn App-Abhängigkeiten oder Edge Functions betroffen sind; Entwicklungswerkzeuge ohne Release.
+name: Komponenten prüfen
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Nummer des Pull Requests (Branch fix/abhaengigkeiten-… als Ref wählen)
+        required: true
+      major_freigeben:
+        description: Major-Update geprüft und freigegeben (nur von Hand)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: komponenten-pruefen-${{ inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-')
+    uses: ./.github/workflows/ci.yml
+
+  codeql:
+    if: startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-')
+    uses: ./.github/workflows/codeql.yml
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+  regeln:
+    # Das Skript kommt von main, nicht aus dem PR: ein PR kann seine eigene Prüfung nicht verändern
+    needs: [test, codeql]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ergebnis: ${{ steps.pruefen.outputs.ergebnis }}
+      release: ${{ steps.pruefen.outputs.release }}
+      pr: ${{ steps.pruefen.outputs.pr }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Regeln für Komponenten-Updates prüfen
+        id: pruefen
+        env:
+          GH_TOKEN: ${{ github.token }} # nur Leserechte (permissions oben)
+          PR: ${{ inputs.pr }}
+          KOPF: ${{ github.sha }}
+          REF: ${{ github.ref_name }}
+          FREIGABE: ${{ inputs.major_freigeben }}
+          AUSLOESER: ${{ github.triggering_actor }}
+        run: node scripts/komponenten-updates.mjs regeln
+
+  merge:
+    needs: [test, codeql, regeln] # Tests, e2e, Semgrep, npm audit und CodeQL müssen grün sein
+    if: needs.regeln.outputs.ergebnis == 'ok'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      PR: ${{ needs.regeln.outputs.pr }}
+      KOPF: ${{ github.sha }}
+    steps:
+      - name: Mergen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # wie auto-merge.yml: Rebase, nur genau der geprüfte Stand
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch --match-head-commit "$KOPF"
+
+      - name: Release erstellen und deployen
+        if: needs.regeln.outputs.release == 'ja'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Patch-Release wie bei fix/-Branches in auto-merge.yml; release.yml testet den Stand nochmals vollständig
+        run: |
+          titel=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json title --jq .title)
+          last=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          IFS=. read -r ma mi pa <<< "${last#v}"; ma=${ma:-1}; mi=${mi:-0}; pa=${pa:-0}
+          tag="v$ma.$mi.$((pa+1))"; echo "Neue Version: $tag (vorher $last)"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target main --title "Herren Inter ${tag#v}" --generate-notes
+          # Ein mit GITHUB_TOKEN erstelltes Release startet keine Workflows → Deployment explizit anstossen
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f grund="$titel (#$PR)"
