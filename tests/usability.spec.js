@@ -58,11 +58,11 @@ test.describe("Usability", () => {
     await expect(card(page, /^Skorerpunkte$/)).toContainText("Noch keine Skorerpunkte.");
   });
 
-  test("Infos: Titel Herren Inter, Vorschlag am Ende", async ({ page }) => {
+  test("Infos: Regeln, dann Herren Inter, Vorschlag am Ende", async ({ page }) => {
     await login(page);
     await page.click("nav [data-tab=info]");
     const t = await titles(page);
-    expect(t.slice(0, 2)).toEqual(["📲 App installieren", "Herren Inter"]); // Installieren zuerst (solange nicht installiert)
+    expect(t.slice(0, 3)).toEqual(["📲 App installieren", "Abmelden & Benachrichtigungen", "Herren Inter"]); // Installieren zuerst (solange nicht installiert), dann die Regeln
     expect(t.at(-1)).toBe("Verbesserungsvorschlag");
   });
 
