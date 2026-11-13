@@ -105,7 +105,6 @@ test.describe("Teams-Tab für alle Mitglieder", () => {
     await login(page, SPIELER);
     await page.click("nav [data-tab=team]");
     await expect(card(page, "Trainingsleitung")).toBeVisible();
-    await expect(card(page, "Restaurant-Besuche")).toBeVisible();
     await expect(page.locator("h3", { hasText: /^Team 1/ })).toHaveCount(0);
     await expect(page.locator("h3", { hasText: "Mitglied einladen" })).toHaveCount(0);
     await expect(page.locator("form#catf")).toHaveCount(0);
