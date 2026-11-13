@@ -6,12 +6,36 @@ const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock
 
 const sektion = (page, t) => page.locator("main .card.md:not(#regeln)", { has: page.locator("h3", { hasText: t }) });
 
+// Abschnitte sind zugeklappt: zuerst den Titel antippen, dann bearbeiten
+async function bearbeiten(page, t) {
+  const c = sektion(page, t);
+  if (await c.evaluate((e) => e.classList.contains("cl"))) await c.locator("h3").click();
+  await c.locator("[data-infoe]").click();
+}
+
 async function infos(page, user = ADMIN) {
   await login(page, user);
   await page.click("nav [data-tab=info]");
 }
 
 test.describe("Infos im Markdown-Format", () => {
+  test("Regeln zuoberst, alle Abschnitte zugeklappt und einzeln aufklappbar", async ({ page }) => {
+    await infos(page, SPIELER);
+    const K = page.locator("main .card.md");
+    await expect(K.first()).toHaveAttribute("id", "regeln");
+    const n = await K.count();
+    expect(n).toBeGreaterThan(5);
+    for (let i = 0; i < n; i++) await expect(K.nth(i)).toHaveClass(/(^| )cl( |$)/);
+    const h = sektion(page, "Hauptmatch");
+    await expect(h.getByText("Forfait 0 : 5")).toBeHidden();
+    await h.locator("h3").click();
+    await expect(h.getByText("Forfait 0 : 5")).toBeVisible();
+    await expect(h.locator("h3")).toHaveAttribute("aria-expanded", "true");
+    await expect(sektion(page, "Ziele")).toHaveClass(/(^| )cl( |$)/); // die anderen bleiben zu
+    await page.locator("#regeln h3").click();
+    await expect(page.locator("#regeln").getByText("bis 30 Min. vor Beginn")).toBeVisible();
+  });
+
   test("Standardtext enthält die Ergänzung zur Sommermeisterschaft und die Platzhalter", async ({ page }) => {
     await page.goto("/");
     await page.click("nav [data-tab=info]");
@@ -27,7 +51,7 @@ test.describe("Infos im Markdown-Format", () => {
     await infos(page);
     const karten = page.locator("main .card.md:not(#regeln)");
     await expect(page.locator("[data-infoe]").first()).toHaveText("✎ Bearbeiten");
-    await sektion(page, "Hauptmatch").locator("[data-infoe]").click();
+    await bearbeiten(page, "Hauptmatch");
     await expect(page.locator("#infoti")).toHaveValue("Hauptmatch");
     const ta = page.locator("#infot");
     await expect(ta).toHaveValue(/^- 1 Bonustor/);
@@ -74,7 +98,7 @@ test.describe("Infos im Markdown-Format", () => {
     await expect(page.locator("main .card.md:not(#regeln) h3").last()).toHaveText("Kasse");
 
     // ganz unten: nur nach oben möglich, bearbeitete Texte bleiben beim Verschieben im Formular
-    await sektion(page, "Kasse").locator("[data-infoe]").click();
+    await bearbeiten(page, "Kasse");
     await expect(page.locator("[data-infom='1']")).toHaveCount(0);
     await page.locator("#infot").fill("Geänderter Text");
     await page.click("[data-infom='-1']");
@@ -86,7 +110,7 @@ test.describe("Infos im Markdown-Format", () => {
     await expect(T.nth((await T.count()) - 2)).toHaveText("Kasse");
     await expect(sektion(page, "Kasse")).toContainText("Geänderter Text");
 
-    await sektion(page, "Kasse").locator("[data-infoe]").click();
+    await bearbeiten(page, "Kasse");
     await page.click("[data-infox]"); // Rückfrage wird bestätigt
     await expect(page.locator("#toast")).toContainText("Abschnitt gelöscht.");
     await expect(sektion(page, "Kasse")).toHaveCount(0);
@@ -96,13 +120,13 @@ test.describe("Infos im Markdown-Format", () => {
 
   test("Keine gefährlichen Links, Abbrechen ändert nichts, Standard wiederherstellen", async ({ page }) => {
     await infos(page);
-    await sektion(page, "Hauptmatch").locator("[data-infoe]").click();
+    await bearbeiten(page, "Hauptmatch");
     await page.locator("#infot").fill("[klick](javascript:alert(1)) und [x](data:text/html,y)");
     await expect(page.locator("#infop a")).toHaveCount(0);
     await page.click("#infof [data-infoe='']");
     await expect(page.locator("main")).toContainText("Forfait 0 : 5");
 
-    await sektion(page, "Hauptmatch").locator("[data-infoe]").click();
+    await bearbeiten(page, "Hauptmatch");
     await page.locator("#infot").fill("Kurz");
     await page.click("[data-infos]");
     await expect(page.locator("main")).not.toContainText("Forfait 0 : 5");
@@ -131,7 +155,7 @@ test.describe("Infos im Markdown-Format", () => {
 
   test("Bearbeiten übersteht das Verlassen eines Felds", async ({ page }) => {
     await infos(page);
-    await sektion(page, "Ziele").locator("[data-infoe]").click();
+    await bearbeiten(page, "Ziele");
     await page.locator("#infoti").fill("Unsere Ziele");
     await page.locator("#infot").click();
     await page.locator("#infot").fill("Neu");
