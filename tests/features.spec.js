@@ -441,7 +441,7 @@ test.describe("Push-Texte (Edge Function)", () => {
   test("Match Day genau 3 Tage vorher", () => {
     expect(L.matchdayMessages(state, "2026-11-01")).toEqual([{
       key: "matchday:2026-11-04", tag: "matchday-2", title: "⚑ Match Day in 3 Tagen!",
-      body: "November: Lochball Legenden vs SpVgg Nieder am 04.11.2026",
+      body: "November: Lochball Legenden vs SpVgg Nieder am 04.11.2026", url: "./#spieltag=2",
     }]);
     expect(L.matchdayMessages(state, "2026-11-02")).toEqual([]);
     expect(L.matchdayMessages(state, "2026-10-25")).toEqual([]); // normales Training, kein Match Day
@@ -468,7 +468,7 @@ test.describe("Push-Texte (Edge Function)", () => {
     s.m[2].tr[2].lead = "Beat Rentsch"; // 04.11. = Match Day → keine Erinnerung
     expect(L.trainingLeadMessages(s, "2026-10-26")).toEqual([{
       key: "training:2026-10-28:Silvan Frey", tag: "training-2026-10-28", player: "Silvan Frey",
-      title: "Du leitest das Training", body: "Mi, 28.10.2026: Denk an Einlaufen, Passübungen und deine 3 Übungen.",
+      title: "Du leitest das Training", body: "Mi, 28.10.2026: Denk an Einlaufen, Passübungen und deine 3 Übungen.", url: "./#trainings",
     }]);
     expect(L.trainingLeadMessages(s, "2026-10-27")).toEqual([]);
     expect(L.trainingLeadMessages(s, "2026-11-02")).toEqual([]);

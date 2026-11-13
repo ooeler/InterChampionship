@@ -2,6 +2,7 @@
 //   { type: "matchday" }           – täglich per Cron (Header: Authorization: Bearer <CRON_SECRET>):
 //                                    Match Day in 3 Tagen (an alle) + Trainingsleitung in 2 Tagen (nur an den Leiter)
 //   { type: "training" }           – alle 15 Min. per Cron: "Morgen ist Training" 26 h vorher (an alle)
+//                                    + 2,5 h vor Abmeldeschluss: Erinnerung an die Spieler mit Status "unsicher" (nur an deren Geräte)
 //                                    + Mail und Push an die Trainingsleitung direkt bei Abmeldeschluss, 23 h vorher (Spielleitung in Kopie):
 //                                    Dank, Anzahl Feldspieler/Torhüter über alle Teams, Gäste, Abmeldungen
 //                                    (über SMTP, z. B. Mailomat, oder Brevo – siehe _shared/mail.mjs; ohne Secrets keine Mail)
@@ -21,7 +22,7 @@ import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mailer.ts";
-import { lateMessage, lateRecipients, statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, zurichDate } from "./logic.mjs";
+import { lateMessage, lateRecipients, statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, unsureMessages, zurichDate } from "./logic.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -69,12 +70,12 @@ Deno.serve(async (req) => {
   const { data: row } = await db.from("league_state").select("data").eq("id", "main").maybeSingle();
   if (!row) return json({ sent: 0 });
 
-  let msgs: { key: string | null; tag: string; title: string; body: string; player?: string; teams?: number[] }[] = [];
+  let msgs: { key: string | null; tag: string; title: string; body: string; url?: string; player?: string; teams?: number[] }[] = [];
   let onlyUsers: string[] | null = null; // null = alle Abos
   let mailed = 0;
   if (body.type === "training") {
     if (!safeEqual(token, Deno.env.get("CRON_SECRET"))) return json({ error: "forbidden" }, 403);
-    msgs = [...trainingSoonMessages(row.data, Date.now()), ...leadPushMessages(row.data, Date.now()), ...statsMessages(row.data, Date.now())];
+    msgs = [...trainingSoonMessages(row.data, Date.now()), ...unsureMessages(row.data, Date.now()), ...leadPushMessages(row.data, Date.now()), ...statsMessages(row.data, Date.now())];
     mailed = await sendLeadMails(db, leadMailMessages(row.data, Date.now(), APP_URL));
   } else if (body.type === "testmail") {
     const { data: { user } } = await db.auth.getUser(token);
@@ -167,7 +168,8 @@ Deno.serve(async (req) => {
     for (const s of subs) {
       if (!pushSubOk(s)) continue; // nur bekannte Push-Dienste, Adresse = gespeicherte Spalte
       try {
-        await webpush.sendNotification(s.sub, JSON.stringify({ ...payload, url: "./" }));
+        // Ziel beim Antippen aus der Nachricht (#trainings, #spieltag=N), sonst die Startseite
+        await webpush.sendNotification(s.sub, JSON.stringify({ ...payload, url: payload.url || "./" }));
         sent++;
       } catch (e) {
         const code = (e as { statusCode?: number }).statusCode;
