@@ -6,7 +6,8 @@ const fs = require("fs");
 test("Playwright-Image im CI passt zur Version in package.json", { tag: "@logik" }, () => {
   const v = JSON.parse(fs.readFileSync("package.json", "utf8")).devDependencies["@playwright/test"].replace(/^[\^~]/, "");
   const bilder = JSON.parse(fs.readFileSync(".github/container-images.json", "utf8"));
-  expect(bilder.playwright).toMatch(new RegExp(`^mcr\\.microsoft\\.com/playwright:v${v.replace(/\./g, "\\.")}-noble@sha256:[0-9a-f]{64}$`));
+  const m = bilder.playwright.match(/^mcr\.microsoft\.com\/playwright:v(\d+\.\d+\.\d+)-noble@sha256:[0-9a-f]{64}$/);
+  expect(m && m[1]).toBe(v);
   expect(bilder.semgrep).toMatch(/^semgrep\/semgrep:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/);
   expect(Object.keys(bilder).sort()).toEqual(["playwright", "semgrep"]);
   const ci = fs.readFileSync(".github/workflows/ci.yml", "utf8").replace(/\r/g, "");
