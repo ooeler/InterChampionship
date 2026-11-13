@@ -2,6 +2,8 @@ version: 2
 updates:
   # npm: nur Sicherheitsupdates (Limit 0 schaltet normale Versions-Updates ab).
   # Jeder Sicherheits-PR wird nach grünen Tests gemergt und automatisch deployt (siehe auto-merge.yml).
+  # Versions-Updates für package.json, die npm:-Imports der Edge Functions und die CI-Images macht der Workflow
+  # komponenten-updates.yml (täglich Sicherheit, montags neue Versionen ≥ 7 Tage, siehe SECURITY.md).
   - package-ecosystem: npm
     directory: /
     schedule:

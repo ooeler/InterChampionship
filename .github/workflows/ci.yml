@@ -10,6 +10,30 @@ permissions:
   contents: read
 
 jobs:
+  bilder:
+    # Container-Images (Tag + Digest) stehen in .github/container-images.json statt hier: so kann der Workflow
+    # Komponenten-Updates sie aktualisieren (mit dem GITHUB_TOKEN dürfen keine Workflow-Dateien geändert werden).
+    # Nur Images der erwarteten Herkunft mit festem Digest werden angenommen.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      playwright: ${{ steps.b.outputs.playwright }}
+      semgrep: ${{ steps.b.outputs.semgrep }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/container-images.json
+          sparse-checkout-cone-mode: false
+      - id: b
+        run: |
+          p=$(jq -r .playwright .github/container-images.json)
+          s=$(jq -r .semgrep .github/container-images.json)
+          echo "$p" | grep -qxE 'mcr\.microsoft\.com/playwright:v[0-9]+\.[0-9]+\.[0-9]+-noble@sha256:[0-9a-f]{64}' || { echo "::error::Playwright-Image ungültig"; exit 1; }
+          echo "$s" | grep -qxE 'semgrep/semgrep:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}' || { echo "::error::Semgrep-Image ungültig"; exit 1; }
+          echo "playwright=$p" >> "$GITHUB_OUTPUT"
+          echo "semgrep=$s" >> "$GITHUB_OUTPUT"
+
   shard:
     # Alle Tests auf allen Geräten, auf 6 gleichzeitig laufende Maschinen verteilt (jeder Test läuft genau einmal).
     # Der Job "test" unten sammelt die Teile ein; er ist die Pflicht-Prüfung für den Merge.
@@ -18,6 +42,7 @@ jobs:
     # Chromium-Geräte und Logiktests: 2 Teile, iphone: 4 Teile. Jedes Projekt muss genau einer Gruppe angehören
     # und jede Gruppe vollständig aufgeteilt sein (geprüft in tests/workflows.spec.js).
     name: test (Teil ${{ matrix.teil }}/6)
+    needs: bilder
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -32,10 +57,10 @@ jobs:
           - { teil: 6, projekte: "--project=iphone", shard: 4/4 }
     # Fertiges Playwright-Image: Browser und Systempakete sind schon drin, keine Installation mehr, die hängen bleiben kann.
     # Die Version muss zu @playwright/test in package.json passen (geprüft in tests/ci-container.spec.js).
-    # Per Digest gepinnt (ein Tag kann neu belegt werden). Dependabot aktualisiert Images in Workflows nicht:
-    # bei einem Playwright-Update Tag und Digest von Hand anpassen (Digest: Docker-Content-Digest von mcr.microsoft.com/v2/playwright/manifests/<tag>).
+    # Per Digest gepinnt (ein Tag kann neu belegt werden), Tag und Digest in .github/container-images.json (Job bilder);
+    # aktuell gehalten vom Workflow Komponenten-Updates zusammen mit @playwright/test.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      image: ${{ needs.bilder.outputs.playwright }}
       options: --ipc=host
     env:
       HOME: /root
@@ -144,11 +169,12 @@ jobs:
 
   security:
     # Sicherheitsprüfung vor jedem Merge (zusätzlich: CodeQL und die statischen Tests in tests/sicherheit-statisch.spec.js)
+    needs: bilder
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Per Digest gepinnt (vorher implizit latest); Aktualisieren von Hand, siehe SECURITY.md
+    # Per Digest gepinnt (.github/container-images.json, Job bilder); aktuell gehalten vom Workflow Komponenten-Updates
     container:
-      image: semgrep/semgrep:1.183.0@sha256:2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
+      image: ${{ needs.bilder.outputs.semgrep }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Semgrep (Schwachstellen-Muster, Secrets, Workflows)

@@ -114,6 +114,7 @@ Callback-URL für alle Anbieter: `https://bxzywtpddgtfgghyiduf.supabase.co/auth/
    - *Variables*: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`, `VAPID_PUBLIC_KEY`, optional `OAUTH_PROVIDERS` (z. B. `google,azure`)
    - *Secrets*: `SUPABASE_ACCESS_TOKEN` (Supabase → Account → Access Tokens)
 4. **Settings → Code security**: *Dependabot alerts* und *Dependabot security updates* einschalten, *CodeQL* läuft über den Workflow.
+   **Settings → Actions → General → Workflow permissions**: *Allow GitHub Actions to create and approve pull requests* einschalten (für Komponenten-Updates).
 5. Optional **Settings → Environments → github-pages → Required reviewers**: dich eintragen, dann fragt GitHub vor jedem Deploy zusätzlich nach.
 
 ### 6. Vollsicherung auf den eigenen Rechner
@@ -143,7 +144,8 @@ Der Ablauf **Vollsicherung Probe** prüft beides monatlich mit Testdaten und mel
 ## Ablauf im Alltag
 
 - **Jeder Push / Pull Request** → alle Tests laufen (Android-, iPhone- und Desktop-Browser) + CodeQL-Sicherheitsscan.
-- **Sicherheitspatches gehen automatisch live**: Dependabot prüft täglich die Pakete. Bei einer Sicherheitslücke erstellt er einen Pull Request, die Tests laufen, danach wird **automatisch gemergt und deployt**. Normale Versions-Updates der Pakete sind abgeschaltet; Updates der GitHub Actions werden gemergt, aber nicht deployt.
+- **Sicherheitspatches gehen automatisch live**: Dependabot prüft täglich die Pakete. Bei einer Sicherheitslücke erstellt er einen Pull Request, die Tests laufen, danach wird **automatisch gemergt und deployt**. Normale Versions-Updates der Pakete sind bei Dependabot abgeschaltet; Updates der GitHub Actions werden gemergt, aber nicht deployt.
+- **Komponenten-Updates**: Der Workflow *Komponenten-Updates* prüft täglich `package.json`, die `npm:`-Imports der Edge Functions und die CI-Images (`.github/container-images.json`) auf bekannte Lücken und aktualisiert sie sofort; montags kommen zusätzlich neue Versionen, die mindestens 7 Tage alt sind. Patch/Minor-Updates werden nach grünen Prüfungen automatisch gemergt (und bei App/Functions deployt), Major-Updates bleiben als PR mit dem Label `manuell-pruefen` offen. Regeln: `SECURITY.md`.
 - **Alles andere geht nur mit deinem Go live**: Auf GitHub → *Releases → Draft a new release* → Version (z. B. `v1.0.0`) → **Publish**. Dann laufen die Tests nochmals, danach werden App und Edge Function deployt.
 - **Wartungsseite während des Updates**: Der Release-Workflow schaltet vor den Migrationen `public.app_status.maintenance` ein. Offene Apps zeigen dann „Update wird eingespielt“ und speichern nichts. Danach schaltet er sie wieder aus, auch wenn ein Schritt fehlschlägt, und die Apps laden die neue Version von selbst. Falls sie doch einmal hängen bleibt: im Supabase SQL Editor `update public.app_status set maintenance = false;`
 - **Mailvorlagen**: Die Texte der Supabase-Mails (Passwort zurücksetzen usw.) liegen deutsch in `supabase/mail-vorlagen.json`. Der Release-Workflow spielt sie bei jedem Deployment ein.
