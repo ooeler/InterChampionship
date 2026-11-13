@@ -176,10 +176,16 @@ jobs:
         run: |
           q() { supabase db query --agent no --linked --project-ref "$REF" "$@" 2>/dev/null; }
           q "create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz not null default now()); alter table public.schema_migrations enable row level security;" > /dev/null
+          # Eine einzige Abfrage für alle angewendeten Migrationen (statt einer pro Datei – die Wartungsseite bliebe sonst mit jeder Migration länger an).
+          # Schlägt die Abfrage fehl oder ist die Antwort unlesbar, bricht der Schritt ab – nie "alles offen" annehmen.
+          supabase db query --agent no --linked --project-ref "$REF" -o json "select coalesce(json_agg(name), '[]'::json) as n from public.schema_migrations" > angewendet.json
+          N='if type == "array" then .[0].n else .rows[0].n end | if type == "string" then fromjson else . end'
+          jq -e "$N | type == \"array\"" angewendet.json > /dev/null
+          jq -r "$N | .[]" angewendet.json | sort > angewendet.txt
+          echo "Bereits angewendet: $(wc -l < angewendet.txt)"
           for f in $(ls supabase/migrations/*.sql 2>/dev/null | sort); do
             n=$(basename "$f")
-            c=$(q -o json "select count(*)::int as c from public.schema_migrations where name = '$n'" | jq -r 'if type == "array" then .[0].c else .rows[0].c end')
-            if [ "$c" = "1" ]; then echo "✓ $n (bereits angewendet)"; continue; fi
+            if grep -qxF "$n" angewendet.txt; then continue; fi
             echo "→ $n"
             supabase db query --linked --project-ref "$REF" -f "$f" > /dev/null
             q "insert into public.schema_migrations (name) values ('$n')" > /dev/null
