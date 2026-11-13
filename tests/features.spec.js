@@ -231,6 +231,22 @@ test.describe("Begrüssung", () => {
     await expect(page.locator("#hi")).toHaveText("Hallo Nachtschwärmer Captain! 🌙");
   });
 
+  test("Am Trainingstag mit FCSG im Abmeldegrund: Hopp FCSG", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
+    await login(page);
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training! 🏑");
+    const grund = (r, d = "2026-10-28") => page.evaluate(([r, d]) => { PLAYER = "Silvan Frey"; localStorage.setItem("__mock_abs", JSON.stringify([{ d, player: PLAYER, reason: r }])); ABS = null; render(); }, [r, d]);
+    await grund("Match vom fcSG im kybunpark");
+    await expect(page.locator("#hi")).toHaveText("Hopp FCSG Silvan! 💚🤍");
+    await page.clock.setFixedTime(new Date("2026-10-28T18:30:00")); // auch während des Trainings
+    await grund("FCSG!");
+    await expect(page.locator("#hi")).toHaveText("Hopp FCSG Silvan! 💚🤍");
+    await grund("Ferien"); // anderer Grund: normale Begrüssung
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Silvan! 🏑");
+    await grund("FCSG", "2026-11-04"); // Grund für ein anderes Training zählt heute nicht
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Silvan! 🏑");
+  });
+
   test("Am Trainingstag: vorher, während und danach", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
     await login(page);
