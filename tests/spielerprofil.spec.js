@@ -14,6 +14,23 @@ async function seed(page, extra = () => {}) {
 const prof = (page) => page.locator("#prof");
 
 test.describe("Spielerprofil (#103)", () => {
+  test("Rangliste: Antippen des Namens öffnet das Profil, nur für Mitglieder", async ({ page }) => {
+    await seed(page, () => localStorage.setItem("__mock_prof", JSON.stringify([])));
+    await page.goto("/"); // Besucher: Namen sind kein Knopf
+    await expect(page.locator("main .row.brd").first()).toBeVisible();
+    await expect(page.locator("main .row.brd [data-prof]")).toHaveCount(0);
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=rang]");
+    const b = page.locator("main .row.brd [data-prof]").first();
+    const name = await b.getAttribute("data-prof");
+    await b.click();
+    await expect(prof(page)).toBeVisible();
+    await expect(prof(page).locator("h3")).toContainText(name);
+    await page.click("#prof [data-prof='']");
+    await expect(prof(page)).toHaveCount(0);
+    expect(await page.evaluate(() => tab)).toBe("rang"); // bleibt in der Rangliste
+  });
+
   test("Rangliste zeigt die Trikotnummer vor dem Namen, Besucher nicht", async ({ page }) => {
     // alle Spieler mit Nummer 10, 11, … in der Reihenfolge der Teams; danach ohne Nummer: kein leeres Feld
     await seed(page, () => {

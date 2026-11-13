@@ -124,3 +124,6 @@ nav button.on i{animation:pop .3s ease-out}
 .dbar{display:flex;height:12px;border-radius:9px;overflow:hidden;margin:6px 0;background:var(--bg)}.dbar .da{background:#B9001B}.dbar .db{flex:1;background:#14161c}.dprog{margin-top:10px;padding-top:8px;border-top:1px dashed var(--ln)}.dprog .kv b .sp{font-weight:400}
 .rch{text-align:center;padding:2px 0 8px}.rch b{font-size:17px}.rcr{gap:10px;padding:4px 0}.rcr b{text-align:right}@media(max-width:719px){.recap .rcr,.rcr.hr{display:block;padding:6px 0}.recap .rcr b,.rcr.hr b{display:block;text-align:left;margin-top:2px}}.sko svg{width:1.05em;height:1.05em;vertical-align:-3px}.rsr{padding:0 0 8px}.rsr input{width:100%;min-height:40px}
 .tmr{border-top:1px solid var(--ln);padding:8px 0 4px}.tmr .two{margin:4px 0}.tmh b{font-size:15px}.tmh+.tmr{border-top:0}.tmr input[type=time].t{min-height:42px}
+
+/* Rangliste: Name öffnet das Spielerprofil (nur Mitglieder) */
+.rpl{flex:none;display:inline;min-height:0;padding:0;text-decoration:underline dotted;text-underline-offset:3px}
