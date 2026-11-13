@@ -16,6 +16,8 @@ function pick(a,k){var x=0;for(var i=0;i<k.length;i++)x=(x*31+k.charCodeAt(i))%9
 function hello(){var u=me&&me.user_metadata||{},n=(PLAYER||u.full_name||u.name||"").split(" ")[0]||(me&&me.email||"").split("@")[0].split(/[._+-]/)[0],d=new Date(),h=d.getHours(),mi=h*60+d.getMinutes();n=n?n.charAt(0).toUpperCase()+n.slice(1):"";
 var w=n?"Hallo "+n:"Hallo",sp=n?" "+n:"",k=TD+n,T=allTr().filter(function(r){return r.x.d==TD})[0],st=T?(function(t){return +t.slice(0,2)*60+ +t.slice(3,5)})(tstart(T.x)):0;
 if(PREV&&Date.now()-new Date(PREV).getTime()>30*864e5)return w+", willkommen zurück!";
+// Am Trainingstag: wer sich mit einem Grund abgemeldet hat, der "FCSG" enthält (egal wie geschrieben), wird mit "Hopp FCSG" begrüsst
+if(T&&PLAYER&&/fcsg/i.test((absOf(TD,PLAYER)||{}).reason||""))return "Hopp FCSG"+sp+"! 💚🤍";
 if(T&&mi>=st+105&&mi<24*60)return pick(GR.bier,k)+sp+"! 🍺";
 if(T&&mi>=st-30)return T.md?"Guter Match"+sp+"! ⚑":"Gutes Training"+sp+"! 🏑";
 if(h>=23||h<4)return "Hallo Nachtschwärmer"+sp+"! 🌙";
