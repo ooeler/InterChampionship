@@ -227,7 +227,7 @@ test("Abgemeldet ist nur grau, nicht durchgestrichen", async ({ page }) => {
   expect(r).toEqual(["none", "rgb(75, 85, 99)"]);
 });
 
-test("Mailvorlagen: alle deutsch, mit Link oder Code", () => {
+test("Mailvorlagen: alle deutsch, mit Link oder Code", { tag: "@logik" }, () => {
   const v = JSON.parse(fs.readFileSync("supabase/mail-vorlagen.json", "utf8"));
   const keys = Object.keys(v);
   for (const k of ["recovery", "confirmation", "invite", "magic_link", "email_change", "reauthentication"]) {

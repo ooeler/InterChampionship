@@ -13,7 +13,7 @@ const fnDirs = fs.readdirSync(path.join(root, "supabase/functions")).filter((d) 
 const workflows = fs.readdirSync(path.join(root, ".github/workflows")).map((f) => [f, read(".github/workflows/" + f)]);
 
 test.describe("Sicherheit (statisch)", () => {
-  test("Datenbank-Funktionen sind ohne Login nicht ausführbar", () => {
+  test("Datenbank-Funktionen sind ohne Login nicht ausführbar", { tag: "@logik" }, () => {
     const defs = [...sql.matchAll(/create or replace function public\.(\w+)\([^)]*\) returns (\w+)[\s\S]*?security definer/gi)];
     const names = [...new Set(defs.filter((m) => m[2].toLowerCase() !== "trigger").map((m) => m[1]))];
     expect(names.length).toBeGreaterThan(5);
@@ -21,13 +21,13 @@ test.describe("Sicherheit (statisch)", () => {
     expect(missing, "Funktionen ohne 'revoke … from public'").toEqual([]);
   });
 
-  test("Jede Tabelle hat Row Level Security", () => {
+  test("Jede Tabelle hat Row Level Security", { tag: "@logik" }, () => {
     const tables = [...sql.matchAll(/create table if not exists public\.(\w+)/gi)].map((m) => m[1]);
     const missing = tables.filter((t) => !new RegExp(`alter table public\\.${t} enable row level security`, "i").test(sql));
     expect(missing).toEqual([]);
   });
 
-  test("Edge Functions prüfen Login oder Secret, Secrets in konstanter Zeit", () => {
+  test("Edge Functions prüfen Login oder Secret, Secrets in konstanter Zeit", { tag: "@logik" }, () => {
     for (const d of fnDirs) {
       const src = read(`supabase/functions/${d}/index.ts`);
       expect(/auth\.getUser\(|safeEqual\(token/.test(src), `${d}: keine Zugriffsprüfung`).toBe(true);
@@ -35,7 +35,7 @@ test.describe("Sicherheit (statisch)", () => {
     }
   });
 
-  test("Sicherheits-Helfer: Secret-Vergleich und erlaubte Push-Dienste", async () => {
+  test("Sicherheits-Helfer: Secret-Vergleich und erlaubte Push-Dienste", { tag: "@logik" }, async () => {
     const S = await import("../supabase/functions/_shared/sicherheit.mjs");
     expect(S.safeEqual("abc", "abc")).toBe(true);
     expect(S.safeEqual("abc", "abd")).toBe(false);
@@ -50,7 +50,7 @@ test.describe("Sicherheit (statisch)", () => {
     expect(S.pushEndpointOk("kaputt")).toBe(false);
   });
 
-  test("Push-Abo: gesendet wird nur, wenn sub.endpoint der gespeicherten Adresse entspricht", async () => {
+  test("Push-Abo: gesendet wird nur, wenn sub.endpoint der gespeicherten Adresse entspricht", { tag: "@logik" }, async () => {
     const S = await import("../supabase/functions/_shared/sicherheit.mjs");
     const fcm = "https://fcm.googleapis.com/fcm/send/abc";
     expect(S.pushSubOk({ endpoint: fcm, sub: { endpoint: fcm, keys: { p256dh: "x", auth: "y" } } })).toBe(true);
@@ -67,7 +67,7 @@ test.describe("Sicherheit (statisch)", () => {
     expect(src.match(/pushSubOk\(s\)/g)).toHaveLength(2);
   });
 
-  test("Push-Abo: Datenbank-Regel entspricht pushEndpointOk", async () => {
+  test("Push-Abo: Datenbank-Regel entspricht pushEndpointOk", { tag: "@logik" }, async () => {
     const S = await import("../supabase/functions/_shared/sicherheit.mjs");
     // die neueste Migration, die die Regel setzt
     const datei = fs.readdirSync(path.join(root, "supabase/migrations")).sort().map((f) => read("supabase/migrations/" + f))
@@ -108,7 +108,7 @@ test.describe("Sicherheit (statisch)", () => {
     for (const u of [...gut, ...fremd]) if (re.test(u)) expect(S.pushEndpointOk(u), u).toBe(true);
   });
 
-  test("Mitglied wird nur, wer über die Einladung kommt", () => {
+  test("Mitglied wird nur, wer über die Einladung kommt", { tag: "@logik" }, () => {
     const files = ["supabase/setup.sql", ...fs.readdirSync(path.join(root, "supabase/migrations")).sort().map((f) => "supabase/migrations/" + f)];
     const defs = files.flatMap((f) => [...read(f).matchAll(/create or replace function public\.handle_new_user\s*\(\s*\)[\s\S]*?\bend\s*\$\$\s*;/gi)].map((m) => m[0]));
     expect(defs.length).toBeGreaterThan(1);
@@ -134,7 +134,7 @@ test.describe("Sicherheit (statisch)", () => {
     expect(read(".github/workflows/release.yml")).toMatch(/config\/auth[\s\S]*disable_signup/);
   });
 
-  test("Workflows: minimale Rechte, kein pull_request_target, Actions mit Commit-Hash", () => {
+  test("Workflows: minimale Rechte, kein pull_request_target, Actions mit Commit-Hash", { tag: "@logik" }, () => {
     for (const [f, y] of workflows) {
       expect(y, `${f}: permissions fehlen`).toMatch(/^permissions:/m);
       expect(y, `${f}: pull_request_target`).not.toMatch(/pull_request_target/);
@@ -146,7 +146,7 @@ test.describe("Sicherheit (statisch)", () => {
     }
   });
 
-  test("Keine Secrets im Repository", () => {
+  test("Keine Secrets im Repository", { tag: "@logik" }, () => {
     let files;
     try { files = execSync("git ls-files", { cwd: root, encoding: "utf8" }).split("\n").filter(Boolean); } catch { test.skip(); return; }
     const bad = /(sb_secret_[A-Za-z0-9_-]{10,}|sbp_[a-f0-9]{30,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|VAPID_PRIVATE_KEY\s*=\s*\S{20,}|service_role[^\n]{0,40}eyJ[A-Za-z0-9_-]{20,})/;

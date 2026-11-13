@@ -103,7 +103,7 @@ test.describe("Einladungslink (Edge Function invite)", () => {
   let L;
   test.beforeAll(async () => { L = await import("../supabase/functions/invite/logic.mjs") });
 
-  test("Rollen und Rechte", () => {
+  test("Rollen und Rechte", { tag: "@logik" }, () => {
     expect(L.checkInvite({ player: " Tobias Keller " }, "captain")).toEqual({ role: "player", player: "Tobias Keller" });
     expect(L.checkInvite({ role: "admin" }, "admin")).toEqual({ role: "admin", player: null });
     expect(() => L.checkInvite({ role: "captain" }, "captain")).toThrow("Nur die Spielleitung");
@@ -112,7 +112,7 @@ test.describe("Einladungslink (Edge Function invite)", () => {
     expect(() => L.checkInvite({ role: "boss" }, "admin")).toThrow("Unbekannte Rolle");
   });
 
-  test("Token: zufällig, URL-tauglich, nur der Hash wird gespeichert", async () => {
+  test("Token: zufällig, URL-tauglich, nur der Hash wird gespeichert", { tag: "@logik" }, async () => {
     const a = L.newToken(), b = L.newToken();
     expect(a).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(a).not.toBe(b);
@@ -125,7 +125,7 @@ test.describe("Einladungslink (Edge Function invite)", () => {
     expect(await L.hashToken(a)).toBe(h);
   });
 
-  test("Registrierung: Mail und Passwort", () => {
+  test("Registrierung: Mail und Passwort", { tag: "@logik" }, () => {
     expect(L.checkJoin({ email: " A@B.ch ", password: "12345678" })).toEqual({ email: "a@b.ch", password: "12345678" });
     expect(() => L.checkJoin({ email: "kein-mail", password: "12345678" })).toThrow("gültige Mail-Adresse");
     expect(() => L.checkJoin({ email: "a@b.ch", password: "kurz" })).toThrow("mindestens 8");

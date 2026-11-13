@@ -1,6 +1,6 @@
 // Regelprüfung für Dependabot-Updates von GitHub Actions (scripts/actions-update-pruefen.mjs) mit nachgebauter GitHub-API.
 // Der Gut-Fall ist dem echten PR #136 nachgebildet (setup-cli: leichter Tag, codeql-action: annotierter Tag).
-// Unabhängig vom Gerät: läuft nur im Projekt desktop.
+// Unabhängig vom Gerät: läuft nur einmal im Projekt logik (Markierung @logik).
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
@@ -82,9 +82,7 @@ const dateien = (f) => ({ [`repos/${R}/pulls/1/files?per_page=100&page=1`]: f(gu
 const pr = (p) => ({ [`repos/${R}/pulls/1`]: { ...gut()[`repos/${R}/pulls/1`], ...p } });
 
 test.describe("Actions-Updates: Regelprüfung", () => {
-  test.beforeEach(({}, info) => test.skip(info.project.name != "desktop", "einmal genügt"));
-
-  test("Gut-Fall wie PR #136: alle Regeln erfüllt", async () => {
+  test("Gut-Fall wie PR #136: alle Regeln erfüllt", { tag: "@logik" }, async () => {
     const r = await lauf();
     expect(r.ergebnis, r.grund).toBe("ok");
     // annotierter Tag wird über das Tag-Objekt aufgelöst, leichter nicht
@@ -93,7 +91,7 @@ test.describe("Actions-Updates: Regelprüfung", () => {
     expect(r.log).toContain(`repos/${R}/compare/main...${KOPF}`);
   });
 
-  test("Erlaubt-Liste steht an einer Stelle", async () => {
+  test("Erlaubt-Liste steht an einer Stelle", { tag: "@logik" }, async () => {
     const m = await import(pathToFileURL(SKRIPT).href);
     expect(m.ERLAUBTE_BESITZER).toEqual(["actions", "github", "supabase", "dependabot"]);
     expect(m.MINDESTALTER_TAGE).toBe(7);
@@ -149,14 +147,14 @@ test.describe("Actions-Updates: Regelprüfung", () => {
     "Datum unbekannt": [6, { api: { [`repos/supabase/setup-cli/git/commits/${NEU_CLI}`]: { sha: NEU_CLI, committer: {} } } }],
   };
   for (const [name, [regel, fall]] of Object.entries(nein)) {
-    test(`abgelehnt (Regel ${regel}): ${name}`, async () => {
+    test(`abgelehnt (Regel ${regel}): ${name}`, { tag: "@logik" }, async () => {
       const r = await lauf(fall);
       expect(r.ergebnis, r.grund).toBe("abgelehnt");
       expect(r.grund).toMatch(new RegExp(`^Regel ${regel}:`));
     });
   }
 
-  test("Backup-Probe: wartet, bis sie fertig ist", async () => {
+  test("Backup-Probe: wartet, bis sie fertig ist", { tag: "@logik" }, async () => {
     const p = `repos/${R}/actions/runs?head_sha=${KOPF}&event=pull_request&per_page=100`;
     const run = (status, conclusion) => ({ workflow_runs: [{ path: ".github/workflows/vollsicherung-probe.yml", head_repository: { full_name: R }, status, conclusion, run_number: 3 }] });
     const r = await lauf({ folge: { [p]: [{ workflow_runs: [] }, run("queued", null), run("completed", "success")] } });
@@ -164,25 +162,25 @@ test.describe("Actions-Updates: Regelprüfung", () => {
     expect(r.log.filter((x) => x == p)).toHaveLength(3);
   });
 
-  test("Backup-Probe nicht nötig, wenn der PR sie nicht ändert", async () => {
+  test("Backup-Probe nicht nötig, wenn der PR sie nicht ändert", { tag: "@logik" }, async () => {
     const r = await lauf({ api: { ...dateien((f) => [f[0], f[1]]), ...pr({ changed_files: 2 }), [`repos/${R}/actions/runs?head_sha=${KOPF}&event=pull_request&per_page=100`]: { workflow_runs: [] } } });
     expect(r.ergebnis, r.grund).toBe("ok");
   });
 
-  test("hinter main: alle Regeln erfüllt, aber kein Merge", async () => {
+  test("hinter main: alle Regeln erfüllt, aber kein Merge", { tag: "@logik" }, async () => {
     const r = await lauf({ api: { [`repos/${R}/compare/main...${KOPF}`]: { behind_by: 2, ahead_by: 1 } } });
     expect(r.ergebnis).toBe("hinter-main");
     // und nur, wenn die Regeln erfüllt sind
     expect((await lauf({ env: { AKTEUR: "x" }, api: { [`repos/${R}/compare/main...${KOPF}`]: { behind_by: 2 } } })).ergebnis).toBe("abgelehnt");
   });
 
-  test("Fehler der API führen zu abgelehnt", async () => {
+  test("Fehler der API führen zu abgelehnt", { tag: "@logik" }, async () => {
     const r = await lauf({ api: { [`repos/${R}/pulls/1/files?per_page=100&page=1`]: undefined } });
     expect(r.ergebnis).toBe("abgelehnt");
     expect(r.grund).toContain("HTTP 404");
   });
 
-  test("Skript als Programm: schreibt ergebnis in GITHUB_OUTPUT", async () => {
+  test("Skript als Programm: schreibt ergebnis in GITHUB_OUTPUT", { tag: "@logik" }, async () => {
     // ohne Netz: die API-Adresse zeigt auf einen geschlossenen Port, also abgelehnt – entscheidend ist die Ausgabe
     const { spawnSync } = require("child_process");
     const os = require("os");

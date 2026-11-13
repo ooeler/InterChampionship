@@ -32,7 +32,9 @@ async function login(page, user = USER) {
 }
 
 const test = base.test.extend({
-  page: async ({ page }, use) => {
+  page: async ({ page }, use, info) => {
+    // @logik-Tests laufen nur einmal (Projekt logik): wer eine Seite braucht, muss auf allen Geräten laufen
+    if (info.project.name == "logik") throw new Error("Test mit Seite ist als @logik markiert – Markierung entfernen");
     await setup(page);
     await use(page);
   },

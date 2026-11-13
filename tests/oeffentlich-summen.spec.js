@@ -113,7 +113,7 @@ test.describe("Öffentliche Sicht nur mit Summen", () => {
     await expect(card(page, "Rückblick November")).toContainText("Moosburg");
   });
 
-  test("Neueste public_league-Definition gibt keine Namenslisten (p), keine Restaurants (r) und keine Serie (stk) aus", () => {
+  test("Neueste public_league-Definition gibt keine Namenslisten (p), keine Restaurants (r) und keine Serie (stk) aus", { tag: "@logik" }, () => {
     const dir = path.join(__dirname, "..", "supabase", "migrations");
     const defs = fs.readdirSync(dir).sort().map((f) => fs.readFileSync(path.join(dir, f), "utf8"))
       .flatMap((s) => [...s.matchAll(/create or replace function public\.public_league\s*\(\s*\)[\s\S]*?\n\$\$\s*;/gi)].map((m) => m[0]));

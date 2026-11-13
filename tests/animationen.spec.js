@@ -19,7 +19,9 @@ test.describe("Animationen", () => {
     const h = page.locator(".card h3", { hasText: "Spieltage" });
     await h.click(); // zu
     await expect(page.locator(".card.cl")).toHaveCount(1);
-    await page.waitForTimeout(400); // Zuklappen fertig: sonst startet das Aufklappen mitten in der Animation
+    // Zuklappen fertig: sonst startet das Aufklappen mitten in der Animation
+    await expect.poll(() => page.evaluate(() => window.__an.length)).toBe(1);
+    await expect.poll(() => page.locator(".card.cl").evaluate((c) => c.getAnimations().length)).toBe(0);
     await h.click(); // auf
     await expect(page.locator(".card.cl")).toHaveCount(0);
     const [zu, auf, ...rest] = await page.evaluate(() => window.__an);

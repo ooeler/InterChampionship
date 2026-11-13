@@ -407,7 +407,7 @@ test.describe("Issue-Texte (Edge Function feedback)", () => {
   let F;
   test.beforeAll(async () => { F = await import("../supabase/functions/feedback/logic.mjs") });
 
-  test("Issue mit Label, ohne Mail-Adresse, ohne @-Ping", () => {
+  test("Issue mit Label, ohne Mail-Adresse, ohne @-Ping", { tag: "@logik" }, () => {
     const i = F.buildIssue({ kind: "idee", title: "  Dark   Mode  ", text: "Bitte @othmar anschauen" }, { player: "Silvan Frey", role: "player" }, new Date("2026-10-27T10:00:00Z"));
     expect(i.title).toBe("💡 Dark Mode");
     expect(i.labels).toEqual(["verbesserung", "aus-der-app"]);
@@ -416,11 +416,11 @@ test.describe("Issue-Texte (Edge Function feedback)", () => {
     expect(i.body).not.toMatch(/@\w+\.\w+/);
   });
 
-  test("Ohne Spieler-Zuordnung anonym", () => {
+  test("Ohne Spieler-Zuordnung anonym", { tag: "@logik" }, () => {
     expect(F.buildIssue({ kind: "fehler", title: "Absturz" }, { role: "captain" }).body).toContain("von **ein Mitglied** (captain)");
   });
 
-  test("Ungültige Eingaben werden abgelehnt", () => {
+  test("Ungültige Eingaben werden abgelehnt", { tag: "@logik" }, () => {
     expect(() => F.buildIssue({ kind: "spam", title: "Hallo" }, {})).toThrow("Idee oder Fehler");
     expect(() => F.buildIssue({ kind: "idee", title: "x" }, {})).toThrow("3–100");
     expect(() => F.buildIssue({ kind: "idee", title: "ok ok", text: "a".repeat(4001) }, {})).toThrow("4000");
@@ -438,7 +438,7 @@ test.describe("Push-Texte (Edge Function)", () => {
     };
   });
 
-  test("Match Day genau 3 Tage vorher", () => {
+  test("Match Day genau 3 Tage vorher", { tag: "@logik" }, () => {
     expect(L.matchdayMessages(state, "2026-11-01")).toEqual([{
       key: "matchday:2026-11-04", tag: "matchday-2", title: "⚑ Match Day in 3 Tagen!",
       body: "November: Lochball Legenden vs SpVgg Nieder am 04.11.2026", url: "./#spieltag=2",
@@ -447,12 +447,12 @@ test.describe("Push-Texte (Edge Function)", () => {
     expect(L.matchdayMessages(state, "2026-10-25")).toEqual([]); // normales Training, kein Match Day
   });
 
-  test("Doppel-Spieltag wird erwähnt, auch über Monatsgrenzen", () => {
+  test("Doppel-Spieltag wird erwähnt, auch über Monatsgrenzen", { tag: "@logik" }, () => {
     expect(L.matchdayMessages(state, "2026-11-29")[0].body).toContain("zählt doppelt");
     expect(L.matchdayMessages(state, "2027-04-04")[0].body).toBe("April: Lochball Legenden vs SpVgg Nieder am 07.04.2027 – zählt doppelt!");
   });
 
-  test("Resultat-Texte", () => {
+  test("Resultat-Texte", { tag: "@logik" }, () => {
     expect(L.resultMessage(state, 2)).toBeNull();
     state.m[2].res = [4, 2];
     expect(L.resultMessage(state, 2)).toMatchObject({ key: "result:2:4-2", title: "Endstand November", body: "Lochball Legenden 4 : 2 SpVgg Nieder – Sieger: Lochball Legenden" });
@@ -462,7 +462,7 @@ test.describe("Push-Texte (Edge Function)", () => {
     expect(L.resultMessage(state, 7).body).toContain("Sieger: SpVgg Nieder (2 Punkte)");
   });
 
-  test("Trainingsleitung: Erinnerung 2 Tage vorher, nur an den Leiter", () => {
+  test("Trainingsleitung: Erinnerung 2 Tage vorher, nur an den Leiter", { tag: "@logik" }, () => {
     const s = JSON.parse(JSON.stringify(state));
     s.m[2].tr[1].lead = "Silvan Frey"; // 28.10.
     s.m[2].tr[2].lead = "Beat Rentsch"; // 04.11. = Match Day → keine Erinnerung
@@ -474,7 +474,7 @@ test.describe("Push-Texte (Edge Function)", () => {
     expect(L.trainingLeadMessages(s, "2026-11-02")).toEqual([]);
   });
 
-  test("Trainingsleitung: abgemeldeter Leiter soll Ersatz suchen", () => {
+  test("Trainingsleitung: abgemeldeter Leiter soll Ersatz suchen", { tag: "@logik" }, () => {
     const s = JSON.parse(JSON.stringify(state));
     s.m[2].tr[1].lead = "Silvan Frey"; s.m[2].tr[1].ab = ["Silvan Frey"];
     const [m] = L.trainingLeadMessages(s, "2026-10-26");
@@ -482,7 +482,7 @@ test.describe("Push-Texte (Edge Function)", () => {
     expect(m.body).toContain("Ersatz");
   });
 
-  test("Datum in Schweizer Zeit", () => {
+  test("Datum in Schweizer Zeit", { tag: "@logik" }, () => {
     expect(L.zurichDate(new Date("2026-11-03T23:30:00Z"))).toBe("2026-11-04");
     expect(L.addDays("2026-12-30", 3)).toBe("2027-01-02");
   });

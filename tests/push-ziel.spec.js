@@ -21,7 +21,7 @@ test.describe("Ziel-Link pro Push-Nachricht (Edge Function)", () => {
     ],
   });
 
-  test("Training-Nachrichten öffnen „Meine Trainings“, Spieltag-Nachrichten den Spieltag des Monats", () => {
+  test("Training-Nachrichten öffnen „Meine Trainings“, Spieltag-Nachrichten den Spieltag des Monats", { tag: "@logik" }, () => {
     const s = state();
     expect(L.trainingSoonMessages(s, Date.parse("2026-10-27T15:45:00Z"))[0].url).toBe("./#trainings");
     expect(L.trainingSoonMessages(s, Date.parse("2026-11-03T15:45:00Z"))[0]).toMatchObject({ title: "⚑ Morgen ist Match Day", url: "./#spieltag=1" });
@@ -34,7 +34,7 @@ test.describe("Ziel-Link pro Push-Nachricht (Edge Function)", () => {
     expect(L.statsMessages(s, Date.parse("2026-11-05T07:00:00Z"))[0].url).toBe("./#spieltag=1");
   });
 
-  test("notify übernimmt das Ziel der Nachricht und schickt die Unsicher-Erinnerung im Cron „training“", () => {
+  test("notify übernimmt das Ziel der Nachricht und schickt die Unsicher-Erinnerung im Cron „training“", { tag: "@logik" }, () => {
     const src = fs.readFileSync(path.join(ROOT, "supabase/functions/notify/index.ts"), "utf8");
     expect(src).toContain('JSON.stringify({ ...payload, url: payload.url || "./" })');
     expect(src).not.toContain('{ ...payload, url: "./" }');
@@ -60,7 +60,7 @@ test.describe("Erinnerung an die Unsicheren vor dem Abmeldeschluss", () => {
   });
   const at = (s, iso) => L.unsureMessages(s, Date.parse(iso));
 
-  test("2,5 h vor dem Abmeldeschluss, eine Stunde lang, nur an unsichere Spieler", () => {
+  test("2,5 h vor dem Abmeldeschluss, eine Stunde lang, nur an unsichere Spieler", { tag: "@logik" }, () => {
     const s = state();
     // Training 28.10., 18:45 → Abmeldeschluss 27.10., 19:45 (18:45 UTC); Erinnerung ab 17:15 (16:15 UTC)
     expect(at(s, "2026-10-27T16:14:00Z")).toEqual([]);
@@ -79,7 +79,7 @@ test.describe("Erinnerung an die Unsicheren vor dem Abmeldeschluss", () => {
     expect(L.trainingSoonMessages(s, Date.parse("2026-10-27T16:15:00Z"))).toHaveLength(1);
   });
 
-  test("Match Day, Winter Event, Sommer Event und Sommerzeit: Unsicher ist überall wählbar, der Abmeldeschluss gilt überall", () => {
+  test("Match Day, Winter Event, Sommer Event und Sommerzeit: Unsicher ist überall wählbar, der Abmeldeschluss gilt überall", { tag: "@logik" }, () => {
     const s = state();
     expect(at(s, "2026-11-03T16:30:00Z")[0]).toMatchObject({ player: "Beat Rentsch", body: "Match Day Mi, 04.11.2026, 18:45 Uhr: Du bist noch unsicher – Abmeldeschluss heute um 19:45." });
     expect(at(s, "2026-12-08T16:30:00Z")[0]).toMatchObject({ player: "Tobias Keller", body: expect.stringMatching(/^Winter Event Mi, 09\.12\.2026/) });
@@ -90,7 +90,7 @@ test.describe("Erinnerung an die Unsicheren vor dem Abmeldeschluss", () => {
     expect(at(s, "2027-06-29T06:30:00Z")[0]).toMatchObject({ key: "unsure:2027-06-30:Andi Scherrer", player: "Andi Scherrer", title: "❔ Bist du morgen dabei?", body: expect.stringMatching(/^Sommer Event .* Abmeldeschluss heute um 11:00\.$/) });
   });
 
-  test("je Spieler eine eigene Nachricht und ein eigener push_log-Schlüssel", () => {
+  test("je Spieler eine eigene Nachricht und ein eigener push_log-Schlüssel", { tag: "@logik" }, () => {
     const s = state();
     s.m[0].tr[0].st["Beat Rentsch"] = "u";
     const M = at(s, "2026-10-27T16:30:00Z");
@@ -102,7 +102,7 @@ test.describe("Erinnerung an die Unsicheren vor dem Abmeldeschluss", () => {
     expect(at(s, "2026-10-27T16:30:00Z")).toEqual([]);
   });
 
-  test("Empfänger: nur die Geräte der Konten des unsicheren Spielers (Filter vor der Abfrage)", async () => {
+  test("Empfänger: nur die Geräte der Konten des unsicheren Spielers (Filter vor der Abfrage)", { tag: "@logik" }, async () => {
     const tabellen = {
       members: [{ user_id: "s", player: "Silvan Frey" }, { user_id: "s2", player: "Silvan Frey" }, { user_id: "b", player: "Beat Rentsch" }, { user_id: "a", player: null }],
       push_subscriptions: [{ user_id: "s", endpoint: "e/s" }, { user_id: "s2", endpoint: "e/s2" }, { user_id: "b", endpoint: "e/b" }, { user_id: "a", endpoint: "e/a" }],
@@ -122,7 +122,7 @@ test.describe("Erinnerung an die Unsicheren vor dem Abmeldeschluss", () => {
     expect((await L.pushSubsFor(db, state(), m, null)).map((x) => x.endpoint)).toEqual(["e/s", "e/s2"]);
   });
 
-  test("Infos: Regeln nennen die Erinnerung und das Ziel beim Antippen", () => {
+  test("Infos: Regeln nennen die Erinnerung und das Ziel beim Antippen", { tag: "@logik" }, () => {
     const src = fs.readFileSync(path.join(ROOT, "app/js/infos-hall.js"), "utf8");
     const rules = new Function(src.match(/var RULES_MD=[^\n]*/)[0] + "; return RULES_MD")();
     expect(rules).toContain("- **Morgen ist Training** – 26 h vor Beginn, an alle (kurz vor dem Abmeldeschluss).\n- **Bist du dabei?** – 2,5 h vor dem Abmeldeschluss, nur an alle, die noch unsicher sind.\n");
@@ -152,7 +152,7 @@ test.describe("Service Worker: Antippen der Nachricht", () => {
     return w;
   };
 
-  test("App schon offen: nach vorne holen und das Ziel per Nachricht schicken (ohne Neuladen)", async () => {
+  test("App schon offen: nach vorne holen und das Ziel per Nachricht schicken (ohne Neuladen)", { tag: "@logik" }, async () => {
     const w = win(), s = sw([w]);
     await s.click("./#spieltag=2");
     expect(w.focused).toBe(1);
@@ -160,7 +160,7 @@ test.describe("Service Worker: Antippen der Nachricht", () => {
     expect(s.opened).toEqual([]);
   });
 
-  test("App geschlossen: Ziel öffnen; fremde Adressen führen zur Startseite", async () => {
+  test("App geschlossen: Ziel öffnen; fremde Adressen führen zur Startseite", { tag: "@logik" }, async () => {
     let s = sw([]);
     await s.click("./#trainings");
     expect(s.opened).toEqual(["https://app.test/InterChampionship/#trainings"]);

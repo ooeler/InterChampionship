@@ -83,7 +83,7 @@ test.describe("Events", () => {
     await expect(overview(page).locator("[data-allc]")).toHaveCount(0);
   });
 
-  test("Edge Function: keine Leitung am Winter Event, Sommer Event bei An-/Abmeldungen", async () => {
+  test("Edge Function: keine Leitung am Winter Event, Sommer Event bei An-/Abmeldungen", { tag: "@logik" }, async () => {
     const L = await import("../supabase/functions/notify/logic.mjs");
     // ohne gewähltes Datum: 2. Mittwoch im Dezember
     expect(L.isWinterEvent({}, "2026-12-09")).toBe(true);

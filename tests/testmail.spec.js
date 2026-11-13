@@ -31,7 +31,7 @@ test.describe("Test-Mail (Mail-Einrichtung prüfen)", () => {
     await expect(page.locator("[data-tmail]")).toHaveCount(0);
   });
 
-  test("Inhalt: nächstes Training mit Feldspielern und Torhütern, als Test markiert", async () => {
+  test("Inhalt: nächstes Training mit Feldspielern und Torhütern, als Test markiert", { tag: "@logik" }, async () => {
     const L = await import("../supabase/functions/notify/logic.mjs");
     const st = { t: [{ n: "A", p: ["Anna", "Beat"], gk: ["Anna"] }, { n: "B", p: ["Cla"] }],
       m: [{ tr: [{ d: "2026-10-28", p: [] }, { d: "2026-11-11", p: [], lead: "Beat" }, { d: "2026-12-02", p: [] }] }] };
@@ -43,7 +43,7 @@ test.describe("Test-Mail (Mail-Einrichtung prüfen)", () => {
   });
 });
 
-test("Brevo: Absender mit Namen, Spielleitung in Kopie ohne Doppel", async () => {
+test("Brevo: Absender mit Namen, Spielleitung in Kopie ohne Doppel", { tag: "@logik" }, async () => {
   const M = await import("../supabase/functions/_shared/mail.mjs");
   expect(M.mailBody("app@x.ch", { to: ["Beat@x.ch"], cc: ["admin@x.ch", "beat@x.ch", "", "admin@x.ch"], subject: "S", text: "T" }))
     .toEqual({ sender: { name: "Herren Inter", email: "app@x.ch" }, to: [{ email: "Beat@x.ch" }], cc: [{ email: "admin@x.ch" }], subject: "S", textContent: "T" });
@@ -54,7 +54,7 @@ test("Brevo: Absender mit Namen, Spielleitung in Kopie ohne Doppel", async () =>
   expect(await M.sendMail({ to: ["b@x.ch"], subject: "S", text: "T" })).toEqual({ ok: false, error: M.MAIL_MISSING });
 });
 
-test("SMTP (z. B. Mailomat) hat Vorrang vor Brevo, Fehler ohne Passwort", async () => {
+test("SMTP (z. B. Mailomat) hat Vorrang vor Brevo, Fehler ohne Passwort", { tag: "@logik" }, async () => {
   const M = await import("../supabase/functions/_shared/mail.mjs");
   const msg = { to: ["b@x.ch"], cc: ["admin@x.ch", "B@x.ch"], subject: "S", text: "T" };
   expect(M.smtpMessage('"Club" <a@x.ch>', msg)).toEqual({ from: '"Club" <a@x.ch>', to: ["b@x.ch"], cc: ["admin@x.ch"], subject: "S", text: "T" });

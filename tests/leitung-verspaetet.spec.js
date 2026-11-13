@@ -199,7 +199,7 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
   });
   const at = (iso) => Date.parse(iso);
 
-  test("Nachricht nur mit gespeichertem „verspätet“, heute (Zürich) und vor Beginn", () => {
+  test("Nachricht nur mit gespeichertem „verspätet“, heute (Zürich) und vor Beginn", { tag: "@logik" }, () => {
     const st = state();
     const m = L.lateMessage(st, { player: "Silvan Frey", d: "2026-10-28" }, at("2026-10-28T17:10:00Z")); // 18:10 in Zürich
     expect(m).toEqual({ key: "late:2026-10-28:Silvan Frey", tag: "late-2026-10-28", lead: "Beat Rentsch", title: "⏰ Silvan Frey kommt später", body: "Training heute, 18:45 Uhr: Silvan Frey hat sich als verspätet gemeldet.", url: "./#trainings" });
@@ -219,7 +219,7 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
     expect(n).toMatchObject({ lead: null, body: "Training heute, 19:30 Uhr: Silvan Frey hat sich als verspätet gemeldet." });
   });
 
-  test("Empfänger: Konten der Trainingsleitung und Spielleitung, nie die verspätete Person", () => {
+  test("Empfänger: Konten der Trainingsleitung und Spielleitung, nie die verspätete Person", { tag: "@logik" }, () => {
     const mem = [
       { user_id: "a1", role: "admin", player: "Othmar Oeler" }, { user_id: "a2", role: "admin", player: "Silvan Frey" },
       { user_id: "l1", role: "player", player: "Beat Rentsch" }, { user_id: "l2", role: "captain", player: "Beat Rentsch" },
@@ -232,7 +232,7 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
     expect(L.lateRecipients(mem, "Beat Rentsch", "Tobias Keller", "a1")).toEqual(["a2", "l1", "l2"]); // meldende Person nicht
   });
 
-  test("notify: Typ late prüft Mitglied, Spieler, gespeicherten Stand und schickt nur an die Empfänger", () => {
+  test("notify: Typ late prüft Mitglied, Spieler, gespeicherten Stand und schickt nur an die Empfänger", { tag: "@logik" }, () => {
     const src = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/notify/index.ts"), "utf8");
     const b = src.slice(src.indexOf('body.type === "late"'), src.indexOf('body.type === "matchday"'));
     expect(b).toContain("if (!member || !mayNotifyFor(member, body.player)) return json({ error: \"forbidden\" }, 403);");
@@ -243,7 +243,7 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
   });
 });
 
-test("Migration 39: guard_league_state ruft keep_leads für alle ausser der Spielleitung", () => {
+test("Migration 39: guard_league_state ruft keep_leads für alle ausser der Spielleitung", { tag: "@logik" }, () => {
   const dir = path.join(__dirname, "..", "supabase", "migrations");
   const all = fs.readdirSync(dir).sort().map((f) => fs.readFileSync(path.join(dir, f), "utf8"));
   const last = (re) => all.flatMap((s) => [...s.matchAll(re)].map((m) => m[0])).pop();

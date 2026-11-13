@@ -191,7 +191,7 @@ test("Server: ein Spieler kann die Event-Daten nicht ändern, ungültige werden 
   expect(await page.evaluate(() => { const s = fix(def()); s.wev = "2026-02-30"; s.sev = 5; fix(s); return ["wev" in s, "sev" in s] })).toEqual([false, false]);
 });
 
-test("Migration 38: Event-Daten prüfen, nur Spielleitung/Captains ändern, öffentlich mit wev/sev", () => {
+test("Migration 38: Event-Daten prüfen, nur Spielleitung/Captains ändern, öffentlich mit wev/sev", { tag: "@logik" }, () => {
   const dir = path.join(__dirname, "..", "supabase", "migrations");
   const files = fs.readdirSync(dir).sort();
   const all = files.map((f) => fs.readFileSync(path.join(dir, f), "utf8"));

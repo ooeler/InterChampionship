@@ -12,10 +12,16 @@ module.exports = defineConfig({
     trace: "retain-on-failure",
     locale: "de-CH",
   },
+  // Dateien, die zusammen länger als 1 Minute brauchen, erscheinen in der CI als Warnung "Slow Test"
+  reportSlowTests: { max: 10, threshold: 60_000 },
+  // Reine Logiktests (Node-Module, Workflows, Migrationen; ohne Seite) sind mit @logik markiert
+  // und laufen nur einmal im Projekt "logik" statt auf allen drei Geräten.
+  // Welche Projekte in welchem CI-Teil laufen, steht in .github/workflows/ci.yml (geprüft in tests/workflows.spec.js).
   projects: [
-    { name: "android", use: { ...devices["Pixel 7"] } },
-    { name: "iphone", use: { ...devices["iPhone 14"] } },
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    { name: "android", grepInvert: /@logik/, use: { ...devices["Pixel 7"] } },
+    { name: "iphone", grepInvert: /@logik/, use: { ...devices["iPhone 14"] } },
+    { name: "desktop", grepInvert: /@logik/, use: { ...devices["Desktop Chrome"] } },
+    { name: "logik", grep: /@logik/, use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
     // Getestet wird die gebaute App (inkl. Content-Security-Policy) – genau das, was ausgeliefert wird

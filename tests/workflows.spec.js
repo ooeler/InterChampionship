@@ -5,36 +5,36 @@ const path = require("path");
 
 const wf = (n) => fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", n), "utf8");
 
-test("Release: Supabase CLI ist auf eine getestete Version fixiert", () => {
+test("Release: Supabase CLI ist auf eine getestete Version fixiert", { tag: "@logik" }, () => {
   expect(wf("release.yml")).toMatch(/supabase\/setup-cli@[0-9a-f]{40} # v\d+\s+with:\s+version: \d+\.\d+\.\d+/);
 });
 
-test("Release: Migrations-Abfrage versteht beide JSON-Formate der CLI", () => {
+test("Release: Migrations-Abfrage versteht beide JSON-Formate der CLI", { tag: "@logik" }, () => {
   const y = wf("release.yml");
   // v1.1.0 scheiterte an `.rows[0].c`, weil die CLI in GitHub Actions eine Liste liefert
   expect(y).toContain(`jq -r 'if type == "array" then .[0].c else .rows[0].c end'`);
   expect(y).toContain("--agent no");
 });
 
-test("Release: Reihenfolge Backup → Migrationen → Functions → App", () => {
+test("Release: Reihenfolge Backup → Migrationen → Functions → App", { tag: "@logik" }, () => {
   const y = wf("release.yml");
   const i = ["name: Backup vor dem Deployment", "name: Datenbank-Migrationen", "name: Edge Functions", "needs: backend"].map((s) => y.indexOf(s));
   expect(i.every((x) => x > 0)).toBe(true);
   expect([...i].sort((a, b) => a - b)).toEqual(i);
 });
 
-test("Auto-Merge: keine Entwürfe und keine Forks", () => {
+test("Auto-Merge: keine Entwürfe und keine Forks", { tag: "@logik" }, () => {
   const y = wf("auto-merge.yml");
   expect(y).toContain("github.event.pull_request.draft == false");
   expect(y).toContain("github.event.pull_request.head.repo.full_name == github.repository");
 });
 
-test("Tests als Unterablauf brauchen keine Schreibrechte", () => {
+test("Tests als Unterablauf brauchen keine Schreibrechte", { tag: "@logik" }, () => {
   // v1.0.0 scheiterte, weil ein Job in ci.yml Schreibrechte verlangte
   expect(wf("ci.yml")).not.toMatch(/:\s*write/);
 });
 
-test("Release: Backup per SQL, ohne Abhängigkeit von Edge Functions", () => {
+test("Release: Backup per SQL, ohne Abhängigkeit von Edge Functions", { tag: "@logik" }, () => {
   const y = wf("release.yml");
   // v1.1.1 scheiterte, weil das Backup über eine Funktion lief, die selbst einen Fehler hatte
   expect(y).not.toContain("functions/v1/ops");
@@ -44,13 +44,13 @@ test("Release: Backup per SQL, ohne Abhängigkeit von Edge Functions", () => {
   expect(y).toContain(String.raw`"do \$\$`);
 });
 
-test("Release: Funktionstest der Datenbank nach den Migrationen", () => {
+test("Release: Funktionstest der Datenbank nach den Migrationen", { tag: "@logik" }, () => {
   const y = wf("release.yml");
   expect(y.indexOf("name: Funktionstest Datenbank")).toBeGreaterThan(y.indexOf("name: Datenbank-Migrationen"));
   expect(y).toContain("perform public.snapshot_league('Funktionstest')");
 });
 
-test("SQL: Parameter, die wie Spalten heissen, sind eindeutig aufgelöst", () => {
+test("SQL: Parameter, die wie Spalten heissen, sind eindeutig aufgelöst", { tag: "@logik" }, () => {
   const dir = path.join(__dirname, "..", "supabase", "migrations");
   const last = {};
   for (const f of fs.readdirSync(dir).sort()) {
@@ -62,12 +62,12 @@ test("SQL: Parameter, die wie Spalten heissen, sind eindeutig aufgelöst", () =>
   expect(last.snapshot_league.body).toContain("#variable_conflict use_column");
 });
 
-test("Auto-Merge: Entwurfs-Läufe brechen echte Läufe nicht ab", () => {
+test("Auto-Merge: Entwurfs-Läufe brechen echte Läufe nicht ab", { tag: "@logik" }, () => {
   // bei #6 brach ein übersprungener Entwurfs-Lauf den echten Lauf nach "ready for review" ab
   expect(wf("auto-merge.yml")).toContain("group: auto-merge-${{ github.event.pull_request.number }}-${{ github.event.pull_request.draft }}");
 });
 
-test("Vollsicherung: nur lokal und verschlüsselt, Probe nur mit Testdaten", () => {
+test("Vollsicherung: nur lokal und verschlüsselt, Probe nur mit Testdaten", { tag: "@logik" }, () => {
   const s = fs.readFileSync(path.join(__dirname, "..", "scripts", "vollsicherung.sh"), "utf8");
   expect(s).toContain("--symmetric --cipher-algo AES256");
   expect(s).toContain("--schema=auth");
@@ -118,7 +118,7 @@ function konjunktionen(expr) {
 }
 const NUR_MAIN = "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))";
 
-test("Release: Deploy-Jobs nur von main oder Tags v*, Backend nur nach grünen oder belegt übersprungenen Tests", () => {
+test("Release: Deploy-Jobs nur von main oder Tags v*, Backend nur nach grünen oder belegt übersprungenen Tests", { tag: "@logik" }, () => {
   const J = relJobs();
   expect(Object.keys(J)).toEqual(["pruefen", "test", "backend", "pages", "wartung-aus"]);
   for (const j of ["backend", "pages", "wartung-aus"]) {
@@ -151,9 +151,8 @@ test("Release: Deploy-Jobs nur von main oder Tags v*, Backend nur nach grünen o
 });
 
 // Das Skript von "pruefen" läuft mit nachgebauten git/gh/jq: Nur wenn alles belegt ist, steht tests=nein.
-// Unabhängig vom Gerät: läuft nur im Projekt desktop (bash-Aufrufe sind unter Windows langsam).
-test("Release: pruefen setzt tests=nein nur bei gleichem Tree, gemergtem PR und grünen Pflicht-Jobs", ({}, info) => {
-  test.skip(info.project.name != "desktop", "einmal genügt");
+// Unabhängig vom Gerät: läuft nur im Projekt logik (bash-Aufrufe sind unter Windows langsam).
+test("Release: pruefen setzt tests=nein nur bei gleichem Tree, gemergtem PR und grünen Pflicht-Jobs", { tag: "@logik" }, () => {
   test.setTimeout(180_000);
   const { spawnSync } = require("child_process");
   const os = require("os");
@@ -240,7 +239,7 @@ function schritte(job) {
 }
 const schrittName = (s) => (s.match(/name: (.*)/) || [])[1] || (s.match(/uses: (\S+)/) || [])[1];
 
-test("Auto-Merge: Regelprüfung mit Leserechten, Skript vom Basis-Stand, GH_TOKEN nur in schreibenden Schritten", () => {
+test("Auto-Merge: Regelprüfung mit Leserechten, Skript vom Basis-Stand, GH_TOKEN nur in schreibenden Schritten", { tag: "@logik" }, () => {
   const y = wf("auto-merge.yml");
   expect(y).toMatch(/^permissions:\n  contents: read\n\n/m);
   const J = relJobs("auto-merge.yml");
@@ -272,8 +271,7 @@ test("Auto-Merge: Regelprüfung mit Leserechten, Skript vom Basis-Stand, GH_TOKE
 });
 
 // Das Skript "Art der Änderung bestimmen" mit verschiedenen Branches und Ergebnissen der Regelprüfung
-test("Auto-Merge: Actions-Updates nur bei Regelprüfung ok, ohne Release; hinter main kein Merge", ({}, info) => {
-  test.skip(info.project.name != "desktop", "einmal genügt");
+test("Auto-Merge: Actions-Updates nur bei Regelprüfung ok, ohne Release; hinter main kein Merge", { tag: "@logik" }, () => {
   const { spawnSync } = require("child_process");
   const os = require("os");
   const run = block(schritte(relJobs("auto-merge.yml").merge)[0], "        run: |");
@@ -303,7 +301,28 @@ test("Auto-Merge: Actions-Updates nur bei Regelprüfung ok, ohne Release; hinter
   }
 });
 
-test("Dependabot: Actions-Updates mit 7 Tagen Wartezeit", () => {
+test("Dependabot: Actions-Updates mit 7 Tagen Wartezeit", { tag: "@logik" }, () => {
   const d = fs.readFileSync(path.join(__dirname, "..", ".github", "dependabot.yml"), "utf8").replace(/\r/g, "");
   expect(d).toMatch(/- package-ecosystem: github-actions\n(    .*\n)*    cooldown:\n      default-days: 7\n/);
+});
+
+// Die Testteile in ci.yml decken jedes Playwright-Projekt genau einmal und vollständig ab
+test("Tests: jedes Projekt läuft in genau einer Gruppe, jede Gruppe vollständig aufgeteilt", { tag: "@logik" }, () => {
+  const ci = wf("ci.yml").replace(/\r/g, "");
+  const teile = [...ci.matchAll(/- \{ teil: (\d+), projekte: "([^"]*)", shard: (\d+)\/(\d+) \}/g)]
+    .map(([, teil, p, n, von]) => ({ teil: +teil, projekte: [...p.matchAll(/--project=(\S+)/g)].map((x) => x[1]).sort().join(" "), n: +n, von: +von }));
+  expect(teile.length).toBeGreaterThan(1);
+  expect(ci).toContain(`name: test (Teil \${{ matrix.teil }}/${teile.length})`);
+  expect(teile.map((t) => t.teil)).toEqual(teile.map((_, i) => i + 1));
+  expect(ci).toMatch(/PROJEKTE: \$\{\{ matrix\.projekte \}\}\n\s+SHARD: \$\{\{ matrix\.shard \}\}\n\s+run: npx playwright test \$PROJEKTE --shard="\$SHARD"\n/);
+  const gruppen = {};
+  for (const t of teile) (gruppen[t.projekte] ??= []).push(t);
+  for (const [g, L] of Object.entries(gruppen)) {
+    expect(L.map((t) => `${t.n}/${t.von}`), g).toEqual(L.map((_, i) => `${i + 1}/${L.length}`));
+  }
+  const inCi = Object.keys(gruppen).flatMap((g) => g.split(" ")).sort();
+  const konfiguriert = require("../playwright.config.js").projects.map((p) => p.name).sort();
+  expect(inCi).toEqual(konfiguriert); // jedes Projekt genau einmal, keines vergessen
+  // Der Pflicht-Check heisst weiterhin "test" und sammelt alle Teile ein
+  expect(ci).toMatch(/\n  test:\n    # Sammelt die \d+ Teile[^\n]*\n    needs: shard\n    if: always\(\)\n/);
 });

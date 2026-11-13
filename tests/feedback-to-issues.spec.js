@@ -26,7 +26,7 @@ function fakeFetch({ pending = [], githubStatus = 201, opsStatus = 200 } = {}) {
 let run;
 test.beforeAll(async () => { ({ run } = await import("../scripts/feedback-to-issues.mjs")) });
 
-test("legt Issues mit dem GitHub-Actions-Token an und meldet sie zurück", async () => {
+test("legt Issues mit dem GitHub-Actions-Token an und meldet sie zurück", { tag: "@logik" }, async () => {
   const items = [{ id: 1, title: "💡 Dark Mode", body: "Bitte", labels: ["verbesserung", "aus-der-app"] }, { id: 2, title: "🐞 Fehler", body: "x", labels: ["fehler", "aus-der-app"] }];
   const { f, calls } = fakeFetch({ pending: items });
   expect(await run({ env: ENV, fetch: f, log: () => {} })).toBe(2);
@@ -39,13 +39,13 @@ test("legt Issues mit dem GitHub-Actions-Token an und meldet sie zurück", async
   expect(calls[0].auth).toBe("Bearer geheim");
 });
 
-test("ohne neue Vorschläge passiert nichts", async () => {
+test("ohne neue Vorschläge passiert nichts", { tag: "@logik" }, async () => {
   const { f, calls } = fakeFetch();
   expect(await run({ env: ENV, fetch: f, log: () => {} })).toBe(0);
   expect(calls.map((c) => c.body.action)).toEqual(["pending", "open"]);
 });
 
-test("GitHub-Fehler wird gespeichert und lässt den Lauf fehlschlagen", async () => {
+test("GitHub-Fehler wird gespeichert und lässt den Lauf fehlschlagen", { tag: "@logik" }, async () => {
   const { f, calls } = fakeFetch({ pending: [{ id: 5, title: "x", body: "y", labels: [] }], githubStatus: 401 });
   await expect(run({ env: ENV, fetch: f, log: () => {} })).rejects.toThrow("1 Vorschläge konnten nicht");
   const failed = calls.find((c) => c.body.action === "failed");
@@ -53,12 +53,12 @@ test("GitHub-Fehler wird gespeichert und lässt den Lauf fehlschlagen", async ()
   expect(failed.body.error).toContain("401");
 });
 
-test("nicht erreichbare Supabase-Funktion lässt den Lauf fehlschlagen", async () => {
+test("nicht erreichbare Supabase-Funktion lässt den Lauf fehlschlagen", { tag: "@logik" }, async () => {
   const { f } = fakeFetch({ opsStatus: 403 });
   await expect(run({ env: ENV, fetch: f, log: () => {} })).rejects.toThrow("HTTP 403");
 });
 
-test("Workflow nutzt keinen persönlichen Token und hat Issue-Schreibrecht", async () => {
+test("Workflow nutzt keinen persönlichen Token und hat Issue-Schreibrecht", { tag: "@logik" }, async () => {
   const yml = require("fs").readFileSync(require("path").join(__dirname, "..", ".github", "workflows", "feedback-issues.yml"), "utf8");
   expect(yml).toContain("issues: write");
   expect(yml).toContain("secrets.GITHUB_TOKEN");
@@ -66,7 +66,7 @@ test("Workflow nutzt keinen persönlichen Token und hat Issue-Schreibrecht", asy
   expect(yml).toMatch(/cron: "\*\/10 \* \* \* \*"/);
 });
 
-test("meldet geschlossene Issues: umgesetzt informiert, ältere und abgelehnte nicht", async () => {
+test("meldet geschlossene Issues: umgesetzt informiert, ältere und abgelehnte nicht", { tag: "@logik" }, async () => {
   const calls = [];
   const issues = {
     10: { state: "closed", state_reason: "completed", closed_at: "2026-10-31T08:00:00Z" },

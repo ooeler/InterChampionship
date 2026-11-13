@@ -60,7 +60,7 @@ test.describe("Datenschutz", () => {
     await expect(page.locator("#abf")).toContainText("Er wird 30 Tage nach dem Training gelöscht");
   });
 
-  test("Migration: öffentliche Lesepolitik weg, Löschauftrag eingeplant", async () => {
+  test("Migration: öffentliche Lesepolitik weg, Löschauftrag eingeplant", { tag: "@logik" }, async () => {
     const sql = fs.readFileSync(path.join(__dirname, "../supabase/migrations/20261031_24_datenschutz.sql"), "utf8");
     expect(sql).toContain(`drop policy if exists "Saison öffentlich lesen"`);
     expect(sql).toMatch(/cron\.schedule\('absence-reasons-purge'/);
