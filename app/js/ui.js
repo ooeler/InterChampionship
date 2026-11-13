@@ -67,8 +67,9 @@ if(D.view!=null){VIEW=D.view=="player"?"player":"";try{VIEW?localStorage.setItem
 if(D.mdel){var du=(MEM||[]).filter(function(x){return x.user_id==D.mdel})[0];if(!du||!confirm("Benutzer „"+du.email+"“ endgültig löschen?\n\nDas Konto wird entfernt und kann sich nicht mehr anmelden. Spieler, Statistik und Strafen bleiben erhalten."))return;d.disabled=true;sb.rpc("delete_member",{uid:D.mdel}).then(function(r){if(r.error){d.disabled=false;alert(r.error.message);return}MEM=null;render()});return}
 if(D.um){umTog();return}
 if(D.myprof){umTog(false);PROF=PLAYER||null;PROFE=true;loadProf();render();return}
-if(D.lo){umTog(false);PROF=null;PROFE=false;if(confirm("Abmelden?")){stop();ROLE="player";PLAYER=null;MEM=null;PEN=null;CAT=null;CATE=null;ABS=null;TCH=null;ABF=null;HS=null;HP={};AP={};HE=null;HLB=null;STRAF=false;RESTO=false;REAL={role:"player",resto:false,strafen:false};HIST=null;SM=false;tab="rang";try{localStorage.removeItem("ic_state");localStorage.removeItem("ic_base");localStorage.removeItem("ic_dirty")}catch(e){}BASE=null;S=fix(def());var so=function(){sb.auth.signOut()};
-if(PUSH===true)navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription()}).then(function(s){return s&&sb.from("push_subscriptions").delete().eq("endpoint",s.endpoint).then(function(){return s.unsubscribe()})}).then(so,so);else so();PUSH=null;PREV=null}return}
+if(D.lo){umTog(false);PROF=null;PROFE=false;if(!confirm("Abmelden?"))return;if(!isDirty()){logout();return}
+// Offene Änderung zuerst speichern; klappt das nicht, nachfragen statt sie still zu verwerfen
+clearTimeout(tm);tm=null;push().then(null,function(){}).then(function(){if(isDirty()&&!confirm("Es gibt ungespeicherte Änderungen, die gerade nicht gespeichert werden konnten (z. B. keine Verbindung).\n\nTrotzdem abmelden? Die Änderungen gehen dann verloren."))return;logout()});return}
 if(D.sm){SM=!SM}
 else if(D.tab){SPED=-1;TED=-1;PROF=null;if(D.tab=="train"&&tab!="train"){PEN=null;ABS=null}if(D.tab=="hall"&&tab!="hall"){HS=null;HP={};HLB=null}tab=D.tab;scrollTo(0,0)}else if(D.c){cur=+D.c;SPED=-1;ot=nxt(S.m[cur])}
 else if(D.ot!=null){ot=ot===+D.ot?-1:+D.ot}
@@ -104,3 +105,6 @@ document.addEventListener("touchstart",function(e){x0=null;if(e.touches.length!=
 if(!e.target.closest||!e.target.closest("#app")||(m&&!m.hidden)||t.clientX<24||t.clientX>innerWidth-24||hscroll(e.target))return;x0=t.clientX;y0=t.clientY},{passive:true});
 document.addEventListener("touchend",function(e){if(x0==null)return;var t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*2)return;
 var B=[].slice.call(document.querySelectorAll("#nav [data-tab]")),i=B.findIndex(function(b){return b.dataset.tab==tab}),n=B[i+(dx<0?1:-1)];if(i>=0&&n)n.click()},{passive:true})})();
+// Aus der App abmelden: lokale Daten und Rollen zurücksetzen, Push-Abo dieses Geräts entfernen
+function logout(){stop();noRetry();ROLE="player";PLAYER=null;MEM=null;PEN=null;CAT=null;CATE=null;ABS=null;TCH=null;ABF=null;HS=null;HP={};AP={};HE=null;HLB=null;STRAF=false;RESTO=false;REAL={role:"player",resto:false,strafen:false};HIST=null;SM=false;tab="rang";try{localStorage.removeItem("ic_state");localStorage.removeItem("ic_base");localStorage.removeItem("ic_dirty")}catch(e){}BASE=null;S=fix(def());var so=function(){sb.auth.signOut()};
+if(PUSH===true)navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription()}).then(function(s){return s&&sb.from("push_subscriptions").delete().eq("endpoint",s.endpoint).then(function(){return s.unsubscribe()})}).then(so,so);else so();PUSH=null;PREV=null}

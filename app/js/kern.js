@@ -51,17 +51,28 @@ function setBase(d){BASE=clone(d);try{localStorage.setItem("ic_base",JSON.string
 function adopt(d){S=fix(d);setBase(S);store()}
 function idle(){return !document.activeElement||!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)}
 function save(){store();sq++;try{localStorage.setItem("ic_dirty","1")}catch(e){}clearTimeout(tm);tm=setTimeout(push,400)}
-// Speichern fehlgeschlagen (z. B. offline): einmal Bescheid geben; nachgeholt wird beim nächsten Speichern oder sobald wieder online
-var SFAIL=false;function saveFail(r){if(r&&r.error&&!SFAIL){SFAIL=true;toast("⚠️ Nicht gespeichert – keine Verbindung. Wird automatisch nachgeholt, sobald du wieder online bist.")}return r}
-function push(n){tm=null;if(!sb||!me||NEWER||MAINT)return Promise.resolve({});var s=sq,mine=clone(S);return sb.from("league_state").select("data,updated_at").eq("id","main").maybeSingle().then(function(q){if(q.error)return saveFail(q);
+// Speichern fehlgeschlagen (offline oder wiederholter Konflikt): einmal Bescheid geben; nachgeholt wird automatisch (siehe later)
+var SFAIL=false;function saveFail(r){if(r&&r.error&&!SFAIL){SFAIL=true;toast(r.error.conflict?"⏳ Andere haben gleichzeitig gespeichert. Deine Änderung ist noch nicht gespeichert und wird automatisch nachgeholt.":"⚠️ Nicht gespeichert – keine Verbindung. Wird automatisch nachgeholt, sobald du wieder online bist.")}return r}
+// Speichern mit Nachholen: PIF zählt laufende Speichervorgänge. Bleibt danach eine Änderung offen, steht im Kopf
+// „Noch nicht gespeichert“, und es wird mit wachsender Pause (2 s, 5 s, 15 s, dann jede Minute) erneut zusammengeführt und gespeichert.
+var PIF=0,RT=null,RN=0,RD=[2e3,5e3,15e3,6e4];
+function push(n){tm=null;if(!sb||!me||NEWER||MAINT)return Promise.resolve({});PIF++;return push1(n||0).then(function(r){PIF--;later(r);return r},function(e){PIF--;later({error:e||{}});throw e})}
+function later(r){if(!isDirty()){RN=0;clearTimeout(RT);RT=null;pend(false);return}if(tm||PIF||!(r&&r.error))return;pend(true);clearTimeout(RT);
+RT=setTimeout(function(){RT=null;if(isDirty()&&!tm&&!PIF&&me)push()},RD[Math.min(RN++,RD.length-1)])}
+function pend(on){var e=document.getElementById("sync");if(e)e.hidden=!on}
+function noRetry(){clearTimeout(RT);RT=null;RN=0;SFAIL=false;pend(false)}
+function push1(n){var s=sq,mine=clone(S);return sb.from("league_state").select("data,updated_at").eq("id","main").maybeSingle().then(function(q){if(q.error)return saveFail(q);
 var sv=q.data,cas=sv&&sv.updated_at,d=sv?fix(merge3(BASE||sv.data,mine,sv.data)):mine,row={data:d,client:CID,updated_by:me.id,updated_at:new Date().toISOString()};
 return (cas?sb.from("league_state").update(row).eq("id","main").eq("updated_at",sv.updated_at).select("id"):sb.from("league_state").upsert(Object.assign({id:"main"},row))).then(function(r){
 // Vom Server abgelehnt (fehlende Rechte): nicht endlos neu versuchen, sondern den gültigen Stand laden
-if(r.error){if(/Nur Admins|Ungültige Daten/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return saveFail(r)}SFAIL=false;
-// Jemand anderes war schneller: mit dem neuen Stand nochmals zusammenführen
-if(cas&&!(r.data&&r.data.length))return (n||0)<3?push((n||0)+1):r;
-var more=s!=sq,neu=!same(d,mine);setBase(d);S=fix(more?merge3(mine,S,d):clone(d));store();if(!more)try{localStorage.removeItem("ic_dirty")}catch(e){}if(neu&&idle())render();return r})})}
+if(r.error){if(/Nur Admins|Ungültige Daten/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return saveFail(r)}
+// Jemand anderes war schneller: mit dem neuen Stand nochmals zusammenführen. Nach drei Wiederholungen als Fehler melden,
+// damit die Änderung nicht still ungespeichert bleibt (später erneut, siehe later)
+if(cas&&!(r.data&&r.data.length))return n<3?push1(n+1):saveFail({data:r.data,error:{message:"Konflikt beim Speichern",conflict:true}});
+SFAIL=false;var more=s!=sq,neu=!same(d,mine);setBase(d);S=fix(more?merge3(mine,S,d):clone(d));store();if(!more)try{localStorage.removeItem("ic_dirty")}catch(e){}if(neu&&idle())render();return r})})}
 function isDirty(){try{return!!localStorage.getItem("ic_dirty")}catch(e){return false}}
-var TD=(function(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})(new Date());
+// Tagesdatum (lokal). Eine installierte PWA bleibt oft tagelang offen: newDay() (start.js) setzt TD neu, sobald ein neuer Tag ist
+function heute(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+var TD=heute();
 function nxt(m){var i=m.tr.findIndex(function(x){return x.d>=TD});return i<0?m.tr.length-1:i}
 function isMD(d){return S.m.some(function(m){return m.tr.length&&m.tr[m.tr.length-1].d==d})}
