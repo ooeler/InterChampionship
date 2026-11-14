@@ -127,3 +127,13 @@ nav button.on i{animation:pop .3s ease-out}
 
 /* Rangliste: Name öffnet das Spielerprofil (nur Mitglieder) */
 .rpl{flex:none;display:inline;min-height:0;padding:0;text-decoration:none}
+
+/* Restaurant-Donut (Rangliste): feste Farbreihenfolge, geprüft auf Farbsehschwäche (hell/dunkel je eigene Stufen) */
+:root{--rs1:#2a78d6;--rs2:#eb6834;--rs3:#1baf7a;--rs4:#eda100;--rs5:#e87ba4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--rs1:#3987e5;--rs2:#d95926;--rs3:#199e70;--rs4:#c98500;--rs5:#d55181}}
+:root[data-theme="dark"]{--rs1:#3987e5;--rs2:#d95926;--rs3:#199e70;--rs4:#c98500;--rs5:#d55181}
+.rsw{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 8px}
+.rsd{width:140px;height:140px;flex:none}.rsd .rsa{transition:stroke-width .15s}.rsd .rsa:hover{stroke-width:26}
+.rsn{font-size:22px;font-weight:700;fill:var(--tx)}.rsl{font-size:11px;fill:var(--mu)}
+.rsg{flex:1;min-width:160px}.rsi{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--ln)}.rsi:last-child{border-bottom:0}
+.rsi i{width:12px;height:12px;border-radius:3px;flex:none}.rsi .nm{flex:1;min-width:0}.rsi .sp{width:3.2em;text-align:right}
