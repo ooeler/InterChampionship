@@ -5,7 +5,7 @@
 //   { action: "failed", id, error }                – Anlegen fehlgeschlagen (wird beim nächsten Lauf nicht erneut versucht)
 //   { action: "open" }                             – erfasste Vorschläge, deren Issue noch offen sein könnte
 //   { action: "closed", id, completed, notify }    – Issue geschlossen; bei completed + notify bekommt die Person eine Mail
-import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 import { safeEqual } from "../_shared/sicherheit.mjs";
 import { sendMail } from "../_shared/mailer.ts";
 

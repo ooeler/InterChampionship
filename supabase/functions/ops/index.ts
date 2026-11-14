@@ -2,7 +2,7 @@
 // Header: Authorization: Bearer <CRON_SECRET>   (GitHub-Secret SUPABASE_CRON_SECRET)
 //   { action: "health" }                    – prüft den Datenbankzugriff
 //   { action: "snapshot", reason: "…" }     – Backup der Saison-Daten (z. B. vor jedem Release)
-import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 import { safeEqual } from "../_shared/sicherheit.mjs";
 
 const json = (b: unknown, status = 200) =>
