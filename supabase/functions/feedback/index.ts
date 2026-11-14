@@ -2,7 +2,7 @@
 // Nur für eingeloggte Mitglieder, max. DAILY_LIMIT pro Person und Tag.
 // Der Vorschlag wird in der Tabelle "feedback" gespeichert; GitHub Actions (feedback-issues.yml)
 // legt daraus alle 10 Minuten das GitHub-Issue an – ohne persönliches GitHub-Token.
-import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 import { buildIssue, DAILY_LIMIT } from "./logic.mjs";
 
 const cors = {

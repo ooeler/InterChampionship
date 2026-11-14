@@ -6,7 +6,7 @@
 //   Eingeladene Person (ohne Login, mit Token aus dem Link):
 //     { action: "check", token }                  → { player, role }
 //     { action: "join", token, email, password }  → legt das Konto an, setzt Rolle und Spieler
-import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 import { checkInvite, checkJoin, checkToken, hashToken, INVITE_DAYS, joinError, newToken } from "./logic.mjs";
 
 const cors = {

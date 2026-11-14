@@ -22,7 +22,7 @@
 import * as webpushNs from "npm:web-push@4.0.0";
 // deno-lint-ignore no-explicit-any
 const webpush: any = (webpushNs as any).default ?? webpushNs;
-import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mailer.ts";
 import { lateMessage, lateRecipients, statsMessages, pushSubsFor, leadMailMessages, leadPushMessages, mayNotifyFor, testLeadMail, matchdayMessages, resultMessage, signupMessage, trainingLeadMessages, trainingSoonMessages, unsureMessages, zurichDate } from "./logic.mjs";
