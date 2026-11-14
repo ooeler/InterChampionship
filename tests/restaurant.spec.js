@@ -80,11 +80,19 @@ test.describe("Restaurant", () => {
     await login(page);
     await page.click("nav [data-tab=rang]");
     const card = page.locator(".card", { has: page.locator("h3", { hasText: /^Restaurants$/ }) });
-    await expect(card.locator(".row")).toHaveCount(5);
-    await expect(card.locator(".row").first()).toContainText("Rössli");
-    await expect(card.locator(".row").first().locator("b")).toHaveText("3×");
-    await card.locator("[data-more='Restaurants']").click();
-    await expect(card.locator(".row")).toHaveCount(6);
+    // Donut mit den 5 häufigsten Lokalen + „Andere“, Legende mit Anzahl und Anteil
+    await expect(card.locator("svg.rsd circle.rsa")).toHaveCount(6);
+    await expect(card.locator("svg.rsd")).toHaveAttribute("aria-label", /Rössli 3×/);
+    const leg = card.locator(".rsi");
+    await expect(leg).toHaveCount(6);
+    await expect(leg.first()).toContainText("Rössli");
+    await expect(leg.first().locator("b")).toHaveText("3×");
+    await expect(leg.first()).toContainText("33 %");
+    await expect(leg.last()).toContainText("Andere (1)");
+    await expect(card.locator("[data-ra]")).toHaveCount(0);
+    await card.locator("[data-more='Restaurants']").click(); // alle Lokale als Liste
+    await expect(card.locator("[data-ra]")).toHaveCount(6);
+    await expect(card.locator("[data-ra]").first()).toContainText("Rössli");
   });
 });
 
