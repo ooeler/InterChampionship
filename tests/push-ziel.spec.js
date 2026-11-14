@@ -227,3 +227,9 @@ test.describe("App: Ziel bei bereits offener App", () => {
     expect(await page.evaluate(() => window.__ohneNeuladen)).toBe(1);
   });
 });
+
+test("notify bindet web-push als Namensraum ein (web-push 4 hat keinen Default-Export)", { tag: "@logik" }, () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../supabase/functions/notify/index.ts"), "utf8");
+  expect(src).toMatch(/import \* as webpushNs from "npm:web-push@\d+\.\d+\.\d+";/);
+  expect(src).not.toMatch(/import webpush from "npm:web-push/);
+});
