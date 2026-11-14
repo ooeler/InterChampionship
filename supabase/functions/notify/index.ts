@@ -18,7 +18,10 @@
 //                                    (nicht an die Person selbst). Nur heute (Zürich) und vor Beginn, nur wenn der gespeicherte Stand
 //                                    den Spieler als verspätet zeigt; für andere nur Spielleitung und Captains; eine Nachricht pro Spieler und Training.
 // Jede Nachricht wird nur einmal verschickt (Tabelle push_log).
-import webpush from "npm:web-push@3.6.7";
+// web-push 4 ist ein reines ES-Modul ohne Default-Export: Namensraum-Import (mit Rückfall auf default für ältere Versionen)
+import * as webpushNs from "npm:web-push@4.0.0";
+// deno-lint-ignore no-explicit-any
+const webpush: any = (webpushNs as any).default ?? webpushNs;
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { safeEqual, pushSubOk } from "../_shared/sicherheit.mjs";
 import { mailReady, sendMail } from "../_shared/mailer.ts";
