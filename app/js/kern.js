@@ -36,15 +36,41 @@ var BASE=null;
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function same(a,b){return JSON.stringify(a)==JSON.stringify(b)}
 function isObj(x){return !!x&&typeof x=="object"&&!Array.isArray(x)}
-function mgList(b,m,t,id){var B=Array.isArray(b)?b:[],has=function(L,x){return L.some(function(y){return id(y)==id(x)})},get=function(L,x){return L.filter(function(y){return id(y)==id(x)})[0]},r=[];t.forEach(function(x){if(!has(B,x)||has(m,x))r.push(has(m,x)?merge3(get(B,x),get(m,x),x):x)});m.forEach(function(x){if(!has(r,x)&&!has(B,x))r.push(x)});return r}
-function merge3(b,m,t){if(same(m,b))return t;if(same(t,b)||same(m,t))return m;
-if(Array.isArray(m)&&Array.isArray(t)){var A=m.concat(t);if(A.every(function(x){return x===null||typeof x!="object"}))return mgList(b,m,t,function(x){return x});
-var k=["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]});
+// Echte Konflikte (dasselbe Feld auf beiden Seiten verschieden geändert): mit o={c:[]} werden sie in o.c gesammelt ({p:Pfad, b:Basis, m:mein Wert, t:gespeichert}).
+// o.pick(c) entscheidet pro Konflikt: true = mein Wert, false = der gespeicherte. Ohne o oder o.pick gilt wie bisher der eigene Wert.
+function kfl(o,p,b,m,t,x){if(!o)return m;var c={p:p,b:b,m:m,t:t};if(x)c.x=1;o.c.push(c);return o.pick&&!o.pick(c)?t:m}
+// Listen mit Schlüssel (Trainings nach Datum, Gäste) bzw. Mengen (Namenslisten): Hinzufügen und Entfernen verschiedener Einträge ist kein Konflikt.
+// Löscht eine Seite einen Eintrag, den die andere geändert hat, ist das ein Konflikt (x: ganzer Eintrag).
+function mgList(b,m,t,id,o,p){var B=Array.isArray(b)?b:[],has=function(L,x){return L.some(function(y){return id(y)==id(x)})},get=function(L,x){return L.filter(function(y){return id(y)==id(x)})[0]},r=[];
+t.forEach(function(x){if(has(m,x))r.push(merge3(get(B,x),get(m,x),x,o,p.concat(id(x))));else if(!has(B,x))r.push(x);else if(!same(get(B,x),x)&&kfl(o,p.concat(id(x)),get(B,x),undefined,x,1)!==undefined)r.push(x)});
+m.forEach(function(x){if(has(r,x))return;if(!has(B,x)||!has(t,x)&&!same(get(B,x),x)&&kfl(o,p.concat(id(x)),get(B,x),x,undefined,1)!==undefined)r.push(x)});return r}
+function merge3(b,m,t,o,p){p=p||[];if(same(m,b))return t;if(same(t,b)||same(m,t))return m;
+if(Array.isArray(m)&&Array.isArray(t)){var A=m.concat(t);if(A.every(function(x){return x===null||typeof x!="object"})){
+// Zahlenpaare (Resultat, Pre-Game) sind ein Feld; Namenslisten (Anwesenheit, Abmeldungen, Spieler) sind Mengen
+if(A.some(function(x){return x===null||typeof x=="number"}))return kfl(o,p,b,m,t);return mgList(b,m,t,function(x){return x},o,p)}
+// Die beiden Teams (S.t) gehören an ihre Stelle, auch wenn ein Teamname ändert
+var k=p.length==1&&p[0]=="t"?null:["d","k","n"].filter(function(q){return A.every(function(x){return isObj(x)&&x[q]!=null})})[0];if(k){var r=mgList(b,m,t,function(x){return x[k]},o,p);
 // Trainings eines Monats: rein nach Datum – der späteste Termin ist der Match Day (siehe sortBlock)
 return k=="d"?r.sort(function(x,y){return x.d<y.d?-1:1}):r}
-if(m.length==t.length)return m.map(function(x,i){return merge3(Array.isArray(b)?b[i]:undefined,x,t[i])});return m}
-if(isObj(m)&&isObj(t)){var o={},B=isObj(b)?b:{};Object.keys(m).concat(Object.keys(t)).forEach(function(q){var v=merge3(B[q],m[q],t[q]);if(v!==undefined)o[q]=v});return o}
-return m}
+if(m.length==t.length)return m.map(function(x,i){return merge3(Array.isArray(b)?b[i]:undefined,x,t[i],o,p.concat(i))});return kfl(o,p,b,m,t)}
+if(isObj(m)&&isObj(t)){var R={},B=isObj(b)?b:{},Q=Object.keys(m);Object.keys(t).forEach(function(q){if(Q.indexOf(q)<0)Q.push(q)});Q.forEach(function(q){var v=merge3(B[q],m[q],t[q],o,p.concat(q));if(v!==undefined)R[q]=v});return R}
+return kfl(o,p,b,m,t)}
+// Lesbare Beschreibung eines Konflikts für die Rückfrage
+function kDat(d){return /^\d{4}-\d{2}-\d{2}$/.test(d)?d.split("-").reverse().join("."):String(d)}
+function kTr(q,w){var F={st:"Status",p:"Anwesenheit",ab:"Abmeldungen",lead:"Leitung",r:"Restaurant",t:"Zeit",n:"Anzahl Anwesende",gs:"Gäste",d:"Datum"},f=F[q[0]];return (f?f+(q[0]=="st"&&q[1]!=null?" "+q[1]:"")+" ":"")+w}
+function kName(p){var i=p[1],M=MON[i]||"";
+if(p[0]=="m"){if(p[2]=="tr")return p.length>3?kTr(p.slice(4),"Training "+kDat(p[3])):"Trainings "+M;if(p[2]=="g"||p[2]=="a")return "Skorer "+M+(p[3]!=null?" ("+p[3]+", "+(p[2]=="g"?"Tore":"Assists")+")":"");
+return ({res:"Resultat",pre:"Pre-Game",ref:"Schiedsrichter",ff:"Forfait",kp:"Torhüter",gs:"Gäste",base:"Anwesenheit Vorsaison",anw:"Anwesenheit"}[p[2]]||"Spieltag")+" "+M}
+if(p[0]=="evt")return kTr(p.slice(1),"Event");
+if(p[0]=="t"){var T=S.t[i]&&S.t[i].n||"Team "+(i+1);return p[2]=="n"?"Teamname ("+T+")":({p:"Spieler",c:"Captain",gk:"Torhüter",img:"Teambild"}[p[2]]||"Team")+" "+T}
+return {info:"Infos",wev:"Datum Winter Event",sev:"Datum Sommer Event",sn:"Saisonname",logo:"Club-Logo",sp:"Teamsponsor-Bild"}[p[0]]||"Feld "+p.join(" › ")}
+function kVal(v,c){if(v===undefined||v===null||v==="")return c.x?"gelöscht":"leer";if(Array.isArray(v)){if(v.every(function(x){return x===null||typeof x=="number"}))return v.map(function(x){return x==null?"–":x}).join(" : ");
+if(v.every(function(x){return typeof x=="string"}))return v.length?kCut(v.join(", ")):"niemand";return "geändert"}
+if(typeof v=="object")return c.x?"vorhanden":"geändert";if(typeof v=="boolean")return v?"ja":"nein";if(c.p[c.p.length-2]=="st")return {u:"unsicher",v:"verspätet"}[v]||String(v);
+if(typeof v=="string"&&/^data:/.test(v))return "Bild";return typeof v=="string"?"„"+kCut(v)+"“":String(v)}
+function kCut(s){s=String(s).replace(/\s+/g," ").trim();return s.length>40?s.slice(0,39)+"…":s}
+function kText(C){var L=C.slice(0,5).map(function(c){return "• "+kName(c.p)+": dein Wert "+kVal(c.m,c)+", gespeichert "+kVal(c.t,c)});if(C.length>5)L.push("… und "+(C.length-5)+" weitere");
+return "Jemand anderes hat gleichzeitig dieselben Felder geändert:\n\n"+L.join("\n")+"\n\nMit deinen Werten überschreiben?\n\nOK: deine Werte gelten.\nAbbrechen: die gespeicherten Werte bleiben. Deine übrigen Änderungen werden so oder so gespeichert."}
 function load(){try{var j=localStorage.getItem("ic_state");if(j)S=fix(JSON.parse(j));var q=localStorage.getItem("ic_base");BASE=q?JSON.parse(q):null}catch(e){}}
 function store(){try{localStorage.setItem("ic_state",JSON.stringify(S))}catch(e){}}
 function setBase(d){BASE=clone(d);try{localStorage.setItem("ic_base",JSON.stringify(BASE))}catch(e){}}
@@ -61,15 +87,26 @@ function later(r){if(!isDirty()){RN=0;clearTimeout(RT);RT=null;pend(false);retur
 RT=setTimeout(function(){RT=null;if(isDirty()&&!tm&&!PIF&&me)push()},RD[Math.min(RN++,RD.length-1)])}
 function pend(on){var e=document.getElementById("sync");if(e)e.hidden=!on}
 function noRetry(){clearTimeout(RT);RT=null;RN=0;SFAIL=false;pend(false)}
+// Hat jemand anderes gleichzeitig dasselbe Feld geändert, wird gefragt, ob die eigenen Werte gelten sollen (Nein: die gespeicherten bleiben).
+// Die Antwort gilt pro Konflikt (KANT), bis gespeichert ist: Wiederholungen und automatisches Nachholen fragen nicht nochmals.
+// Wird gerade getippt oder ist die App im Hintergrund, wartet die Rückfrage (KWAIT) bis zum nächsten passenden Moment.
+var KANT={},KWAIT=false;
+function kKey(c){return JSON.stringify([c.p,c.m===undefined?"~":c.m,c.t===undefined?"~":c.t])}
+// Tippen in ein Textfeld (wie INCHG in ui.js) oder App im Hintergrund: jetzt nicht unterbrechen
+function kBusy(){var a=document.activeElement;return document.hidden||!!a&&(a.tagName=="TEXTAREA"||a.tagName=="INPUT"&&/^(text|search|email|url|tel|number|)$/.test(a.getAttribute("type")||""))}
+function kAsk(b,m,t){var o={c:[]};merge3(b,m,t,o);var C=o.c.filter(function(c){return !(kKey(c) in KANT)});KWAIT=false;if(!C.length)return true;
+if(kBusy()){KWAIT=true;return false}var ja=confirm(kText(C));C.forEach(function(c){KANT[kKey(c)]=ja});return true}
+if(typeof document!="undefined")document.addEventListener("focusout",function(){if(KWAIT)setTimeout(function(){if(KWAIT&&!kBusy()&&!tm&&!PIF&&me)push()},50)});
 function push1(n){var s=sq,mine=clone(S);return sb.from("league_state").select("data,updated_at").eq("id","main").maybeSingle().then(function(q){if(q.error)return saveFail(q);
-var sv=q.data,cas=sv&&sv.updated_at,d=sv?fix(merge3(BASE||sv.data,mine,sv.data)):mine,row={data:d,client:CID,updated_by:me.id,updated_at:new Date().toISOString()};
+var sv=q.data,cas=sv&&sv.updated_at;if(sv&&BASE&&!kAsk(BASE,mine,sv.data))return {error:{message:"Rückfrage offen",wait:true}};
+var d=sv?fix(merge3(BASE||sv.data,mine,sv.data,{c:[],pick:function(c){return KANT[kKey(c)]!==false}})):mine,row={data:d,client:CID,updated_by:me.id,updated_at:new Date().toISOString()};
 return (cas?sb.from("league_state").update(row).eq("id","main").eq("updated_at",sv.updated_at).select("id"):sb.from("league_state").upsert(Object.assign({id:"main"},row))).then(function(r){
 // Vom Server abgelehnt (fehlende Rechte): nicht endlos neu versuchen, sondern den gültigen Stand laden
 if(r.error){if(/Nur Admins|Ungültige Daten/.test(r.error.message||"")){alert(r.error.message+". Der aktuelle Stand wird neu geladen.");return reloadState().then(function(){return r})}return saveFail(r)}
 // Jemand anderes war schneller: mit dem neuen Stand nochmals zusammenführen. Nach drei Wiederholungen als Fehler melden,
 // damit die Änderung nicht still ungespeichert bleibt (später erneut, siehe later)
 if(cas&&!(r.data&&r.data.length))return n<3?push1(n+1):saveFail({data:r.data,error:{message:"Konflikt beim Speichern",conflict:true}});
-SFAIL=false;var more=s!=sq,neu=!same(d,mine);setBase(d);S=fix(more?merge3(mine,S,d):clone(d));store();if(!more)try{localStorage.removeItem("ic_dirty")}catch(e){}if(neu&&idle())render();return r})})}
+SFAIL=false;KANT={};var more=s!=sq,neu=!same(d,mine);setBase(d);S=fix(more?merge3(mine,S,d):clone(d));store();if(!more)try{localStorage.removeItem("ic_dirty")}catch(e){}if(neu&&idle())render();return r})})}
 function isDirty(){try{return!!localStorage.getItem("ic_dirty")}catch(e){return false}}
 // Tagesdatum (lokal). Eine installierte PWA bleibt oft tagelang offen: newDay() (start.js) setzt TD neu, sobald ein neuer Tag ist
 function heute(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
