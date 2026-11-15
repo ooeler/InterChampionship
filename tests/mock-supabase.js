@@ -94,7 +94,7 @@
         }, 0);
         return ok({});
       },
-      resetPasswordForEmail: function (email, o) { log({ op: "reset", email: email, redirectTo: o && o.redirectTo }); return ok({}) },
+      resetPasswordForEmail: function (email, o) { log({ op: "reset", email: email, redirectTo: o && o.redirectTo }); var fe = localStorage.getItem("__mock_reset_err"); return fe ? Promise.resolve({ data: {}, error: { message: fe } }) : ok({}) }, // __mock_reset_err: Fehler des Mailversands simulieren
       updateUser: function (u) {
         var s = get(SESS); if (!s) return fail("Not logged in");
         USERS[s.user.email].pw = u.password; log({ op: "updateUser", email: s.user.email });
