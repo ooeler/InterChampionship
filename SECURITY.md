@@ -18,6 +18,8 @@ Ein Pull Request wird nur gemergt, wenn alles grün ist (`auto-merge.yml`):
 | `tests/sicherheit.spec.js` | Content-Security-Policy, blockierter eingeschleuster Code, Prüfung der Bilddaten |
 | **E2E mit echter Datenbank** (`tests-e2e/`) | lokale Supabase mit allen Migrationen: Funktionsrechte und RLS, Zugriffe ohne Login, Rechte von Spielern (Teams, Rollen, Strafen), Einladungslink nur einmal gültig |
 
+**Passwort vergessen** läuft über die Edge Function `passwort` (ohne Login aufrufbar) statt über den Mailversand von Supabase Auth: Die Antwort ist für jede gültige Adresse gleich (`{ ok: true }`), Link und Versand laufen nach der Antwort weiter, damit auch die Antwortzeit nichts über bestehende Konten verrät. Das Ziel des Links kommt nur aus dem Secret `APP_URL`, nie aus der Anfrage. Sperren in `push_log`: eine Anfrage pro Adresse in 10 Minuten und 30 pro Stunde insgesamt; die Adresse steht dort nur als SHA-256, Einträge werden nach einem Tag gelöscht. `tests/sicherheit-statisch.spec.js` prüft, dass nur diese Function ohne Login aufrufbar ist und die Sperren und das feste Link-Ziel behält.
+
 Bei jedem Release prüft `release.yml` zusätzlich die **echte Datenbank**: Keine Funktion darf ohne Login ausführbar sein, jede Tabelle braucht Row Level Security. Sonst bricht das Release ab.
 
 Laufend aktiv: GitHub Secret Scanning mit Push-Schutz und Dependabot-Sicherheitsupdates, die automatisch gemergt und ausgeliefert werden. Für die Pakete, Function-Imports und CI-Images, die Dependabot nicht abdeckt, prüft der Workflow Komponenten-Updates täglich auf bekannte Lücken (siehe unten).

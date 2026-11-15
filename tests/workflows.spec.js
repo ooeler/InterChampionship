@@ -512,14 +512,14 @@ test("Tests: Container-Images aus .github/container-images.json, nicht aus der W
   expect(schritte(J.bilder)[0]).toContain("persist-credentials: false");
 });
 
-test("Release prüft, ob Passwort-Mails einen eigenen SMTP-Server haben, ohne Werte auszugeben", { tag: "@logik" }, () => {
+test("Passwort-Mails laufen über die Edge Function passwort, nicht über den Mailversand von Supabase Auth", { tag: "@logik" }, () => {
   const s = wf("release.yml");
-  const i = s.indexOf("- name: Mailversand für Passwort-Mails eingerichtet?");
-  expect(i).toBeGreaterThan(0);
-  const step = s.slice(i, s.indexOf("\n      - name:", i + 10) > 0 ? s.indexOf("\n      - name:", i + 10) : s.indexOf("\n  ", s.indexOf("run: |", i) + 400));
-  expect(step).toContain("config/auth");
-  expect(step).toContain("::warning::");
-  expect(step).not.toMatch(/cat \/tmp\/auth\.json|echo .*smtp_(host|user|pass|admin_email)/); // keine Konfigurationswerte im Log
-  expect(step).toContain("rm -f /tmp/auth.json");
-  expect(step).not.toMatch(/exit 1/); // nur Warnung, Deployment läuft weiter
+  // keine Prüfung des Auth-SMTP mehr: die App braucht ihn nicht
+  expect(s).not.toContain("Mailversand für Passwort-Mails eingerichtet?");
+  // die Function wird wie die anderen deployt (ohne JWT-Prüfung durch Supabase, sie ist ohne Login aufrufbar)
+  expect(s).toContain("for d in supabase/functions/[!_]*/; do");
+  expect(s).toContain('case "$fn" in feedback) flags="" ;; *) flags="--no-verify-jwt" ;; esac');
+  expect(fs.existsSync(path.join(__dirname, "..", "supabase", "functions", "passwort", "index.ts"))).toBe(true);
+  // im e2e-Test wie in Produktion
+  expect(wf("ci.yml")).toMatch(/for fn in [^;]*\bpasswort\b[^;]*; do printf .*verify_jwt = false/);
 });

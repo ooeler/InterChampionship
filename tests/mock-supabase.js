@@ -94,7 +94,6 @@
         }, 0);
         return ok({});
       },
-      resetPasswordForEmail: function (email, o) { log({ op: "reset", email: email, redirectTo: o && o.redirectTo }); var fe = localStorage.getItem("__mock_reset_err"); return fe ? Promise.resolve({ data: {}, error: { message: fe } }) : ok({}) }, // __mock_reset_err: Fehler des Mailversands simulieren
       updateUser: function (u) {
         var s = get(SESS); if (!s) return fail("Not logged in");
         USERS[s.user.email].pw = u.password; log({ op: "updateUser", email: s.user.email });
@@ -307,6 +306,14 @@
           if (role() != "admin") return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: function () { return Promise.resolve({ error: "Nur die Spielleitung darf Test-Mails verschicken" }) } } } });
           if (localStorage.getItem("__mock_brevo") != "1") return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: function () { return Promise.resolve({ error: "BREVO_API_KEY oder MAIL_FROM fehlt (Supabase → Edge Functions → Secrets)" }) } } } });
           return Promise.resolve({ data: { ok: true, to: get(SESS).user.email }, error: null });
+        }
+        if (name == "passwort") { // spiegelt supabase/functions/passwort: gleiche Antwort für jede gültige Adresse; __mock_reset_err: Fehler (z. B. Sperre) simulieren
+          var pe = function (m) { return Promise.resolve({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { json: function () { return Promise.resolve({ error: m }) } } } }) };
+          var fe = localStorage.getItem("__mock_reset_err"), pm = String(o.body.email || "").trim().toLowerCase();
+          if (fe) return pe(fe);
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(pm)) return pe("Bitte eine gültige Mail-Adresse eingeben.");
+          if (USERS[pm]) log({ op: "mail", to: pm, kind: "recovery" }); // nur sichtbar im Test, nie in der Antwort
+          return ok({ ok: true });
         }
         if (name == "invite") { // spiegelt supabase/functions/invite (vereinfacht), Einladungen in localStorage
           var b = o.body, r = role(), L = get("__mock_invites") || [], sv = function () { set("__mock_invites", L) };
