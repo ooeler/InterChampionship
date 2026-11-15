@@ -32,8 +32,11 @@ test.describe("Club-Logo", () => {
     await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
     await page.click("nav [data-tab=team]");
     await expect(page.locator("#clogo")).toBeHidden();
-    await page.locator("input[data-img=club]").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: Buffer.from(PIXEL.split(",")[1], "base64") });
-    await expect(page.locator("#clogo")).toBeVisible();
+    // Kommt die Rolle erst nach dem ersten Zeichnen, ersetzt render() das Feld; in WebKit (CI) kann die Datei dann ins alte Feld gehen
+    await expect(async () => {
+      await page.locator("input[data-img=club]").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: Buffer.from(PIXEL.split(",")[1], "base64") });
+      await expect(page.locator("#clogo")).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 15000 });
     await expect(page.locator("#clogo")).toHaveAttribute("src", /^data:image/);
     const u = await page.locator("#clogo").getAttribute("src");
     expect(await page.evaluate(() => S.logo)).toBe(u);
