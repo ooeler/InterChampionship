@@ -118,7 +118,7 @@ jobs:
           cp supabase/config.toml /tmp/sb/supabase/
           cp -r supabase/functions /tmp/sb/supabase/
           # wie in Produktion: nur feedback prüft das Login-Token selbst über Supabase, die anderen prüfen in der Function
-          for fn in invite notify ops feedback-export; do printf '\n[functions.%s]\nverify_jwt = false\n' "$fn" >> /tmp/sb/supabase/config.toml; done
+          for fn in invite notify ops feedback-export passwort; do printf '\n[functions.%s]\nverify_jwt = false\n' "$fn" >> /tmp/sb/supabase/config.toml; done
           cd /tmp/sb
           supabase start -x studio,imgproxy,logflare,vector,supavisor,postgres-meta,storage-api
           supabase status -o env | sed 's/"//g' | sed -n \

@@ -9,7 +9,8 @@ b.disabled=true;sb.auth.signInWithOAuth({provider:b.dataset.oa,options:{redirect
 document.getElementById("auth").addEventListener("submit",function(e){e.preventDefault();var f=e.target,F=f.elements,E=f.querySelector(".err"),B=f.querySelector("button");E.textContent="";B.disabled=true;
 function done(r,ok){B.disabled=false;if(r.error)E.textContent=ok?r.error.message:ok===false?"Anmeldung fehlgeschlagen: E-Mail oder Passwort falsch.":r.error.message}
 if(f.dataset.f=="login")sb.auth.signInWithPassword({email:F.email.value.trim(),password:F.pw.value}).then(function(r){done(r,false)});
-else if(f.dataset.f=="forgot")sb.auth.resetPasswordForEmail(F.email.value.trim(),{redirectTo:location.origin+location.pathname}).then(function(r){done(r);if(r.error)E.textContent=resetErr(r.error);else E.textContent="Falls diese Adresse eingeladen ist, kommt gleich eine Mail mit einem Link."});
+// Passwort vergessen: Edge Function "passwort" verschickt den Link über den eigenen Mailversand (wie die Test-Mail); Rücksprung → „Passwort festlegen“
+else if(f.dataset.f=="forgot")fnCall("passwort",{email:F.email.value.trim()}).then(function(r){B.disabled=false;if(r.error||!r.data||!r.data.ok)E.textContent=resetErr(r);else E.textContent="Falls diese Adresse eingeladen ist, kommt gleich eine Mail mit einem Link."},function(){B.disabled=false;E.textContent=resetErr(null)});
 else if(f.dataset.f=="join"){if(F.p1.value!=F.p2.value){B.disabled=false;E.textContent="Die Passwörter stimmen nicht überein.";return}var em=F.email.value.trim(),pw=F.p1.value;
 fnCall("invite",{action:"join",token:JOIN,email:em,password:pw}).then(function(r){if(r.error||!r.data||!r.data.ok){B.disabled=false;E.textContent=r.data&&r.data.error||"Registrierung fehlgeschlagen.";return}
 endJoin();sb.auth.signInWithPassword({email:r.data.email||em,password:pw}).then(function(x){done(x,false)})})}
@@ -69,5 +70,5 @@ function hashGo(){var h=location.hash,m=h.match(/^#spieltag=([0-7])$/);if(m){GOS
 addEventListener("hashchange",hashGo);
 if("serviceWorker"in navigator)navigator.serviceWorker.addEventListener("message",function(e){var d=e.data||{},h=typeof d.url=="string"&&(d.url.match(/#[^#]*$/)||[])[0];if(d.type!="nav"||!h)return;if(h!=location.hash)location.hash=h;else hashGo()});
 
-// Passwort vergessen: Fehlermeldungen von Supabase Auth verständlich auf Deutsch (Original bleibt in der Konsole)
-function resetErr(e){var m=(e&&e.message)||"";try{console.warn("Passwort-Mail:",m)}catch(x){}if(/rate limit|too many|seconds/i.test(m))return "Zu viele Anfragen. Bitte warte eine Minute und versuche es dann nochmals.";if(/sending|smtp|mail/i.test(m))return "Die Mail zum Zurücksetzen konnte nicht verschickt werden. Bitte später nochmals versuchen oder die Spielleitung informieren.";return "Das hat nicht geklappt: "+m}
+// Passwort vergessen: Meldung der Edge Function (deutsch) anzeigen, sonst eine allgemeine; Details bleiben in der Konsole
+function resetErr(r){var m=r&&r.data&&r.data.error;if(m)return m;try{console.warn("Passwort-Mail:",r&&r.error&&r.error.message)}catch(x){}return "Die Mail zum Zurücksetzen konnte nicht verschickt werden. Bitte später nochmals versuchen oder die Spielleitung informieren."}

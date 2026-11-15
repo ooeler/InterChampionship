@@ -82,28 +82,58 @@ test.describe("Login", () => {
     await expect(page.locator("#auth h1")).toHaveText("Passwort festlegen");
   });
 
-  test("Passwort vergessen sendet Mail mit Link zurück zur App", async ({ page }) => {
-    await openLogin(page);
+  // „Passwort vergessen“ läuft über die Edge Function "passwort" (eigener Mailversand wie die Test-Mail), nicht über Supabase Auth
+  const pwCalls = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log") || "[]"));
+  async function forgot(page, email) {
     await page.click("text=Passwort vergessen?");
-    await page.fill("#auth input[name=email]", USER.email);
+    await page.fill("#auth input[name=email]", email);
     await page.click("#auth form .btn");
-    await expect(page.locator("#auth .err")).toContainText("kommt gleich eine Mail");
-    const log = await page.evaluate(() => JSON.parse(localStorage.getItem("__mock_log")));
-    expect(log[0]).toMatchObject({ op: "reset", email: USER.email });
-    expect(log[0].redirectTo).toMatch(/^http:\/\/localhost:\d+\/$/);
+  }
+
+  test("Passwort vergessen: Edge Function verschickt die Mail, gleiche Meldung wie bisher", async ({ page }) => {
+    await openLogin(page);
+    await forgot(page, "  " + USER.email.toUpperCase() + " ");
+    await expect(page.locator("#auth .err")).toHaveText("Falls diese Adresse eingeladen ist, kommt gleich eine Mail mit einem Link.");
+    await expect(page.locator("#auth form .btn")).toBeEnabled();
+    const log = await pwCalls(page);
+    const call = log.filter((l) => l.op == "invoke" && l.name == "passwort");
+    expect(call).toHaveLength(1);
+    expect(call[0].body).toEqual({ email: USER.email.toUpperCase() }); // nur die Adresse: kein Ziel-Link vom Gerät
+    expect(log.some((l) => l.op == "reset")).toBe(false); // nicht mehr über den Mailversand von Supabase Auth
+    expect(log).toContainEqual({ op: "mail", to: USER.email, kind: "recovery" });
   });
 
-  test("Passwort vergessen: Fehler beim Mailversand wird verständlich angezeigt", async ({ page }) => {
+  test("Passwort vergessen: unbekannte Adresse bekommt dieselbe Antwort", async ({ page }) => {
     await openLogin(page);
-    await page.evaluate(() => localStorage.setItem("__mock_reset_err", "Error sending recovery email"));
-    await page.click("text=Passwort vergessen?");
-    await page.fill("#auth input[name=email]", USER.email);
-    await page.click("#auth form .btn");
+    await forgot(page, "niemand@flyingpenguins.test");
+    await expect(page.locator("#auth .err")).toHaveText("Falls diese Adresse eingeladen ist, kommt gleich eine Mail mit einem Link.");
+    const log = await pwCalls(page);
+    expect(log.filter((l) => l.op == "invoke" && l.name == "passwort")).toHaveLength(1);
+    expect(log.some((l) => l.op == "mail")).toBe(false);
+  });
+
+  test("Passwort vergessen: Fehler und zu viele Anfragen werden verständlich angezeigt", async ({ page }) => {
+    await openLogin(page);
+    await page.evaluate(() => localStorage.setItem("__mock_reset_err", "Die Mail zum Zurücksetzen konnte nicht verschickt werden. Bitte später nochmals versuchen oder die Spielleitung informieren."));
+    await forgot(page, USER.email);
     await expect(page.locator("#auth .err")).toHaveText("Die Mail zum Zurücksetzen konnte nicht verschickt werden. Bitte später nochmals versuchen oder die Spielleitung informieren.");
     await expect(page.locator("#auth form .btn")).toBeEnabled();
-    await page.evaluate(() => localStorage.setItem("__mock_reset_err", "email rate limit exceeded"));
+    await page.evaluate(() => localStorage.setItem("__mock_reset_err", "Zu viele Anfragen. Bitte warte ein paar Minuten und versuche es dann nochmals."));
     await page.click("#auth form .btn");
     await expect(page.locator("#auth .err")).toContainText("Zu viele Anfragen");
+    await page.evaluate(() => localStorage.removeItem("__mock_reset_err"));
+    await page.fill("#auth input[name=email]", "keine-adresse");
+    await page.evaluate(() => { const f = document.querySelector("#auth form"); f.noValidate = true });
+    await page.click("#auth form .btn");
+    await expect(page.locator("#auth .err")).toHaveText("Bitte eine gültige Mail-Adresse eingeben.");
+  });
+
+  test("Passwort vergessen: ohne Antwort der Function eine allgemeine Meldung", async ({ page }) => {
+    await openLogin(page);
+    await page.evaluate(() => { sb.functions.invoke = () => Promise.resolve({ data: null, error: { message: "Failed to send a request to the Edge Function" } }) });
+    await forgot(page, USER.email);
+    await expect(page.locator("#auth .err")).toHaveText("Die Mail zum Zurücksetzen konnte nicht verschickt werden. Bitte später nochmals versuchen oder die Spielleitung informieren.");
+    await expect(page.locator("#auth form .btn")).toBeEnabled();
   });
 
   test("OAuth: Google und Microsoft werden angeboten", async ({ page }) => {

@@ -28,9 +28,13 @@ test.describe("Sicherheit (statisch)", () => {
   });
 
   test("Edge Functions prüfen Login oder Secret, Secrets in konstanter Zeit", { tag: "@logik" }, () => {
+    // Ohne Login aufrufbar ist nur "passwort" (Passwort vergessen): dafür Sperren in push_log, Link-Ziel nur aus APP_URL
+    const OHNE_LOGIN = { passwort: (s) => /limitReached\(/.test(s) && /from\("push_log"\)\.insert/.test(s) && /redirectTo: APP_URL/.test(s) && !/body\.redirect/i.test(s) };
+    expect(Object.keys(OHNE_LOGIN).every((d) => fnDirs.includes(d))).toBe(true);
     for (const d of fnDirs) {
       const src = read(`supabase/functions/${d}/index.ts`);
-      expect(/auth\.getUser\(|safeEqual\(token/.test(src), `${d}: keine Zugriffsprüfung`).toBe(true);
+      if (OHNE_LOGIN[d]) expect(OHNE_LOGIN[d](src), `${d}: Sperre oder festes Link-Ziel fehlt`).toBe(true);
+      else expect(/auth\.getUser\(|safeEqual\(token/.test(src), `${d}: keine Zugriffsprüfung`).toBe(true);
       expect(src, `${d}: Secret mit === verglichen`).not.toMatch(/[!=]==\s*Deno\.env\.get\("CRON_SECRET"\)/);
     }
   });
