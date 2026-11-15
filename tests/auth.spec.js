@@ -93,6 +93,19 @@ test.describe("Login", () => {
     expect(log[0].redirectTo).toMatch(/^http:\/\/localhost:\d+\/$/);
   });
 
+  test("Passwort vergessen: Fehler beim Mailversand wird verständlich angezeigt", async ({ page }) => {
+    await openLogin(page);
+    await page.evaluate(() => localStorage.setItem("__mock_reset_err", "Error sending recovery email"));
+    await page.click("text=Passwort vergessen?");
+    await page.fill("#auth input[name=email]", USER.email);
+    await page.click("#auth form .btn");
+    await expect(page.locator("#auth .err")).toHaveText("Die Mail zum Zurücksetzen konnte nicht verschickt werden. Bitte später nochmals versuchen oder die Spielleitung informieren.");
+    await expect(page.locator("#auth form .btn")).toBeEnabled();
+    await page.evaluate(() => localStorage.setItem("__mock_reset_err", "email rate limit exceeded"));
+    await page.click("#auth form .btn");
+    await expect(page.locator("#auth .err")).toContainText("Zu viele Anfragen");
+  });
+
   test("OAuth: Google und Microsoft werden angeboten", async ({ page }) => {
     await openLogin(page);
     await expect(page.locator("#auth [data-oa=google]")).toHaveText("Mit Google anmelden");

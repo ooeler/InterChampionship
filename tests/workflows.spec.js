@@ -511,3 +511,15 @@ test("Tests: Container-Images aus .github/container-images.json, nicht aus der W
   expect(jobKey(J.security, "needs")).toBe("bilder");
   expect(schritte(J.bilder)[0]).toContain("persist-credentials: false");
 });
+
+test("Release prüft, ob Passwort-Mails einen eigenen SMTP-Server haben, ohne Werte auszugeben", { tag: "@logik" }, () => {
+  const s = wf("release.yml");
+  const i = s.indexOf("- name: Mailversand für Passwort-Mails eingerichtet?");
+  expect(i).toBeGreaterThan(0);
+  const step = s.slice(i, s.indexOf("\n      - name:", i + 10) > 0 ? s.indexOf("\n      - name:", i + 10) : s.indexOf("\n  ", s.indexOf("run: |", i) + 400));
+  expect(step).toContain("config/auth");
+  expect(step).toContain("::warning::");
+  expect(step).not.toMatch(/cat \/tmp\/auth\.json|echo .*smtp_(host|user|pass|admin_email)/); // keine Konfigurationswerte im Log
+  expect(step).toContain("rm -f /tmp/auth.json");
+  expect(step).not.toMatch(/exit 1/); // nur Warnung, Deployment läuft weiter
+});
