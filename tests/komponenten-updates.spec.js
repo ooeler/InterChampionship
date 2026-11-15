@@ -286,10 +286,17 @@ test.describe("Komponenten-Updates", () => {
   });
 
   // ---- Veröffentlichen mit nachgebauter GitHub-API ----
-  function apiMock({ fehlerBeiPr } = {}) {
-    const log = [];
+  // laeufe(sha, abfrage): Läufe von auto-merge.yml für den Commit (Standard: ein laufender Lauf)
+  function apiMock({ fehlerBeiPr, laeufe = (sha) => [{ id: 7, head_sha: sha, status: "in_progress", conclusion: null }] } = {}) {
+    const log = [], kommentare = {};
+    let abfragen = 0;
     const api = async (pfad, { method = "GET", body } = {}) => {
       log.push(`${method} ${pfad}${body ? " " + JSON.stringify(body) : ""}`);
+      const lauf = pfad.match(/^repos\/[^/]+\/[^/]+\/actions\/workflows\/auto-merge\.yml\/runs\?event=pull_request&head_sha=([0-9a-f]{40})&per_page=20$/);
+      if (method === "GET" && lauf) return { workflow_runs: laeufe(lauf[1], ++abfragen) };
+      const k = pfad.match(/^repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments/);
+      if (k && method === "GET") return kommentare[k[1]] || [];
+      if (k && method === "POST") { (kommentare[k[1]] ??= []).push(body); return {}; }
       if (method === "POST" && pfad === `repos/${R}/pulls`) {
         if (fehlerBeiPr) { const e = new Error("HTTP 403"); e.status = 403; e.text = "GitHub Actions is not permitted to create or approve pull requests."; throw e; }
         return { number: 42 };
@@ -315,8 +322,13 @@ test.describe("Komponenten-Updates", () => {
     expect(log.filter((l) => l.startsWith(`POST repos/${R}/pulls `))).toHaveLength(1); // nur für die Gruppe ohne PR
     expect(log).toContain(`POST repos/${R}/issues/42/labels {"labels":["abhaengigkeiten"]}`);
     expect(log).toContain(`POST repos/${R}/issues/17/labels {"labels":["abhaengigkeiten","manuell-pruefen","sicherheit"]}`);
-    expect(log).toContain(`POST repos/${R}/actions/workflows/komponenten-pruefen.yml/dispatches {"ref":"fix/abhaengigkeiten-2026-11-16","inputs":{"pr":"42"}}`);
-    expect(log).toContain(`POST repos/${R}/actions/workflows/komponenten-pruefen.yml/dispatches {"ref":"fix/abhaengigkeiten-major-2026-11-09","inputs":{"pr":"17"}}`);
+    // Kein workflow_dispatch mehr: Prüfung und Merge macht auto-merge.yml (pull_request); hier nur beobachtet
+    expect(log.some((l) => l.includes("dispatches"))).toBe(false);
+    expect(log.filter((l) => l.includes("/actions/workflows/auto-merge.yml/runs?"))).toEqual([
+      `GET repos/${R}/actions/workflows/auto-merge.yml/runs?event=pull_request&head_sha=${S}&per_page=20`,
+      `GET repos/${R}/actions/workflows/auto-merge.yml/runs?event=pull_request&head_sha=${S}&per_page=20`,
+    ]);
+    expect(log.some((l) => l.includes("/comments"))).toBe(false); // Lauf vorhanden → kein Hinweis
     expect(log.some((l) => l.startsWith(`PATCH repos/${R}/pulls/17 `) && l.includes('"title":"Sicherheit: Major-Update prüfen'))).toBe(true);
   });
 
@@ -339,6 +351,71 @@ test.describe("Komponenten-Updates", () => {
     expect(log.find((l) => l.startsWith(`POST repos/${R}/issues `))).toContain("Allow GitHub Actions to create and approve pull requests");
     expect(log.some((l) => l.includes("dispatches"))).toBe(false);
     expect(meldungen.join(" ")).toContain("::warning::");
+  });
+
+  // ---- Prüflauf beobachten: wartet der pull_request-Lauf auf eine Freigabe oder fehlt er, steht ein Hinweis im PR ----
+  test("Prüflauf: wartet auf Freigabe → ein Hinweis je Commit mit Link zum Lauf, nicht doppelt", L, async () => {
+    const m = await lade();
+    const { api, log } = apiMock({ laeufe: (sha) => [
+      { id: 5, head_sha: sha, status: "completed", conclusion: "success" }, // älterer Lauf zählt nicht
+      { id: 9, head_sha: sha, status: "completed", conclusion: "action_required" },
+      { id: 11, head_sha: "e".repeat(40), status: "in_progress", conclusion: null }, // anderer Commit zählt nicht
+    ] });
+    const meldungen = [];
+    expect(await m.pruefungBeobachten({ api, repo: R, nr: 42, sha: S, log: (x) => meldungen.push(x) })).toBe("wartet auf Freigabe");
+    const posts = log.filter((l) => l.startsWith(`POST repos/${R}/issues/42/comments `));
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain(JSON.stringify(m.PRUEF_MARKE(S)).slice(1, -1));
+    expect(posts[0]).toContain(`https://github.com/${R}/actions/runs/9`);
+    expect(posts[0]).toContain("Approve and run");
+    expect(posts[0]).toContain("schliessen und wieder öffnen");
+    expect(meldungen.join(" ")).toContain("::warning::");
+    // zweiter Lauf von Komponenten-Updates mit demselben Commit: kein zweiter Hinweis
+    expect(await m.pruefungBeobachten({ api, repo: R, nr: 42, sha: S, log: () => {} })).toBe("wartet auf Freigabe");
+    expect(log.filter((l) => l.startsWith(`POST repos/${R}/issues/42/comments `))).toHaveLength(1);
+    // auch status=action_required (statt conclusion) wird erkannt
+    const b = apiMock({ laeufe: (sha) => [{ id: 3, head_sha: sha, status: "action_required", conclusion: null }] });
+    expect(await m.pruefungBeobachten({ api: b.api, repo: R, nr: 7, sha: S, log: () => {} })).toBe("wartet auf Freigabe");
+  });
+
+  test("Prüflauf: erscheint verzögert → kein Hinweis; erscheint gar nicht → Hinweis nach der Wartezeit", L, async () => {
+    const m = await lade();
+    let schlaf = [];
+    let { api, log } = apiMock({ laeufe: (sha, n) => n < 3 ? [] : [{ id: 1, head_sha: sha, status: "queued", conclusion: null }] });
+    expect(await m.pruefungBeobachten({ api, repo: R, nr: 42, sha: S, warten: 60_000, schlafen: async (ms) => schlaf.push(ms), log: () => {} })).toBe("gestartet");
+    expect(schlaf).toEqual([15_000, 15_000]);
+    expect(log.some((l) => l.includes("/comments"))).toBe(false);
+    schlaf = [];
+    ({ api, log } = apiMock({ laeufe: () => [] }));
+    expect(await m.pruefungBeobachten({ api, repo: R, nr: 42, sha: S, warten: 60_000, schlafen: async (ms) => schlaf.push(ms), log: () => {} })).toBe("fehlt");
+    expect(schlaf).toHaveLength(4); // 0, 15, 30, 45, 60 s abgefragt
+    expect(log.filter((l) => l.includes("auto-merge.yml/runs?"))).toHaveLength(5);
+    const post = log.filter((l) => l.startsWith(`POST repos/${R}/issues/42/comments `));
+    expect(post).toHaveLength(1);
+    expect(post[0]).toContain("Prüfung nicht gestartet");
+    // ohne Wartezeit (PR unverändert): eine Abfrage, kein Schlaf
+    schlaf = [];
+    ({ api, log } = apiMock({ laeufe: () => [] }));
+    await m.pruefungBeobachten({ api, repo: R, nr: 42, sha: S, schlafen: async (ms) => schlaf.push(ms), log: () => {} });
+    expect(schlaf).toEqual([]);
+    // ungültige Eingaben gelangen nie in einen API-Pfad
+    for (const [nr, sha] of [[42, "x".repeat(40)], [42, S + "0"], ["42/../1", S], [42, "../" + S]]) {
+      ({ api, log } = apiMock());
+      await expect(m.pruefungBeobachten({ api, repo: R, nr, sha, log: () => {} })).rejects.toThrow("ungültig");
+      expect(log).toEqual([]);
+    }
+  });
+
+  test("Veröffentlichen: wartender Prüflauf wird gemeldet, statt still liegen zu bleiben", L, async () => {
+    const m = await lade();
+    const plan = await planFuer(m);
+    const { api, log } = apiMock({ laeufe: (sha) => [{ id: 9, head_sha: sha, status: "completed", conclusion: "action_required" }] });
+    const meldungen = [];
+    const a = await m.veroeffentlichen({ plan, ergebnis: { standard: { status: "neu", sha: S }, major: { status: "gleich", sha: S } }, api, repo: R, log: (x) => meldungen.push(x), schlafen: async () => { throw new Error("kein Warten nötig"); } });
+    expect(a).toEqual(["standard: PR #42 erstellt, Prüfung wartet auf Freigabe", "major: PR #17 unverändert, Prüfung wartet auf Freigabe"]);
+    expect(log.filter((l) => l.startsWith(`POST repos/${R}/issues/42/comments `))).toHaveLength(1);
+    expect(log.filter((l) => l.startsWith(`POST repos/${R}/issues/17/comments `))).toHaveLength(1);
+    expect(meldungen.filter((x) => x.startsWith("::warning::"))).toHaveLength(2);
   });
 
   // ---- Regelprüfung vor dem Merge (nachgebautes git und API) ----

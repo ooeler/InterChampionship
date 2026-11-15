@@ -5,8 +5,9 @@
 #   täglich:  Sicherheitsprüfung (OSV); bei einer bekannten Lücke sofort die kleinste behobene Version, ohne Wartezeit
 # Ergebnis: je ein Pull Request fix/abhaengigkeiten-<datum> (Patch/Minor, automatischer Merge nach grünen Prüfungen)
 # und fix/abhaengigkeiten-major-<datum> (Major, bleibt offen). Offene PRs werden aktualisiert, nie doppelt geöffnet.
-# Ein mit dem GITHUB_TOKEN erstellter PR startet keine pull_request-Workflows: die Prüfung startet der Job "pr"
-# per workflow_dispatch (komponenten-pruefen.yml) auf dem Branch, die Check-Runs hängen am Commit des PRs.
+# Prüfung und Merge: auto-merge.yml (pull_request, einziger automatischer Merge-Weg, mit Regelprüfung; Major nur über
+# komponenten-pruefen.yml mit major_freigeben). Der Job "pr" wartet kurz auf diesen Lauf und meldet im PR, wenn er fehlt oder
+# auf eine Freigabe wartet (z. B. Freigabe-Pflicht für Erstbeitragende) – so bleibt ein PR nicht still liegen.
 # Härtung: keine Secrets ausser dem GITHUB_TOKEN, Rechte je Job, Antworten der Registries werden im Skript geprüft
 # (Versionen, Digests, Branches per Regex) und gelangen nur über env und execFile (ohne Shell) in Befehle.
 name: Komponenten-Updates
@@ -95,15 +96,15 @@ jobs:
           done
 
   pr:
-    # Pull Requests anlegen oder aktualisieren, Labels setzen, Prüfung (komponenten-pruefen.yml) auf dem Branch starten
+    # Pull Requests anlegen oder aktualisieren, Labels setzen, Prüflauf (auto-merge.yml) beobachten
     needs: [planen, branch]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15 # wartet je PR bis 3 Minuten auf den Prüflauf
     permissions:
       contents: read
       pull-requests: write
       issues: write
-      actions: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

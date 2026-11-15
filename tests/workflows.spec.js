@@ -249,8 +249,23 @@ test("Auto-Merge: Regelprüfung mit Leserechten, Skript vom Basis-Stand, GH_TOKE
   expect(block(J.regeln, "    permissions:").filter((l) => l.trim())).toEqual(["      contents: read", "      pull-requests: read", "      actions: read"]);
   expect(J.regeln).not.toContain("secrets.");
   const R = schritte(J.regeln);
-  expect(R).toHaveLength(2);
-  for (const s of R) expect(s).toContain("if: needs.meta.outputs.eco == 'github_actions'");
+  expect(R).toHaveLength(5);
+  for (const s of R.slice(0, 2)) expect(s).toContain("if: needs.meta.outputs.eco == 'github_actions'");
+  // Komponenten-Updates: eigene Schritte nur für fix/abhaengigkeiten-…, Skript von main, Major nie freigegeben
+  const K = R.slice(2);
+  for (const s of K) expect(s).toContain("if: startsWith(github.event.pull_request.head.ref, 'fix/abhaengigkeiten-')");
+  expect(K[0]).toMatch(/uses: actions\/checkout@[0-9a-f]{40} # v\d+/);
+  expect(K[0]).toContain("ref: main");
+  expect(K[0]).toContain("fetch-depth: 0");
+  expect(K[0]).toContain("persist-credentials: false");
+  expect(K[1]).toMatch(/uses: actions\/setup-node@[0-9a-f]{40} # v\d+/);
+  expect(K[2]).toContain("id: komponenten");
+  expect(K[2]).toContain("run: node scripts/komponenten-updates.mjs regeln");
+  for (const k of ["GH_TOKEN: ${{ github.token }}", "PR: ${{ github.event.pull_request.number }}", "KOPF: ${{ github.event.pull_request.head.sha }}", "REF: ${{ github.event.pull_request.head.ref }}", 'FREIGABE: "false"']) expect(K[2]).toContain(k);
+  expect(K[2]).not.toContain("AUSLOESER");
+  const aus = block(J.regeln, "    outputs:").join("\n");
+  expect(aus).toContain("komponenten: ${{ steps.komponenten.outputs.ergebnis }}");
+  expect(aus).toContain("komponenten_release: ${{ steps.komponenten.outputs.release }}");
   expect(R[0]).toMatch(/uses: actions\/checkout@[0-9a-f]{40} # v\d+/);
   expect(R[0]).toContain("ref: ${{ github.event.pull_request.base.sha }}"); // nicht der Stand aus dem PR
   expect(R[0]).toContain("persist-credentials: false");
@@ -278,10 +293,11 @@ test("Auto-Merge: Actions-Updates nur bei Regelprüfung ok, ohne Release; hinter
   const skript = run.map((l) => l.slice(10)).join("\n");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kind-"));
   let n = 0;
-  const art = (BRANCH, ECO = "", REGELN = "") => {
+  const art = (BRANCH, ECO = "", REGELN = "", K = {}) => {
     const out = path.join(dir, "o" + ++n);
     fs.writeFileSync(out, "");
-    const r = spawnSync("bash", ["-c", skript], { env: { ...process.env, BRANCH, ECO, REGELN, GITHUB_OUTPUT: out }, encoding: "utf8" });
+    const env = { ...process.env, BRANCH, ECO, REGELN, KOMPONENTEN: K.ergebnis || "", KOMPONENTEN_RELEASE: K.release || "", MANUELL: K.manuell ?? "false", GITHUB_OUTPUT: out };
+    const r = spawnSync("bash", ["-c", skript], { env, encoding: "utf8" });
     if (r.error && r.error.code == "ENOENT" && !process.env.CI) test.skip(true, "bash fehlt");
     expect(r.status, r.stderr).toBe(0);
     return Object.fromEntries(fs.readFileSync(out, "utf8").trim().split("\n").map((l) => l.split("=")));
@@ -296,6 +312,47 @@ test("Auto-Merge: Actions-Updates nur bei Regelprüfung ok, ohne Release; hinter
     expect(art("dependabot/docker/x", "docker", "ok").merge).toBe("false");
     expect(art("feature/x")).toEqual({ bump: "minor", merge: "true", hinter: "false" });
     expect(art("ci/x", "", "abgelehnt")).toEqual({ bump: "none", merge: "true", hinter: "false" });
+    // Ein von einer Person erstellter fix/-PR wie bisher: Merge mit Patch-Release, Komponenten-Ergebnis spielt keine Rolle
+    expect(art("fix/tippfehler")).toEqual({ bump: "patch", merge: "true", hinter: "false" });
+    expect(art("fix/abhaengigkeit-anzeige", "", "", { ergebnis: "abgelehnt" })).toEqual({ bump: "patch", merge: "true", hinter: "false" });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Komponenten-Updates (fix/abhaengigkeiten-…) laufen nur über auto-merge.yml und nur mit Regelprüfung ok; Major nie
+test("Auto-Merge: Komponenten-Updates nur bei Regelprüfung ok, Release nur bei App/Functions, Major nie", { tag: "@logik" }, () => {
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+  const M = schritte(relJobs("auto-merge.yml").merge);
+  const env = block(M[0], "        env:").join("\n");
+  expect(env).toContain("KOMPONENTEN: ${{ needs.regeln.outputs.komponenten }}");
+  expect(env).toContain("KOMPONENTEN_RELEASE: ${{ needs.regeln.outputs.komponenten_release }}");
+  expect(env).toContain("MANUELL: ${{ contains(github.event.pull_request.labels.*.name, 'manuell-pruefen') }}");
+  const skript = block(M[0], "        run: |").map((l) => l.slice(10)).join("\n");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "komp-"));
+  let n = 0;
+  const art = (BRANCH, KOMPONENTEN = "", KOMPONENTEN_RELEASE = "", MANUELL = "false", REGELN = "") => {
+    const out = path.join(dir, "o" + ++n);
+    fs.writeFileSync(out, "");
+    const e = { ...process.env, BRANCH, ECO: "", REGELN, KOMPONENTEN, KOMPONENTEN_RELEASE, GITHUB_OUTPUT: out };
+    if (MANUELL !== null) e.MANUELL = MANUELL; else delete e.MANUELL;
+    const r = spawnSync("bash", ["-c", skript], { env: e, encoding: "utf8" });
+    if (r.error && r.error.code == "ENOENT" && !process.env.CI) test.skip(true, "bash fehlt");
+    expect(r.status, r.stderr).toBe(0);
+    return Object.fromEntries(fs.readFileSync(out, "utf8").trim().split("\n").map((l) => l.split("=")));
+  };
+  try {
+    const P = "fix/abhaengigkeiten-2026-11-16", MAJ = "fix/abhaengigkeiten-major-2026-11-16";
+    expect(art(P, "ok", "ja")).toEqual({ bump: "patch", merge: "true", hinter: "false" });
+    expect(art(P, "ok", "nein")).toEqual({ bump: "none", merge: "true", hinter: "false" }); // nur Entwicklungswerkzeuge
+    expect(art(P, "ok", "")).toEqual({ bump: "none", merge: "true", hinter: "false" });
+    for (const k of ["abgelehnt", "hinter-main", "", "OK", "ok "]) expect(art(P, k, "ja").merge, k).toBe("false");
+    expect(art(P, "", "", "false", "ok").merge).toBe("false"); // Ergebnis der Actions-Prüfung zählt hier nicht
+    // Major: weder über den Branch noch mit Label manuell-pruefen, auch nicht bei (unmöglichem) ok
+    expect(art(MAJ, "ok", "ja")).toEqual({ bump: "none", merge: "false", hinter: "false" });
+    expect(art(P, "ok", "ja", "true")).toEqual({ bump: "none", merge: "false", hinter: "false" });
+    expect(art(P, "ok", "ja", null).merge).toBe("false"); // Label-Angabe fehlt → kein Merge
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -342,7 +399,7 @@ test("Komponenten-Updates: Zeitplan, Rechte je Job, gleiche Action-SHAs, GH_TOKE
   const rechte = (j) => block(J[j], "    permissions:").filter((l) => l.trim()).map((l) => l.trim());
   expect(rechte("planen")).toEqual(["contents: read", "pull-requests: read"]);
   expect(rechte("branch")).toEqual(["contents: write"]);
-  expect(rechte("pr")).toEqual(["contents: read", "pull-requests: write", "issues: write", "actions: write"]);
+  expect(rechte("pr")).toEqual(["contents: read", "pull-requests: write", "issues: write", "actions: read"]); // startet nichts, beobachtet nur den Prüflauf
   expect(jobKey(J.planen, "if")).toBe("github.ref == 'refs/heads/main'");
   expect(jobKey(J.branch, "needs")).toBe("planen");
   expect(jobKey(J.branch, "if")).toBe("needs.planen.outputs.aenderung == 'ja'");
@@ -407,21 +464,19 @@ test("Komponenten-Updates: Push nur für gültige Branches und Commits, mit --fo
   }
 });
 
-test("Komponenten prüfen: Pflicht-Checks wie auto-merge.yml, Regeln mit Leserechten vom main-Stand, Merge nur bei ok", { tag: "@logik" }, () => {
+test("Komponenten prüfen: nur Major mit Freigabe, Regeln mit Leserechten vom main-Stand, Merge nur bei ok", { tag: "@logik" }, () => {
   const y = wf("komponenten-pruefen.yml").replace(/\r/g, "");
   expect(y).toMatch(/^on:\n  workflow_dispatch:\n/m);
   expect(y).not.toMatch(/^  (push|pull_request|schedule)/m);
   expect(y).toMatch(/^permissions:\n  contents: read\n\n/m);
   expect(y).toContain("group: komponenten-pruefen-${{ inputs.pr }}");
-  const J = relJobs("komponenten-pruefen.yml"), A = relJobs("auto-merge.yml");
-  expect(Object.keys(J)).toEqual(["test", "codeql", "regeln", "merge"]);
-  // gleiche Job-Namen und Unterabläufe → gleiche Check-Namen am Commit (test / test, test / e2e, test / security, codeql / analyze …)
-  expect(jobKey(J.test, "uses")).toBe(jobKey(A.test, "uses"));
-  expect(jobKey(J.codeql, "uses")).toBe(jobKey(A.codeql, "uses"));
-  expect(block(J.codeql, "    permissions:")).toEqual(block(A.codeql, "    permissions:"));
-  for (const j of ["test", "codeql"]) expect(jobKey(J[j], "if")).toBe("startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-')");
-  // regeln: nur lesen, Skript von main
-  expect(jobKey(J.regeln, "needs")).toBe("[test, codeql]");
+  const J = relJobs("komponenten-pruefen.yml");
+  // Keine eigenen Tests: Check-Runs aus workflow_dispatch zählen nicht für die Pflicht-Prüfungen (#169).
+  // Der Merge verlässt sich auf den pull_request-Lauf von auto-merge.yml und den Branch-Schutz.
+  expect(Object.keys(J)).toEqual(["regeln", "merge"]);
+  // regeln: nur mit Freigabe auf einem Major-Branch, nur lesen, Skript von main
+  expect(jobKey(J.regeln, "if")).toBe("inputs.major_freigeben && startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-major-')");
+  expect(jobKey(J.regeln, "needs")).toBe("");
   expect(block(J.regeln, "    permissions:").filter((l) => l.trim()).map((l) => l.trim())).toEqual(["contents: read", "pull-requests: read"]);
   const R = schritte(J.regeln);
   expect(R[0]).toMatch(/uses: actions\/checkout@[0-9a-f]{40} # v\d+/);
@@ -429,17 +484,23 @@ test("Komponenten prüfen: Pflicht-Checks wie auto-merge.yml, Regeln mit Leserec
   expect(R[0]).toContain("persist-credentials: false");
   expect(R[2]).toContain("run: node scripts/komponenten-updates.mjs regeln");
   for (const k of ["GH_TOKEN: ${{ github.token }}", "PR: ${{ inputs.pr }}", "KOPF: ${{ github.sha }}", "REF: ${{ github.ref_name }}", "FREIGABE: ${{ inputs.major_freigeben }}", "AUSLOESER: ${{ github.triggering_actor }}"]) expect(R[2]).toContain(k);
-  // merge: nach allem, nur bei ok; genau der geprüfte Stand; Release nur bei App/Functions
-  expect(jobKey(J.merge, "needs").replace(/ #.*/, "")).toBe("[test, codeql, regeln]");
+  // merge: nur bei ok; genau der geprüfte Stand; Release nur bei App/Functions
+  expect(jobKey(J.merge, "needs").replace(/ #.*/, "")).toBe("regeln");
   expect(jobKey(J.merge, "if")).toBe("needs.regeln.outputs.ergebnis == 'ok'");
   expect(block(J.merge, "    env:").join("\n")).not.toContain("GH_TOKEN");
   expect(block(J.merge, "    env:").join("\n")).toContain("KOPF: ${{ github.sha }}");
   const M = schritte(J.merge);
   expect(M.map(schrittName)).toEqual(["Mergen", "Release erstellen und deployen"]);
-  expect(M[0]).toContain(`gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch --match-head-commit "$KOPF"`);
+  expect(M[0]).toContain(`gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --rebase --delete-branch --match-head-commit "$KOPF" || {`);
+  expect(M[0]).toContain("exit 1");
+  expect(M[0]).not.toContain("--admin");
   expect(M[1]).toContain("if: needs.regeln.outputs.release == 'ja'");
   expect(M[1]).toContain("gh workflow run release.yml");
   for (const [n, j] of Object.entries(J)) for (const l of j.split("\n").filter((l) => l.includes("secrets."))) expect(l, n).toMatch(/^ {10}GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}$/);
+  // Kein anderer Workflow startet diesen Ablauf (sonst gäbe es zwei Merge-Wege); nirgends --admin
+  const alle = fs.readdirSync(path.join(__dirname, "..", ".github", "workflows"));
+  for (const f of alle) expect(wf(f), f).not.toContain("--admin");
+  expect(fs.readFileSync(path.join(__dirname, "..", "scripts", "komponenten-updates.mjs"), "utf8")).not.toContain("komponenten-pruefen.yml/dispatches");
 });
 
 test("Tests: Container-Images aus .github/container-images.json, nicht aus der Workflow-Datei", { tag: "@logik" }, () => {

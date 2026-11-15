@@ -1,5 +1,5 @@
 // Updates für Komponenten, die Dependabot nicht abdeckt (aufgerufen von .github/workflows/komponenten-updates.yml
-// und komponenten-pruefen.yml):
+// sowie aus auto-merge.yml und komponenten-pruefen.yml):
 //   - npm-Pakete in package.json (dependencies und devDependencies, mit package-lock.json)
 //   - npm:-Imports der Edge Functions (supabase/functions/**/*.ts, auch dynamische import("npm:…"))
 //   - Container-Images in .github/container-images.json (Playwright passend zu @playwright/test, Semgrep), per Digest gepinnt
@@ -8,8 +8,8 @@
 // Befehle (node scripts/komponenten-updates.mjs <befehl>):
 //   planen          neueste Versionen ermitteln (wöchentlich) bzw. bekannte Lücken prüfen (täglich, OSV) → Plan als JSON
 //   bauen           Plan auf main anwenden, package-lock.json nachführen, je Gruppe einen Commit bauen (nur lokal)
-//   veroeffentlichen  Pull Requests anlegen/aktualisieren, Prüfung (komponenten-pruefen.yml) per workflow_dispatch starten
-//   regeln          Regelprüfung vor dem automatischen Merge (komponenten-pruefen.yml, Job "regeln", nur Leserechte)
+//   veroeffentlichen  Pull Requests anlegen/aktualisieren; meldet im PR, wenn der Prüflauf (auto-merge.yml) fehlt oder wartet
+//   regeln          Regelprüfung vor dem Merge (auto-merge.yml bzw. für Major komponenten-pruefen.yml, Job "regeln", nur Leserechte)
 //
 // Regeln für eine neue Version:
 //   - nur stabile Versionen X.Y.Z, nicht als veraltet markiert, nicht neuer als dist-tags.latest
@@ -407,9 +407,9 @@ export function beschreibung(gruppe, updates, hinweise = []) {
   ];
   if (gruppe === "major") {
     T.push("**Major-Update – wird nicht automatisch gemergt.** Bitte die Release Notes auf inkompatible Änderungen prüfen.",
-      "Zum Mergen: *Actions → Komponenten prüfen → Run workflow*, Branch dieses Pull Requests wählen, PR-Nummer eintragen und *major_freigeben* ankreuzen. Danach wird nach grünen Prüfungen gemergt und (bei App/Functions) ein Release ausgeliefert.");
+      "Zum Mergen: *Actions → Komponenten prüfen → Run workflow*, Branch dieses Pull Requests wählen, PR-Nummer eintragen und *major_freigeben* ankreuzen. Gemergt wird, sobald die Pflicht-Prüfungen dieses Pull Requests grün sind und die Regeln erfüllt; bei App/Functions folgt ein Release.");
   } else {
-    T.push("Die Prüfung (test, e2e, security, CodeQL) startet der Workflow selbst. Sind alle Prüfungen grün und alle Regeln erfüllt, wird automatisch gemergt; ein Release folgt nur, wenn App oder Edge Functions betroffen sind.");
+    T.push("Die Prüfung (test, e2e, security, CodeQL und Regelprüfung) läuft in *Auto-Merge & Release*. Sind alle Prüfungen grün und alle Regeln erfüllt, wird automatisch gemergt; ein Release folgt nur, wenn App oder Edge Functions betroffen sind.");
   }
   if (updates.some((u) => u.sicherheit.length)) T.push("", "⚠️ Enthält Sicherheitskorrekturen: die bisherige Version hat bekannte Lücken (OSV), die Wartezeit von 7 Tagen gilt hier nicht.");
   if (hinweise.length) T.push("", "Hinweise:", ...hinweise.map((h) => `- ${h.replace(/[<>`|]/g, "")}`));
@@ -553,9 +553,9 @@ function isAncestor(git, a, b) {
   try { git("merge-base", "--is-ancestor", a, b); return true; } catch { return false; }
 }
 
-// ---------- Veröffentlichen: PR anlegen/aktualisieren, Prüfung starten ----------
+// ---------- Veröffentlichen: PR anlegen/aktualisieren, Prüfung beobachten ----------
 export const LABELS = { abhaengigkeiten: "0366d6", "manuell-pruefen": "d93f0b", sicherheit: "b60205" };
-export async function veroeffentlichen({ plan, ergebnis, api, repo, log = console.log }) {
+export async function veroeffentlichen({ plan, ergebnis, api, repo, log = console.log, warten = 180_000, schlafen }) {
   const aktionen = [];
   const label = async (nr, namen) => {
     for (const n of namen) {
@@ -596,13 +596,46 @@ export async function veroeffentlichen({ plan, ergebnis, api, repo, log = consol
     }
     const namen = ["abhaengigkeiten", ...(g === "major" ? ["manuell-pruefen"] : []), ...(G.updates.some((u) => u.sicherheit.length) ? ["sicherheit"] : [])];
     await label(nr, namen);
-    if (E.status === "neu" || neu) {
-      // GITHUB_TOKEN löst keine pull_request-Workflows aus – die Prüfung läuft per workflow_dispatch auf dem Branch
-      await api(`repos/${repo}/actions/workflows/komponenten-pruefen.yml/dispatches`, { method: "POST", body: { ref: G.branch, inputs: { pr: String(nr) } } });
-      aktionen.push(`${g}: PR #${nr} ${neu ? "erstellt" : "aktualisiert"}, Prüfung gestartet`);
-    } else aktionen.push(`${g}: PR #${nr} unverändert`);
+    // Prüfung und Merge macht auto-merge.yml (pull_request). Wartet dessen Lauf auf eine Freigabe oder fehlt er, bleibt
+    // der PR nicht still liegen: Hinweis im PR (einmal je Commit).
+    const sha = SHA.test(E.sha || "") ? E.sha : null;
+    const pruefung = sha ? await pruefungBeobachten({ api, repo, nr, sha, warten: E.status === "neu" || neu ? warten : 0, schlafen, log }) : "unbekannt";
+    if (E.status === "neu" || neu) aktionen.push(`${g}: PR #${nr} ${neu ? "erstellt" : "aktualisiert"}, Prüfung ${pruefung}`);
+    else aktionen.push(`${g}: PR #${nr} unverändert, Prüfung ${pruefung}`);
   }
   return aktionen;
+}
+
+// Sucht den pull_request-Lauf von auto-merge.yml für den Commit des PRs (bis zu `warten` ms).
+// Ergebnis: "gestartet" | "wartet auf Freigabe" | "fehlt". Bei den beiden letzten ein Hinweis im PR, einmal je Commit.
+export const PRUEF_MARKE = (sha) => `<!-- komponenten-updates:pruefung:${sha} -->`;
+export async function pruefungBeobachten({ api, repo, nr, sha, warten = 0, schlafen = (ms) => new Promise((r) => setTimeout(r, ms)), log = console.log, takt = 15_000 }) {
+  if (!SHA.test(sha) || !/^\d+$/.test(String(nr))) throw new Error("PR oder Commit ungültig");
+  let lauf = null;
+  for (let t = 0; ; t += takt) {
+    const r = await api(`repos/${repo}/actions/workflows/auto-merge.yml/runs?event=pull_request&head_sha=${sha}&per_page=20`);
+    lauf = (r?.workflow_runs || []).filter((x) => x.head_sha === sha).sort((a, b) => b.id - a.id)[0] || null;
+    if (lauf || t + takt > warten) break;
+    await schlafen(takt);
+  }
+  const freigabe = lauf && (lauf.status === "action_required" || lauf.conclusion === "action_required");
+  if (lauf && !freigabe) return "gestartet";
+  const zustand = freigabe ? "wartet auf Freigabe" : "fehlt";
+  log(`::warning::PR #${nr}: Prüflauf von auto-merge.yml ${zustand} – Hinweis im PR`);
+  const marke = PRUEF_MARKE(sha);
+  const kommentare = await api(`repos/${repo}/issues/${nr}/comments?per_page=100`);
+  if ((kommentare || []).some((k) => String(k.body || "").includes(marke))) return zustand;
+  const text = freigabe ? [
+    `**Prüfung wartet auf eine Freigabe.** GitHub hat den Lauf von *Auto-Merge & Release* (auto-merge.yml) für Commit \`${sha.slice(0, 7)}\` angehalten (Status *action_required*), vermutlich wegen der Einstellung zur Freigabe von Workflow-Läufen für Erstbeitragende. Ohne diesen Lauf fehlen die Pflicht-Prüfungen und der PR wird nicht gemergt.`,
+    "",
+    `Weiter geht es mit einer der beiden Möglichkeiten: den Lauf unter https://github.com/${repo}/actions/runs/${Number(lauf.id)} mit *Approve and run* freigeben, oder diesen PR schliessen und wieder öffnen (dann startet der Lauf im Namen der Person). Die Regelprüfung gilt in beiden Fällen unverändert.`,
+  ] : [
+    `**Prüfung nicht gestartet.** Für Commit \`${sha.slice(0, 7)}\` ist kein Lauf von *Auto-Merge & Release* (auto-merge.yml) erschienen. Ohne diesen Lauf fehlen die Pflicht-Prüfungen und der PR wird nicht gemergt.`,
+    "",
+    "Weiter geht es, indem eine Person diesen PR schliesst und wieder öffnet; unter *Actions* prüfen, ob ein Lauf auf eine Freigabe wartet.",
+  ];
+  await api(`repos/${repo}/issues/${nr}/comments`, { method: "POST", body: { body: [marke, ...text].join("\n") } });
+  return zustand;
 }
 async function hinweisIssue({ api, repo, gruppe, branch, title, grund }) {
   const kopf = "Komponenten-Updates: Pull Request konnte nicht erstellt werden";
@@ -615,12 +648,12 @@ async function hinweisIssue({ api, repo, gruppe, branch, title, grund }) {
     "",
     "Vermutlich ist *Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests* ausgeschaltet. Nach dem Einschalten erstellt der nächste Lauf den Pull Request (oder *Actions → Komponenten-Updates → Run workflow*).",
     "",
-    `Alternativ von Hand: https://github.com/${repo}/compare/main...${branch} – Achtung: ein von Hand erstellter \`fix/\`-PR wird von auto-merge.yml nach grünen Tests gemergt, auch bei Major-Updates.`,
+    `Alternativ von Hand: https://github.com/${repo}/compare/main...${branch} – ein von Hand erstellter PR wird nicht automatisch gemergt (die Regelprüfung verlangt den Workflow als Autor), sondern nach Prüfung von Hand.`,
   ].join("\n");
   await api(`repos/${repo}/issues`, { method: "POST", body: { title: kopf, body } });
 }
 
-// ---------- Regelprüfung vor dem Merge (komponenten-pruefen.yml) ----------
+// ---------- Regelprüfung vor dem Merge (auto-merge.yml, Major: komponenten-pruefen.yml) ----------
 // Ergebnis { ergebnis: ok | hinter-main | abgelehnt, grund, release: ja | nein, pr }
 //   1. PR vom Workflow (github-actions[bot]) aus diesem Repository nach main, Branch fix/abhaengigkeiten-…, offen, kein Entwurf,
 //      Kopf = geprüfter Stand; alle Commits von github-actions[bot]
