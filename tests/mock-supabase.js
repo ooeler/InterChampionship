@@ -44,6 +44,8 @@
     if (neu.evt && typeof neu.evt == "object") { var a = (alt.evt || {}).lead || null; if (!ok(a, neu.evt.lead || null)) put(neu.evt, a) }
   }
   function role() { var s = get(SESS); return s && (USERS[s.user.email] || { role: "player" }).role }
+  // Zusatzrolle Trainer: aus USERS (über set_trainer gesetzt) oder für Tests über __mock_trainer
+  function isTrainer() { var s = get(SESS); return !!s && (!!(USERS[s.user.email] || {}).trainer || localStorage.getItem("__mock_trainer") == "1") }
 
   function createClient() {
     var subs = [], chans = [];
@@ -124,7 +126,7 @@
               else if (table == "penalty_catalog") res = get(SESS) ? (get(CAT) || []).slice().sort(function (a, b) { return a.reason.localeCompare(b.reason, "de") }) : [];
               else if (role() != "admin") res = []; // RLS: Mitgliederliste und Verlauf nur für die Spielleitung
               else if (table == "league_state_history") res = (get(HIST) || []).slice().reverse().map(function (h) { return { id: h.id, saved_at: h.saved_at, reason: h.reason } });
-              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null, resto: !!USERS[e].resto, strafen: !!USERS[e].strafen } });
+              else res = Object.keys(USERS).sort().map(function (e) { return { user_id: "u-" + e, email: e, role: USERS[e].role, player: USERS[e].player || null, resto: !!USERS[e].resto, strafen: !!USERS[e].strafen, trainer: !!USERS[e].trainer } });
               var p = ok(res); p.limit = function (n) { return ok(res.slice(0, n)) }; return p;
             }
           };
@@ -254,7 +256,7 @@
       if (!s) return fail("JWT expired");
       if (fn == "me") {
         var me = USERS[s.user.email] || {};
-        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", lead_cc: localStorage.getItem("__mock_leadcc") != "0", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1", strafen: !!me.strafen || localStorage.getItem("__mock_strafen") == "1" });
+        return ok({ role: role(), player: localStorage.getItem("__mock_player") || me.player || null, prev_seen: localStorage.getItem("__mock_prev_seen"), notify_changes: localStorage.getItem("__mock_notify") == "1", lead_cc: localStorage.getItem("__mock_leadcc") != "0", resto: !!me.resto || localStorage.getItem("__mock_resto") == "1", strafen: !!me.strafen || localStorage.getItem("__mock_strafen") == "1", trainer: isTrainer() });
       }
       log({ op: "rpc", fn: fn, args: a });
       if (fn == "log_activity") return ok(null);
@@ -267,7 +269,12 @@
         if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
         USERS[a.uid.slice(2)].strafen = a.on_strafen; return ok(null);
       }
-      if (fn == "set_lead_cc") { if (role() != "admin") return fail("Nur für die Spielleitung"); localStorage.setItem("__mock_leadcc", a.on_cc ? "1" : "0"); return ok(null) }
+      if (fn == "set_trainer") {
+        if (role() != "admin") return fail("Nur die Spielleitung darf Rollen vergeben");
+        var tu = USERS[a.uid.slice(2)]; if (a.on_trainer && !tu.trainer && s.user.email == a.uid.slice(2)) localStorage.removeItem("__mock_leadcc"); // beim Vergeben: Kopie ein
+        tu.trainer = a.on_trainer; return ok(null);
+      }
+      if (fn == "set_lead_cc") { if (!isTrainer()) return fail("Nur für Trainer"); localStorage.setItem("__mock_leadcc", a.on_cc ? "1" : "0"); return ok(null) }
       if (fn == "set_notify") { localStorage.setItem("__mock_notify", a.on_changes ? "1" : "0"); return ok(null) }
       if (fn == "snapshot_league") {
         if (role() != "admin") return fail("Nur die Spielleitung darf Backups anlegen");

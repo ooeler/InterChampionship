@@ -56,7 +56,9 @@ test.describe("Spielleitung: Leitung per WhatsApp informieren", () => {
     const fs = await sum.locator("tr", { hasText: "Feldspieler" }).locator("td b").innerText();
     expect(lines[3]).toBe(`Stand jetzt: ${fs} Feldspieler und ${gk} Torhüter angemeldet · Verspätet: 1 · Unsicher: 1`);
     expect(t).toContain("Beim Abmeldeschluss (23 h vorher) bekommst du die definitive Zahl per Mail und Push.");
-    expect(t).toContain("Denk an Einlaufen, Passübungen und deine 3 Übungen.\nAlle Details in der App:\n");
+    // Hinweis nur noch auf die 3 Übungen
+    expect(t).toContain("\n\nBitte bereite deine 3 Übungen vor.\nAlle Details in der App:\n");
+    expect(t).not.toMatch(/Einlaufen|Passübungen/);
     expect(t).toMatch(/\/#trainings$/);
   });
 

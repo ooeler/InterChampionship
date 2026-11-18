@@ -66,7 +66,7 @@ export function trainingLeadMessages(state, today, daysBefore = 2) {
         title: off ? "⚠ Du leitest ein Training – bist aber abgemeldet" : "Du leitest das Training",
         body: off
           ? `${wd(x.d)}: Bitte Ersatz für die Trainingsleitung suchen und in der App eintragen.`
-          : `${wd(x.d)}: Denk an Einlaufen, Passübungen und deine 3 Übungen.`,
+          : `${wd(x.d)}: Bitte bereite deine 3 Übungen vor.`,
         url: URL_TRAININGS,
       });
     });
@@ -214,7 +214,7 @@ function leadMail(state, x, appUrl) {
       ...(c.unsure.length ? [`Unsicher: ${list(c.unsure)}`] : []),
       ...(c.late.length ? [`Verspätet: ${list(c.late)}`] : []),
       "",
-      "Denk an Einlaufen, Passübungen und deine 3 Übungen. Den aktuellen Stand siehst du in der App:",
+      "Bitte bereite deine 3 Übungen vor. Den aktuellen Stand siehst du in der App:",
       appUrl,
       "",
       "Let's fly!",
@@ -222,8 +222,22 @@ function leadMail(state, x, appUrl) {
   };
 }
 
-// Mail an die Trainingsleitung am Trainingstag ab 08:00, frühestens nach dem Abmeldeschluss (23 h vorher);
-// Spielleitung in Kopie. Läuft alle 15 Min.; push_log verhindert Doppelte.
+// Kopie (CC) der Mail an die Trainingsleitung: alle Konten mit der Zusatzrolle Trainer, die die Kopie nicht
+// abgeschaltet haben (members.lead_mail_cc). Ohne Trainer keine Kopie – kein Rückfall auf die Spielleitung.
+// Adressen, die schon Empfänger sind (ein Trainer leitet selbst), und Doppelte fallen weg.
+export function leadMailCc(members, to = []) {
+  const seen = new Set((to || []).map((e) => String(e).trim().toLowerCase()));
+  const out = [];
+  (members || []).forEach((m) => {
+    const e = String(m?.email || "").trim(), k = e.toLowerCase();
+    if (!e || m.trainer !== true || m.lead_mail_cc === false || seen.has(k)) return;
+    seen.add(k);
+    out.push(e);
+  });
+  return out;
+}
+
+// Mail an die Trainingsleitung direkt bei Abmeldeschluss (23 h vorher); Trainer in Kopie (leadMailCc).
 // Fällig direkt bei Abmeldeschluss (Cron alle 15 Min.: eine Stunde lang, push_log verhindert Doppelte)
 function leadDue(state, nowMs) {
   const out = [];

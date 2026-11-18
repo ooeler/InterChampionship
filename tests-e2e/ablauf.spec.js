@@ -413,6 +413,51 @@ test("Strafenchef pflegt den Strafenkatalog im Teams-Tab, Spieler ohne Rolle nic
   expect((await rest("/rest/v1/penalty_catalog?select=id", { key: ANON })).status).not.toBe(200);
 });
 
+test("Rolle Trainer: nur die Spielleitung vergibt sie, nur Trainer schalten ihre Kopie (serverseitig)", async () => {
+  const trainer = async () => (await rest("/rest/v1/members?user_id=eq." + playerId + "&select=trainer,lead_mail_cc")).data[0];
+  expect(await trainer()).toEqual({ trainer: false, lead_mail_cc: true });
+  // Spieler ohne Rolle: weder sich selbst zum Trainer machen noch die Kopie schalten, auch nicht direkt in der Tabelle
+  await player.reload();
+  const r = await player.evaluate(async () => {
+    const set = await sb.rpc("set_trainer", { uid: me.id, on_trainer: true });
+    const cc = await sb.rpc("set_lead_cc", { on_cc: false });
+    await sb.from("members").update({ trainer: true, lead_mail_cc: false }).eq("user_id", me.id);
+    const self = await sb.rpc("me");
+    return [set.error && set.error.message, cc.error && cc.error.message, self.data.trainer];
+  });
+  expect(r[0]).toContain("Nur die Spielleitung");
+  expect(r[1]).toContain("Nur für Trainer");
+  expect(r[2]).toBe(false);
+  expect(await trainer()).toEqual({ trainer: false, lead_mail_cc: true });
+  await expect(player.locator("[data-leadcc]")).toHaveCount(0);
+
+  // Spielleitung vergibt die Rolle unter Benutzer & Rollen
+  await admin.reload();
+  await admin.click("nav [data-tab=team]");
+  await admin.click("h3[data-acc=us]");
+  await admin.locator(`input[data-mtrainer='${playerId}']`).check();
+  await expect.poll(trainer).toEqual({ trainer: true, lead_mail_cc: true });
+
+  // Trainer schaltet seine Kopie in der App aus, darf aber anderen keine Rolle geben
+  await player.reload();
+  await player.click("nav [data-tab=team]");
+  await player.click("h3[data-acc=trc]");
+  await player.locator("[data-leadcc]").uncheck();
+  await expect.poll(trainer).toEqual({ trainer: true, lead_mail_cc: false });
+  const adminId = (await rest("/rest/v1/members?email=eq." + ADMIN.email + "&select=user_id")).data[0].user_id;
+  const other = await player.evaluate(async (id) => (await sb.rpc("set_trainer", { uid: id, on_trainer: true })).error.message, adminId);
+  expect(other).toContain("Nur die Spielleitung");
+  expect((await rest("/rest/v1/members?user_id=eq." + adminId + "&select=trainer")).data[0].trainer).toBe(false);
+  // ohne Login nicht aufrufbar
+  expect((await rest("/rest/v1/rpc/set_trainer", { key: ANON, method: "POST", body: { uid: playerId, on_trainer: false } })).status).not.toBe(200);
+
+  // Rolle wieder entziehen; beim erneuten Vergeben ist die Kopie wieder eingeschaltet
+  await admin.locator(`input[data-mtrainer='${playerId}']`).uncheck();
+  await expect.poll(trainer).toEqual({ trainer: false, lead_mail_cc: false });
+  await admin.locator(`input[data-mtrainer='${playerId}']`).check();
+  await expect.poll(trainer).toEqual({ trainer: true, lead_mail_cc: true });
+});
+
 test("Resultat der Spielleitung erscheint sofort in der öffentlichen Rangliste", async ({ page }) => {
   await admin.click("nav [data-tab=spiel]");
   await admin.click("[data-c='2']"); // November

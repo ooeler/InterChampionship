@@ -468,7 +468,7 @@ test.describe("Push-Texte (Edge Function)", () => {
     s.m[2].tr[2].lead = "Beat Rentsch"; // 04.11. = Match Day → keine Erinnerung
     expect(L.trainingLeadMessages(s, "2026-10-26")).toEqual([{
       key: "training:2026-10-28:Silvan Frey", tag: "training-2026-10-28", player: "Silvan Frey",
-      title: "Du leitest das Training", body: "Mi, 28.10.2026: Denk an Einlaufen, Passübungen und deine 3 Übungen.", url: "./#trainings",
+      title: "Du leitest das Training", body: "Mi, 28.10.2026: Bitte bereite deine 3 Übungen vor.", url: "./#trainings",
     }]);
     expect(L.trainingLeadMessages(s, "2026-10-27")).toEqual([]);
     expect(L.trainingLeadMessages(s, "2026-11-02")).toEqual([]);
