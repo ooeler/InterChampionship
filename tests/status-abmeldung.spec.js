@@ -273,12 +273,65 @@ test.describe("Grund beim Abmelden", () => {
     await expect(overview(page).locator(".abr")).toContainText("Silvan Frey: Geschäftsreise");
   });
 
-  test("Captain meldet andere ohne Grund ab", async ({ page }) => {
+  test("Captain meldet andere nur mit Grund ab", async ({ page }) => {
     await seed(page, "Andreas Scherrer");
     await open(page, { email: "captain@flyingpenguins.test", password: "geheim123" });
+    const chip = overview(page).locator("[data-tp='Beat Rentsch']");
+    await chip.click();
+    const f = overview(page).locator("form#abf");
+    await expect(f.locator("input[name=g]")).toBeFocused();
+    await expect(f.locator("input[name=g]")).toHaveAttribute("aria-label", "Grund der Abmeldung von Beat Rentsch");
+    await expect(f).toContainText("Den Grund sehen nur Beat Rentsch, die Captains und die Spielleitung.");
+    // ohne Grund: nichts gespeichert
+    await f.locator("button.del").click();
+    await expect(f).toBeVisible();
+    await expect(chip).not.toContainText("✗");
+    expect((await db(page)).m[2].tr[1].ab || []).toEqual([]);
+    await f.locator("input[name=g]").fill("Knie verletzt");
+    await f.locator("button.del").click();
+    await expect(f).toHaveCount(0);
+    await expect(chip).toContainText("✗");
+    await expect.poll(async () => (await db(page)).m[2].tr[1].ab).toEqual(["Beat Rentsch"]);
+    expect(await reasons(page)).toMatchObject([{ d: "2026-10-28", player: "Beat Rentsch", reason: "Knie verletzt" }]);
+    expect(JSON.stringify(await db(page))).not.toContain("Knie verletzt");
+    await expect(overview(page).locator(".abr")).toContainText("Beat Rentsch: Knie verletzt");
+    // wieder anmelden geht ohne Grund und löscht ihn
+    await chip.click();
+    await expect(chip).not.toContainText("✗");
+    await expect.poll(() => reasons(page)).toEqual([]);
+  });
+
+  test("Spielleitung: Abbrechen lässt die Person angemeldet", async ({ page }) => {
+    await seed(page);
+    await open(page, ADMIN);
+    const chip = overview(page).locator("[data-tp='Beat Rentsch']");
+    await chip.click();
+    const f = overview(page).locator("form#abf");
+    await expect(f).toBeVisible();
+    await f.locator("[data-stt$='|x']").click();
+    await expect(f).toHaveCount(0);
+    await expect(chip).not.toContainText("✗");
+    expect((await db(page)).m[2].tr[1].ab || []).toEqual([]);
+    expect(await reasons(page)).toEqual([]);
+    // erneut öffnen und mit Grund abmelden
+    await chip.click();
+    await f.locator("input[name=g]").fill("Militär");
+    await f.locator("button.del").click();
+    await expect(chip).toContainText("✗");
+    expect(await reasons(page)).toMatchObject([{ player: "Beat Rentsch", reason: "Militär" }]);
+  });
+
+  test("Spielleitung: Formular wechselt auf die zuletzt angetippte Person", async ({ page }) => {
+    await seed(page);
+    await open(page, ADMIN);
     await overview(page).locator("[data-tp='Beat Rentsch']").click();
-    await expect(overview(page).locator("[data-tp='Beat Rentsch']")).toContainText("✗");
-    await expect(page.locator("form#abf")).toHaveCount(0);
+    await overview(page).locator("[data-tp='Tobias Keller']").click();
+    const f = overview(page).locator("form#abf");
+    await expect(f.locator("input[name=g]")).toHaveAttribute("aria-label", "Grund der Abmeldung von Tobias Keller");
+    await f.locator("input[name=g]").fill("Ferien");
+    await f.locator("button.del").click();
+    await expect.poll(async () => (await db(page)).m[2].tr[1].ab).toEqual(["Tobias Keller"]);
+    expect(await reasons(page)).toMatchObject([{ player: "Tobias Keller", reason: "Ferien" }]);
   });
 });
 

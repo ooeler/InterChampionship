@@ -13,20 +13,21 @@ document.addEventListener("click",function(e){if(e.target.id=="toast"){clearTime
 var FAIR=[["OLMA","2026-10-08","2026-10-18","🐄"],["OFFA","2027-04-21","2027-04-25","🌷"],["OLMA","2027-10-14","2027-10-24","🐄"]];
 var GR={morgen:["Guten Morgen","Hallo","Hoi"],tag:["Hallo","Hoi","Salü"],abend:["Guten Abend","Hallo","Hoi"],bier:["Viel Spass beim Bier","Prost","Zum Wohl"]};
 function pick(a,k){var x=0;for(var i=0;i<k.length;i++)x=(x*31+k.charCodeAt(i))%9973;return a[x%a.length]}
+// Begrüssung als HTML (der Name wird escapet): am Training steht der Unihockey-Ball (BALL aus ui.js) statt eines Landhockey-Emojis
 function hello(){var u=me&&me.user_metadata||{},n=(PLAYER||u.full_name||u.name||"").split(" ")[0]||(me&&me.email||"").split("@")[0].split(/[._+-]/)[0],d=new Date(),h=d.getHours(),mi=h*60+d.getMinutes();n=n?n.charAt(0).toUpperCase()+n.slice(1):"";
-var w=n?"Hallo "+n:"Hallo",sp=n?" "+n:"",k=TD+n,T=allTr().filter(function(r){return r.x.d==TD})[0],st=T?(function(t){return +t.slice(0,2)*60+ +t.slice(3,5)})(tstart(T.x)):0;
+var e=esc(n),w=n?"Hallo "+e:"Hallo",sp=n?" "+e:"",bl=' <span class="sko" role="img" aria-label="Unihockeyball">'+BALL+'</span>',k=TD+n,T=allTr().filter(function(r){return r.x.d==TD})[0],st=T?(function(t){return +t.slice(0,2)*60+ +t.slice(3,5)})(tstart(T.x)):0;
 if(PREV&&Date.now()-new Date(PREV).getTime()>30*864e5)return w+", willkommen zurück!";
 // Am Trainingstag: wer sich mit einem Grund abgemeldet hat, der "FCSG" enthält (egal wie geschrieben), wird mit "Hopp FCSG" begrüsst
 if(T&&PLAYER&&/fcsg/i.test((absOf(TD,PLAYER)||{}).reason||""))return "Hopp FCSG"+sp+"! 💚🤍";
 if(T&&mi>=st+105&&mi<24*60)return pick(GR.bier,k)+sp+"! 🍺";
-if(T&&mi>=st-30)return T.md?"Guter Match"+sp+"! ⚑":"Gutes Training"+sp+"! 🏑";
+if(T&&mi>=st-30)return T.md?"Guter Match"+sp+"! ⚑":"Gutes Training"+sp+"!"+bl;
 if(h>=23||h<4)return "Hallo Nachtschwärmer"+sp+"! 🌙";
-if(T)return T.md?w+", heute ist Match Day! ⚑":w+", heute ist Training! 🏑";
+if(T)return T.md?w+", heute ist Match Day! ⚑":w+", heute ist Training!"+bl;
 if(h<7)return "Hallo Frühaufsteher"+sp+"! ☀️";
 var fa=FAIR.filter(function(f){return TD>=f[1]&&TD<=f[2]})[0];if(fa&&pick([1,1,0],k+"fa"))return pick(["Schöne ","Viel Spass an der "],k)+fa[0]+sp+"! "+fa[3];
 if(d.getDay()==5&&pick([1,0],k+"fr"))return "Happy Friday"+sp+"! 🎉";
 var lt=leadTitle(k);if(lt)return lt[0]+sp+"! "+lt[1];
-if(missing()&&pick([1,0],k+"mw"))return pick(["Hallo"+sp+", komm mal wieder ins Training!","Hoi"+sp+", wir vermissen dich im Training!","Salü"+sp+", das Training wartet auf dich!"],k)+" 🏑";
+if(missing()&&pick([1,0],k+"mw"))return pick(["Hallo"+sp+", komm mal wieder ins Training!","Hoi"+sp+", wir vermissen dich im Training!","Salü"+sp+", das Training wartet auf dich!"],k)+bl;
 return pick(h<11?GR.morgen:h<18?GR.tag:GR.abend,k)+sp+"!"}
 var CUT=null; // gesetzt: Stand vor diesem Datum (für ▲/▼ in der Rangliste)
 // Öffentliche Sicht (public_league): pro Training nur die Anzahl (n), pro Monat die Anwesenheit pro Spieler (m.anw). Ohne Namenslisten und ohne Trainingsserie (🔥 nur für Mitglieder).
