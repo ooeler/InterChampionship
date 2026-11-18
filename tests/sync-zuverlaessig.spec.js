@@ -108,7 +108,7 @@ test.describe("Tagesdatum bei offener App", () => {
     await page.clock.setFixedTime(new Date("2026-10-28T19:30:00"));
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(await page.evaluate(() => TD)).toBe("2026-10-28");
-    await expect(page.locator("#hi")).toHaveText(await page.evaluate(() => hello()));
+    await expect.poll(() => page.evaluate(() => { const t = document.createElement("div"); t.innerHTML = hello(); return document.getElementById("hi").innerHTML == t.innerHTML; })).toBe(true); // Begrüssung ist HTML (Unihockeyball)
     await expect(page.locator("#hi")).not.toHaveText("Hallo Silvan!");
   });
 

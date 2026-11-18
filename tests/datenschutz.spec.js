@@ -60,6 +60,36 @@ test.describe("Datenschutz", () => {
     await expect(page.locator("#abf")).toContainText("Er wird 30 Tage nach dem Training gelöscht");
   });
 
+  test("Grund, den der Captain für jemand anderen einträgt: sehen nur diese Person, Captains und Spielleitung", async ({ page }) => {
+    await seed(page);
+    await page.evaluate(() => localStorage.setItem("__mock_player", "Andreas Scherrer"));
+    await login(page); // Captain
+    await page.click("nav [data-tab=train]");
+    const ov = page.locator(".card", { has: page.locator("h3", { hasText: "Übersicht pro Training" }) });
+    await ov.locator("[data-tp='Beat Rentsch']").click();
+    await ov.locator("form#abf input[name=g]").fill("Geheimer Arzttermin");
+    await ov.locator("form#abf button.del").click();
+    await expect(ov.locator(".abr")).toContainText("Beat Rentsch: Geheimer Arzttermin");
+    const sicht = () => page.evaluate(async () => (await sb.from("absence_reasons").select("d,player,reason").order("d")).data.map((a) => a.reason));
+    // nicht in den Saison-Daten und nicht öffentlich
+    expect(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("__mock_db")).data))).not.toContain("Geheimer Arzttermin");
+    expect(JSON.stringify(await page.evaluate(async () => (await sb.rpc("public_league")).data))).not.toContain("Geheimer Arzttermin");
+    // ein anderer Spieler sieht ihn nicht
+    const abmelden = async () => { await page.click("#lo"); await page.click("[data-lo]"); await expect(page.locator("#li")).toBeVisible(); };
+    await abmelden();
+    await page.evaluate(() => localStorage.setItem("__mock_player", "Silvan Frey"));
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=train]");
+    expect(await sicht()).not.toContain("Geheimer Arzttermin");
+    await expect(page.locator("main")).not.toContainText("Geheimer Arzttermin");
+    // die abgemeldete Person selbst sieht ihn
+    await abmelden();
+    await page.evaluate(() => localStorage.setItem("__mock_player", "Beat Rentsch"));
+    await login(page, SPIELER);
+    await page.click("nav [data-tab=train]");
+    expect(await sicht()).toContain("Geheimer Arzttermin");
+  });
+
   test("Migration: öffentliche Lesepolitik weg, Löschauftrag eingeplant", { tag: "@logik" }, async () => {
     const sql = fs.readFileSync(path.join(__dirname, "../supabase/migrations/20261031_24_datenschutz.sql"), "utf8");
     expect(sql).toContain(`drop policy if exists "Saison öffentlich lesen"`);

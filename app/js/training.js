@@ -54,7 +54,7 @@ return acc("tl","Trainingsleitung · Einteilen"+(open?' <span class="sp">· '+op
 function leadTxt(x){if(!x.lead)return '';var o=(x.ab||[]).indexOf(x.lead)>=0;return ' · <span class="ld">Leitung: '+esc(x.lead)+(o?' <b class="fl">⚠ abgemeldet</b>':'')+'</span>'}
 function leadSel(mi,ti,x){if(ROLE!="admin")return '<div class="sp tlro" style="margin:8px 0 4px">'+(x.lead?'Leitung: <b>'+esc(x.lead)+'</b>':'– Leitung offen –')+' · Einteilen kann die Spielleitung, selbst übernehmen unter „Meine Trainings“.</div>';return '<div class="sp" style="margin:8px 0 4px">Training leitet</div><select class="t" data-lead="'+mi+','+ti+'" aria-label="Training leitet"><option value="">– Leitung offen –</option>'+allP().map(function(p){return '<option'+(x.lead==p?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select>'}
 // ── Training: An-/Abmeldung, Bestätigung der Anwesenheit, Übersichten ──
-// Alle sind automatisch angemeldet. Selbst abmelden bis 23 h vor Trainingsbeginn (Spielleitung/Captains jederzeit).
+// Alle sind automatisch angemeldet. Selbst abmelden bis 23 h vor Trainingsbeginn (Spielleitung/Captains jederzeit, auch für andere – immer mit Grund).
 // Ab Trainingsbeginn kann jede Person die Anwesenheit bestätigen – erst dann zählt sie für die Statistik.
 var RESTO=false,TSTART="18:45",TALL=false,TSEL=null,TMON=null,LTS=null,NOTIFY=false;
 function tstart(x){return x.t||TSTART}
@@ -83,7 +83,8 @@ function trKey(r){return r.mi+","+r.ti}
 function trAt(k){var a=String(k).split(",");if(a[1]=="e")return {mi:+a[0],ti:"e",x:evTr(),md:false,xe:true};return {mi:+a[0],ti:+a[1],x:S.m[+a[0]].tr[+a[1]],md:+a[1]==S.m[+a[0]].tr.length-1}}
 function isOff(x,p){return (x.ab||[]).indexOf(p)>=0}
 // Status pro Training: x.st[Spieler] = "u" (unsicher) oder "v" (verspätet), zählt weiter als angemeldet
-var TCH=null,ABF=null,ABFW="",ABFS="off",ABS=null;function stOf(x,p){return (x.st||{})[p]||""}
+// ABFP: für wen das Abmelde-Formular in der Übersicht gilt (Spielleitung/Captains melden auch andere ab – ebenfalls nur mit Grund)
+var TCH=null,ABF=null,ABFW="",ABFS="off",ABFP=null,ABS=null;function abfP(){return ABFW=="ov"&&ABFP||PLAYER}function stOf(x,p){return (x.st||{})[p]||""}
 // Gründe für Abmelden und Unsicher (pro Training und Spieler einer): eigene geschützte Tabelle, die Saison-Daten sind öffentlich lesbar (lesen nur eingeloggte Mitglieder)
 function abs(){if(ABS==null&&sb&&me){ABS=[];sb.from("absence_reasons").select("d,player,reason").order("d").then(function(r){ABS=r.data||[];render()})}return ABS||[]}
 function absOf(d,p){return abs().filter(function(a){return a.d==d&&a.player==p})[0]}
@@ -93,16 +94,17 @@ if(nv&&x.d==TD&&sb&&me){clearTimeout(tm);push().then(function(r){if(!(r&&r.error
 if(wu&&st!="u"&&sb&&me)sb.from("absence_reasons").delete().match({d:x.d,player:p}).then(function(){ABS=null;render()});
 if(st)toast(st=="u"?"Alles klar, du bist als unsicher eingetragen. Gib Bescheid, sobald du es weisst.":"Danke für die Info, bis später! ⏰");else if(!was)toast("Super, du bist fix dabei! 💪")}
 function stChoose(k,x){var lk=!canLate(x),cv=stOf(x,PLAYER)=="v",dis=function(b){return b?' disabled':''};return '<div class="stc" role="group" aria-label="Status wählen"><button class="pb on" data-stt="'+k+'|on"'+dis(lk&&cv)+'>✓ Dabei</button><button class="pb un" data-stt="'+k+'|u"'+dis(lk&&cv)+'>❔ Unsicher</button><button class="pb ve" data-stt="'+k+'|v"'+dis(lk&&!cv)+'>⏰ Verspätet</button>'+(canTeam()||canOff(x)?'<button class="pb off" data-stt="'+k+'|off">✗ Abmelden</button>':'')+'</div>'+(lk?'<div class="sp stl">Verspätet melden oder zurücknehmen geht bis 30 Minuten vor Trainingsbeginn.</div>':'')+(ABF==k&&ABFW=="mine"?abForm(k):'')}
-function abForm(k){var u=ABFS=="u",l=u?"Grund, warum du unsicher bist":"Grund der Abmeldung",a=ABS&&absOf(trAt(k).x.d,PLAYER);return '<form id="abf" class="abf" data-abk="'+k+'"><input class="t" name="g" placeholder="'+l+'" aria-label="'+l+'" maxlength="200" required value="'+esc(a?a.reason:"")+'"><div class="sp">Den Grund sehen nur du, die Captains und die Spielleitung. Er wird 30 Tage nach dem Training gelöscht.</div><div class="two"><button class="add'+(u?'':' del')+'">'+(u?'Unsicher melden':'Abmelden')+'</button><button type="button" class="add sec" data-stt="'+k+'|x">Abbrechen</button></div></form>'}
+function abForm(k){var u=ABFS=="u",p=abfP(),fr=p!=PLAYER,l=u?"Grund, warum du unsicher bist":fr?"Grund der Abmeldung von "+p:"Grund der Abmeldung",a=ABS&&absOf(trAt(k).x.d,p);return '<form id="abf" class="abf" data-abk="'+k+'"><input class="t" name="g" placeholder="'+esc(l)+'" aria-label="'+esc(l)+'" maxlength="200" required value="'+esc(a?a.reason:"")+'"><div class="sp">Den Grund sehen nur '+(fr?esc(p)+', ':'du, ')+'die Captains und die Spielleitung. Er wird 30 Tage nach dem Training gelöscht.</div><div class="two"><button class="add'+(u?'':' del')+'">'+(u?'Unsicher melden':fr?esc(p)+' abmelden':'Abmelden')+'</button><button type="button" class="add sec" data-stt="'+k+'|x">Abbrechen</button></div></form>'}
 function abFocus(){var i=document.querySelector("#abf input");if(i)i.focus()}
 document.addEventListener("change",function(e){if(e.target.id=="pfpos"){var w=document.querySelector("#proff [data-stick]");if(w)w.hidden=e.target.value=="g"}});
 document.addEventListener("submit",function(e){if(e.target.id!="proff"||!PLAYER)return;e.preventDefault();var f=e.target,pos=f.elements.pos.value||null,nr=f.elements.nr.value.trim(),B=f.querySelector("button");
 if(nr!==""&&!/^\d{1,2}$/.test(nr)){alert("Bitte eine Trikotnummer von 0 bis 99 eintragen.");return}
 var row={player:PLAYER,pos:pos,stick:pos=="g"?null:(f.elements.stick.value||null),nr:nr===""?null:+nr,updated_at:new Date().toISOString()};B.disabled=true;
 sb.from("player_profiles").upsert(row).then(function(r){B.disabled=false;if(r.error){alert("Profil nicht gespeichert: "+r.error.message);return}(PRF||(PRF={}))[PLAYER]=row;toast("👤 Profil gespeichert.");render()})});
-document.addEventListener("submit",function(e){if(e.target.id!="abf")return;e.preventDefault();var f=e.target,k=f.dataset.abk,u=ABFS=="u",g=f.elements.g.value.trim();if(g.length<3){alert("Bitte gib einen kurzen Grund an.");return}var B=f.querySelector("button"),x=trAt(k).x;if(started(x)){alert("Das Training hat schon begonnen.");return}
+document.addEventListener("submit",function(e){if(e.target.id!="abf")return;e.preventDefault();var f=e.target,k=f.dataset.abk,u=ABFS=="u",g=f.elements.g.value.trim();if(g.length<3){alert("Bitte gib einen kurzen Grund an.");return}var B=f.querySelector("button"),x=trAt(k).x,p=abfP();if(started(x)){alert("Das Training hat schon begonnen.");return}
+if(p!=PLAYER&&(u||!canTeam())){alert("An- und abmelden können nur die Spieler selbst sowie Spielleitung und Captains.");ABF=null;render();return}
 if(!u&&!canTeam()&&!canOff(x)){alert("Abmelden ist nur bis 23 Stunden vor Trainingsbeginn möglich. Bitte melde dich direkt bei deinem Captain.");TCH=null;ABF=null;render();return}B.disabled=true;
-sb.from("absence_reasons").upsert({d:x.d,player:PLAYER,reason:g}).then(function(r){if(r.error){B.disabled=false;alert((u?"Status":"Abmeldung")+" nicht gespeichert: "+r.error.message);return}if(u)setSt(k,PLAYER,"u");else setOff(k,PLAYER,true);TCH=null;ABF=null;ABS=null;render()})});
+sb.from("absence_reasons").upsert({d:x.d,player:p,reason:g}).then(function(r){if(r.error){B.disabled=false;alert((u?"Status":"Abmeldung")+" nicht gespeichert: "+r.error.message);return}if(u)setSt(k,p,"u");else setOff(k,p,true);TCH=null;ABF=null;ABFP=null;ABS=null;render()})});
 // An-/Abmelden mit Frist; meldet die Änderung an alle, die das abonniert haben
 function setOff(k,p,off,keep){var r=trAt(k),x=r.x;if(started(x)){alert("Das Training hat schon begonnen.");return false}
 if(off&&!canTeam()&&!canOff(x)){alert("Abmelden ist nur bis 23 Stunden vor Trainingsbeginn möglich. Bitte melde dich direkt bei deinem Captain.");return false}

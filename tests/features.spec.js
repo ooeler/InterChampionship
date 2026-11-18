@@ -234,7 +234,7 @@ test.describe("Begrüssung", () => {
   test("Am Trainingstag mit FCSG im Abmeldegrund: Hopp FCSG", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
     await login(page);
-    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training! 🏑");
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training!");
     const grund = (r, d = "2026-10-28") => page.evaluate(([r, d]) => { PLAYER = "Silvan Frey"; localStorage.setItem("__mock_abs", JSON.stringify([{ d, player: PLAYER, reason: r }])); ABS = null; render(); }, [r, d]);
     await grund("Match vom fcSG im kybunpark");
     await expect(page.locator("#hi")).toHaveText("Hopp FCSG Silvan! 💚🤍");
@@ -242,21 +242,35 @@ test.describe("Begrüssung", () => {
     await grund("FCSG!");
     await expect(page.locator("#hi")).toHaveText("Hopp FCSG Silvan! 💚🤍");
     await grund("Ferien"); // anderer Grund: normale Begrüssung
-    await expect(page.locator("#hi")).toHaveText("Gutes Training Silvan! 🏑");
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Silvan!");
     await grund("FCSG", "2026-11-04"); // Grund für ein anderes Training zählt heute nicht
-    await expect(page.locator("#hi")).toHaveText("Gutes Training Silvan! 🏑");
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Silvan!");
   });
 
   test("Am Trainingstag: vorher, während und danach", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
     await login(page);
-    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training! 🏑");
+    await expect(page.locator("#hi")).toHaveText("Hallo Captain, heute ist Training!");
     await page.clock.setFixedTime(new Date("2026-10-28T18:30:00"));
     await page.evaluate(() => render());
-    await expect(page.locator("#hi")).toHaveText("Gutes Training Captain! 🏑");
+    await expect(page.locator("#hi")).toHaveText("Gutes Training Captain!");
     await page.clock.setFixedTime(new Date("2026-10-28T20:45:00"));
     await page.evaluate(() => render());
     await expect(page.locator("#hi")).toHaveText(/^(Viel Spass beim Bier|Prost|Zum Wohl) Captain! 🍺$/);
+  });
+
+  test("Am Trainingstag zeigt die Begrüssung den Unihockeyball, Namen bleiben Text", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-28T12:00:00"));
+    await login(page);
+    const hi = page.locator("#hi");
+    await expect(hi).toHaveText("Hallo Captain, heute ist Training!");
+    await expect(hi.locator(".sko svg")).toHaveCount(1);
+    await expect(hi.locator(".sko")).toHaveAttribute("aria-label", "Unihockeyball");
+    // ein Name mit HTML wird escapet, nicht ausgeführt
+    await page.evaluate(() => { PLAYER = '<img src=x onerror="window.__xss=1">'; render(); });
+    await expect(hi).toHaveText('Hallo <img, heute ist Training!');
+    await expect(hi.locator("img")).toHaveCount(0);
+    expect(await page.evaluate(() => window.__xss)).toBeUndefined();
   });
 
   test("Variante bleibt am selben Tag gleich", async ({ page }) => {
@@ -518,4 +532,12 @@ test("Begrüssung: Happy Friday und Schöne OLMA / OFFA (an manchen Tagen)", asy
   expect(of.some((g) => /^(Schöne |Viel Spass an der )OFFA .*! 🌷$/.test(g))).toBe(true);
   await page.clock.setFixedTime(new Date("2027-04-28T12:00:00"));
   expect((await at("2027-04-28")).some((g) => /OFFA|OLMA/.test(g))).toBe(false);
+});
+
+// Unihockey statt Landhockey: In der App steht der Ball als SVG, in Push, Mail und WhatsApp das Tor (🥅)
+test("Kein Landhockey-Emoji in App und Benachrichtigungen", { tag: "@logik" }, () => {
+  const fs = require("fs"), path = require("path"), root = path.join(__dirname, "..");
+  const files = fs.readdirSync(path.join(root, "app/js")).map((f) => path.join("app/js", f)).concat(["app/index.html", "supabase/functions/notify/logic.mjs", "supabase/functions/notify/index.ts"]);
+  const hit = files.filter((f) => fs.readFileSync(path.join(root, f), "utf8").includes("\u{1F3D1}"));
+  expect(hit).toEqual([]);
 });
