@@ -137,3 +137,4 @@ nav button.on i{animation:pop .3s ease-out}
 .rsn{font-size:22px;font-weight:700;fill:var(--tx)}.rsl{font-size:11px;fill:var(--mu)}
 .rsg{flex:1;min-width:160px}.rsi{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--ln)}.rsi:last-child{border-bottom:0}
 .rsi i{width:12px;height:12px;border-radius:3px;flex:none}.rsi .nm{flex:1;min-width:0}.rsi .sp{width:3.2em;text-align:right}
+.rlh{margin:8px 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}

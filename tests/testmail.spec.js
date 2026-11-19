@@ -138,6 +138,9 @@ test("Spielleitung vergibt die Zusatzrolle Trainer, die Kopie-Einstellung gibt e
   await expect(page.locator("[data-leadcc]")).toHaveCount(0);
   await expect(page.locator(".card", { hasText: "Mail und Benachrichtigung testen" })).toContainText("In Kopie gehen die Mails an alle mit der Zusatzrolle Trainer.");
   await page.click("h3[data-acc=us]");
+  const sk = page.locator(".sk", { has: page.locator("input[data-mtrainer='u-spieler@flyingpenguins.test']") });
+  await expect(sk.locator(".rlh").first()).toHaveText("Rolle (Rechte) · verknüpfter Spieler"); // Hauptrolle und Zusatzaufgaben sind beschriftet
+  await expect(sk.locator(".rlh").nth(1)).toContainText("Zusätzliche Aufgaben");
   const box = page.locator("input[data-mtrainer='u-spieler@flyingpenguins.test']");
   await expect(box).not.toBeChecked();
   await box.check();
