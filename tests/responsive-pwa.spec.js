@@ -72,7 +72,7 @@ test.describe("PWA", () => {
     test.skip(browserName !== "chromium", "Service-Worker-Inspektion nur in Chromium");
     const ctx = await browser.newContext({ serviceWorkers: "allow" });
     const page = await ctx.newPage();
-    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => r.abort());
     await page.goto("/");
     expect(await page.evaluate(() => navigator.serviceWorker.ready.then((r) => !!r.active))).toBe(true);
     const cached = await page.evaluate(async () => {

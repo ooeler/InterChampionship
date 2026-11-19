@@ -113,7 +113,9 @@ Deno.serve(async (req) => {
         sent++;
       } catch (e) {
         const code = (e as { statusCode?: number }).statusCode;
-        errors.push(code ? `Push-Dienst antwortet ${code}` : String((e as Error).message || e).slice(0, 120));
+        // Details nur ins Log, die App bekommt einen festen Text (keine internen Fehlermeldungen nach aussen)
+        if (!code) console.error("Test-Push fehlgeschlagen:", e);
+        errors.push(code ? `Push-Dienst antwortet ${code}` : "Senden fehlgeschlagen");
         if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
       }
     }

@@ -55,6 +55,7 @@
     var h = location.hash;
     if (/access_token=/.test(h)) {
       var em = decodeURIComponent((h.match(/email=([^&]+)/) || [])[1] || "neu@flyingpenguins.test");
+      if (em === "__proto__" || em === "constructor" || em === "prototype") em = "neu@flyingpenguins.test"; // keine Objekt-Eigenschaften über die Adresse überschreiben
       var ty = (h.match(/type=(\w+)/) || [])[1];
       if (!USERS[em]) USERS[em] = { pw: null, role: "player" };
       set(SESS, session(em));
