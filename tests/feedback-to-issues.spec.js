@@ -30,7 +30,7 @@ test("legt Issues mit dem GitHub-Actions-Token an und meldet sie zurück", { tag
   const items = [{ id: 1, title: "💡 Dark Mode", body: "Bitte", labels: ["verbesserung", "aus-der-app"] }, { id: 2, title: "🐞 Fehler", body: "x", labels: ["fehler", "aus-der-app"] }];
   const { f, calls } = fakeFetch({ pending: items });
   expect(await run({ env: ENV, fetch: f, log: () => {} })).toBe(2);
-  const gh = calls.filter((c) => c.url.includes("api.github.com"));
+  const gh = calls.filter((c) => new URL(c.url).hostname === "api.github.com");
   expect(gh).toHaveLength(2);
   expect(gh[0].auth).toBe("Bearer gh-auto"); // eingebauter Token, kein persönliches Token
   expect(gh[0].body).toEqual({ title: "💡 Dark Mode", body: "Bitte", labels: ["verbesserung", "aus-der-app"] });

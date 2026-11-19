@@ -30,7 +30,7 @@ test.describe("Übernahme aus dem PDF", () => {
     await page.clock.setFixedTime(new Date("2026-10-29T20:00:00")); // nach dem Training vom 28.10.
     await page.route("**/config.js", (r) => r.fulfill({ path: path.join(__dirname, "mock-supabase.js"), contentType: "application/javascript" }));
     await page.route("**/vendor/supabase.js", (r) => r.fulfill({ body: "", contentType: "application/javascript" }));
-    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => r.abort());
     await page.goto("/");
     await page.evaluate((d) => localStorage.setItem("__mock_db", JSON.stringify({ id: "main", data: d })), data);
     await page.reload();

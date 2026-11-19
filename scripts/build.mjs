@@ -11,7 +11,7 @@ const src = join(root, "app"), out = join(root, "dist");
 const supabase = process.env.SUPABASE_URL || "https://*.supabase.co";
 
 export function csp(html, supabaseUrl = supabase) {
-  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script[^>]*>/gi)]
     .map((m) => `'sha256-${createHash("sha256").update(m[1], "utf8").digest("base64")}'`);
   const host = supabaseUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   // http nur für die lokale Test-Datenbank der E2E-Tests, ausgeliefert wird immer https

@@ -12,7 +12,7 @@ async function setup(page, { mock = true } = {}) {
   });
   if (mock) await page.route("**/config.js", (r) => r.fulfill({ path: MOCK, contentType: "application/javascript" }));
   await page.route("**/vendor/supabase.js", (r) => r.fulfill({ body: "", contentType: "application/javascript" }));
-  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => r.abort());
   page.on("dialog", (d) => d.accept());
 }
 
