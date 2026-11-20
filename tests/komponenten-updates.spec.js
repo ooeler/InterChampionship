@@ -226,6 +226,7 @@ test.describe("Komponenten-Updates", () => {
     expect(s.startsWith("<!-- komponenten-updates:standard -->")).toBe(true);
     expect(s).toContain("| `@supabase/supabase-js` | package.json, 2 Function-Dateien | 2.118.0 → **2.119.0** | Minor | 9 Tage | – | [Release Notes](https://github.com/supabase/supabase-js/releases/tag/v2.119.0) |");
     expect(s).toContain("automatisch gemergt");
+    expect(s).toContain("test / visuell");
     expect(m.titel("standard", p.gruppen.standard)).toBe("Abhängigkeiten aktualisieren: 4 Komponenten");
     const g = m.beschreibung("major", p.gruppen.major);
     expect(g).toContain("wird nicht automatisch gemergt");
@@ -420,7 +421,9 @@ test.describe("Komponenten-Updates", () => {
 
   // ---- Regelprüfung vor dem Merge (nachgebautes git und API) ----
   const KOPF = "c".repeat(40), MB = "d".repeat(40);
-  function regelLauf(m, { aendern = (d) => d, git: gitA = {}, pr = {}, env = {}, q = {}, dateienKopf } = {}) {
+  // visuell: Läufe von auto-merge.yml für den Commit mit ihren Jobs (Standard: ein Lauf, test / visuell grün)
+  const VIS = (conclusion = "success", o = {}) => [{ id: 11, head_sha: KOPF, head_repository: { full_name: R }, jobs: [{ id: 1, name: "test / visuell", status: "completed", conclusion }], ...o }];
+  function regelLauf(m, { aendern = (d) => d, git: gitA = {}, pr = {}, env = {}, q = {}, dateienKopf, visuell = VIS() } = {}) {
     const alt = DATEIEN();
     const ziel = { npm: { "@supabase/supabase-js": "2.119.0", "@playwright/test": "1.65.0" }, bilder: { playwright: { version: "1.65.0", digest: D("c") } } };
     let kopf = { ...alt, ...m.anwenden(alt, ziel), "package-lock.json": lock({ sb: "2.119.0", pw: "1.65.0", hs: "14.1.1" }) };
@@ -440,6 +443,9 @@ test.describe("Komponenten-Updates", () => {
     };
     const api = async (p) => {
       if (p === `repos/${R}/pulls/5`) return { user: { login: "github-actions[bot]" }, head: { repo: { full_name: R }, ref: "fix/abhaengigkeiten-2026-11-16", sha: KOPF }, base: { ref: "main" }, state: "open", draft: false, ...pr };
+      if (p === `repos/${R}/actions/workflows/auto-merge.yml/runs?event=pull_request&head_sha=${KOPF}&per_page=20`) return { workflow_runs: visuell.map(({ jobs, ...l }) => l) };
+      const j = p.match(/^repos\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/jobs\?filter=latest&per_page=100$/);
+      if (j) return { jobs: (visuell.find((l) => l.id == j[1]) || {}).jobs || [] };
       throw new Error("404");
     };
     return m.regelnPruefen({ env: { GITHUB_REPOSITORY: R, PR: "5", KOPF, REF: "fix/abhaengigkeiten-2026-11-16", FREIGABE: "false", AUSLOESER: "github-actions[bot]", ...env }, api, git, quellen: quellen(q), jetzt: JETZT });
@@ -454,6 +460,11 @@ test.describe("Komponenten-Updates", () => {
     const nurDev = { ...alt, ...m.anwenden(alt, { npm: { "@playwright/test": "1.65.0" }, bilder: { playwright: { version: "1.65.0", digest: D("c") } } }), "package-lock.json": lock({ sb: "2.118.0", pw: "1.65.0", hs: "14.1.1" }) };
     expect(await regelLauf(m, { dateienKopf: nurDev })).toMatchObject({ ergebnis: "ok", release: "nein" });
     expect(await regelLauf(m, { git: { hinter: "2" } })).toMatchObject({ ergebnis: "hinter-main" });
+    // visueller Vergleich: der neueste Lauf zählt (z. B. nach einem erneuten Versuch), übersprungene Jobs nicht
+    const zwei = [...VIS("failure"), { ...VIS()[0], id: 12 }];
+    expect(await regelLauf(m, { visuell: zwei })).toMatchObject({ ergebnis: "ok" });
+    expect(await regelLauf(m, { visuell: [{ ...VIS("failure")[0], id: 13 }, { ...VIS()[0], id: 12 }] })).toMatchObject({ ergebnis: "abgelehnt", grund: expect.stringMatching(/^Regel 7: .*failure/) });
+    expect(await regelLauf(m, { visuell: VIS("skipped") })).toMatchObject({ ergebnis: "abgelehnt" });
   });
 
   test("Regeln: jede Verletzung verhindert den Merge", L, async () => {
@@ -485,6 +496,11 @@ test.describe("Komponenten-Updates", () => {
       "neue Version mit Lücke": [4, { q: { osv: [vuln("GHSA-gggg-hhhh-iiii", "@supabase/supabase-js", [{ introduced: "2.119.0" }])] } }],
       "Image passt nicht zu @playwright/test": [5, { aendern: (d) => ({ ...d, ".github/container-images.json": BILDER("1.64.1", D("a")) }) }],
       "Digest nicht aus der Registry": [5, { q: { bilder: { "playwright@1.65.0": D("9") } } }],
+      "visueller Vergleich rot": [7, { visuell: VIS("failure") }],
+      "visueller Vergleich fehlt": [7, { visuell: [] }],
+      "visueller Vergleich läuft noch": [7, { visuell: [{ ...VIS()[0], jobs: [{ id: 1, name: "test / visuell", status: "in_progress", conclusion: null }] }] }],
+      "visueller Vergleich aus Fork": [7, { visuell: VIS("success", { head_repository: { full_name: "x/y" } }) }],
+      "visueller Vergleich anderer Commit": [7, { visuell: VIS("success", { head_sha: "e".repeat(40) }) }],
       "Semgrep zu jung": [5, { dateienKopf: { ...alt, ".github/container-images.json": BILDER("1.64.1", D("a"), "1.184.0", D("d")) }, q: { releases: [{ tag_name: "v1.184.0", published_at: vor(3), draft: false, prerelease: false }] } }],
     };
     for (const [name, [regel, o]] of Object.entries(faelle)) {

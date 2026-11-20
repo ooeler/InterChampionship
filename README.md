@@ -146,6 +146,7 @@ Der Ablauf **Vollsicherung Probe** prüft beides monatlich mit Testdaten und mel
 - **Jeder Push / Pull Request** → alle Tests laufen (Android-, iPhone- und Desktop-Browser) + CodeQL-Sicherheitsscan.
 - **Sicherheitspatches gehen automatisch live**: Dependabot prüft täglich die Pakete. Bei einer Sicherheitslücke erstellt er einen Pull Request, die Tests laufen, danach wird **automatisch gemergt und deployt**. Normale Versions-Updates der Pakete sind bei Dependabot abgeschaltet; Updates der GitHub Actions werden gemergt, aber nicht deployt.
 - **Komponenten-Updates**: Der Workflow *Komponenten-Updates* prüft täglich `package.json`, die `npm:`-Imports der Edge Functions und die CI-Images (`.github/container-images.json`) auf bekannte Lücken und aktualisiert sie sofort; montags kommen zusätzlich neue Versionen, die mindestens 7 Tage alt sind. Patch/Minor-Updates werden nach grünen Prüfungen automatisch gemergt (und bei App/Functions deployt), Major-Updates bleiben als PR mit dem Label `manuell-pruefen` offen. Regeln: `SECURITY.md`.
+- **Visueller Vergleich**: In jedem Pull Request fotografiert der Job *test / visuell* die wichtigsten Ansichten (öffentlich, Login, Spieler und Spielleitung; hell und dunkel; Android und Desktop) zuerst im Stand von `main` und dann im Stand des PRs und vergleicht die Bilder (`tests/visuell.spec.js`). Referenzbilder liegen nicht im Repo. Abweichungen erscheinen als Warnung mit Diff-Bildern (Artefakt `visuell-abweichungen`); bei Abhängigkeits-Updates (`fix/abhaengigkeiten-…`, `dependabot/…`) wird dann nicht automatisch gemergt – nach Sichtung der Bilder von Hand mergen.
 - **Alles andere geht nur mit deinem Go live**: Auf GitHub → *Releases → Draft a new release* → Version (z. B. `v1.0.0`) → **Publish**. Dann laufen die Tests nochmals, danach werden App und Edge Function deployt.
 - **Wartungsseite während des Updates**: Der Release-Workflow schaltet vor den Migrationen `public.app_status.maintenance` ein. Offene Apps zeigen dann „Update wird eingespielt“ und speichern nichts. Danach schaltet er sie wieder aus, auch wenn ein Schritt fehlschlägt, und die Apps laden die neue Version von selbst. Falls sie doch einmal hängen bleibt: im Supabase SQL Editor `update public.app_status set maintenance = false;`
 - **Mailvorlagen**: Die Texte der Supabase-Mails liegen deutsch in `supabase/mail-vorlagen.json`. Der Release-Workflow spielt sie bei jedem Deployment ein. Die App selbst verschickt keine Mails über Supabase Auth; die Vorlagen gelten nur für Mails, die jemand im Supabase-Dashboard auslöst. Den Text der Passwort-Mail aus der App enthält `supabase/functions/passwort/logic.mjs`.
@@ -164,6 +165,8 @@ npx playwright install
 npm test          # alle Tests (nachgebaute Datenbank)
 npm run test:e2e  # E2E gegen lokale Supabase (braucht Docker, siehe playwright.e2e.config.js)
 npm run test:ui   # Tests interaktiv
+npx playwright test -c playwright.visuell.config.js --update-snapshots=all  # Referenzbilder (visuell-referenz/, nicht im Repo)
+VISUELL_MODUS=vergleich npx playwright test -c playwright.visuell.config.js  # nach einer Änderung damit vergleichen
 npm start         # App unter http://localhost:4173 (config.js mit Supabase-Werten füllen)
 ```
 

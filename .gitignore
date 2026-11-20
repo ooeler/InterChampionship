@@ -7,3 +7,6 @@ supabase/.temp/
 dist/
 playwright-report-e2e/
 *.sql.gpg
+visuell-referenz/
+visuell-ergebnis/
+visuell-bericht/

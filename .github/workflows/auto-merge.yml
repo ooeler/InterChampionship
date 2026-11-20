@@ -14,6 +14,9 @@
 #                                 oder Label manuell-pruefen) nie hier, nur über komponenten-pruefen.yml mit major_freigeben.
 #                                 Dies ist der einzige automatische Merge-Weg für diese PRs: nur Check-Runs aus pull_request-
 #                                 Läufen zählen für die Pflicht-Prüfungen von main, solche aus workflow_dispatch nicht.
+# Visueller Vergleich (Job test / visuell in ci.yml): bei allen PRs zur Information; bei fix/abhaengigkeiten-… und dependabot/…
+#                                 rot bei Abweichung → Job test rot → kein automatischer Merge (zusätzlich Regel 7 in
+#                                 scripts/komponenten-updates.mjs). Die Pflicht-Prüfungen bleiben grün: Merge von Hand möglich.
 # Entwürfe (Draft) und Pull Requests aus Forks werden nie automatisch gemergt.
 # Lieferkette: Fremde Actions laufen ohne Schreib-Token und ohne Secrets (dependabot/fetch-metadata in eigenem Job mit Leserechten,
 # GH_TOKEN nur in den eigenen Schritten, die ihn brauchen). Die Regelprüfung läuft nur mit Leserechten und mit dem Skript vom
