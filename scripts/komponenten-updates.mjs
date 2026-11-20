@@ -407,9 +407,9 @@ export function beschreibung(gruppe, updates, hinweise = []) {
   ];
   if (gruppe === "major") {
     T.push("**Major-Update – wird nicht automatisch gemergt.** Bitte die Release Notes auf inkompatible Änderungen prüfen.",
-      "Zum Mergen: *Actions → Komponenten prüfen → Run workflow*, Branch dieses Pull Requests wählen, PR-Nummer eintragen und *major_freigeben* ankreuzen. Gemergt wird, sobald die Pflicht-Prüfungen dieses Pull Requests grün sind und die Regeln erfüllt; bei App/Functions folgt ein Release.");
+      "Zum Mergen: *Actions → Komponenten prüfen → Run workflow*, Branch dieses Pull Requests wählen, PR-Nummer eintragen und *major_freigeben* ankreuzen. Gemergt wird, sobald die Pflicht-Prüfungen dieses Pull Requests grün sind und die Regeln erfüllt (auch der visuelle Vergleich *test / visuell*); bei App/Functions folgt ein Release.");
   } else {
-    T.push("Die Prüfung (test, e2e, security, CodeQL und Regelprüfung) läuft in *Auto-Merge & Release*. Sind alle Prüfungen grün und alle Regeln erfüllt, wird automatisch gemergt; ein Release folgt nur, wenn App oder Edge Functions betroffen sind.");
+    T.push("Die Prüfung (test, e2e, security, CodeQL, visueller Vergleich und Regelprüfung) läuft in *Auto-Merge & Release*. Sind alle Prüfungen grün und alle Regeln erfüllt, wird automatisch gemergt; ein Release folgt nur, wenn App oder Edge Functions betroffen sind. Zeigt der visuelle Vergleich (*test / visuell*) eine Abweichung, bleibt der PR offen: Diff-Bilder im Artefakt des Laufs prüfen und von Hand mergen.");
   }
   if (updates.some((u) => u.sicherheit.length)) T.push("", "⚠️ Enthält Sicherheitskorrekturen: die bisherige Version hat bekannte Lücken (OSV), die Wartezeit von 7 Tagen gilt hier nicht.");
   if (hinweise.length) T.push("", "Hinweise:", ...hinweise.map((h) => `- ${h.replace(/[<>`|]/g, "")}`));
@@ -664,6 +664,8 @@ async function hinweisIssue({ api, repo, gruppe, branch, title, grund }) {
 //      Version hat eine bekannte Lücke (OSV), die die neue behebt
 //   5. Container: Playwright-Image = @playwright/test; Digest = frisch aufgelöster Digest des Tags; Semgrep-Release ≥ 7 Tage
 //   6. Gleiche Pakete überall gleiche Version
+//   7. Visueller Vergleich (Job "test / visuell" im pull_request-Lauf von auto-merge.yml) für genau diesen Commit grün:
+//      keine sichtbare Änderung der App gegenüber main (tests/visuell.spec.js). Sonst Merge nur von Hand nach Sichtung der Diff-Bilder.
 export async function regelnPruefen({ env, api, git, quellen, jetzt = Date.now() }) {
   const R = env.GITHUB_REPOSITORY, PR = env.PR, KOPF = env.KOPF;
   try {
@@ -741,6 +743,10 @@ export async function regelnPruefen({ env, api, git, quellen, jetzt = Date.now()
       }
     }
 
+    // ---- Regel 7: visueller Vergleich ----
+    const v = await visuellErgebnis({ api, repo: R, sha: KOPF });
+    if (v !== "success") nein(7, `visueller Vergleich (test / visuell) für diesen Commit: ${v} – Diff-Bilder im Artefakt des Laufs prüfen, Merge nur von Hand`);
+
     const release = Object.keys(ziel.npm).some((n) => kn.npm[n].orte.some((o) => o.startsWith("supabase/functions/")) || JSON.parse(neu["package.json"]).dependencies?.[n]) ? "ja" : "nein";
     if (hinter > 0) return { ergebnis: "hinter-main", grund: `Alle Regeln erfüllt, aber der PR liegt ${hinter} Commit(s) hinter main – der nächste Lauf von Komponenten-Updates baut ihn neu`, release, pr: PR };
     return { ergebnis: "ok", grund: `Alle Regeln erfüllt (${Object.keys(ziel.npm).length} Paket(e), ${Object.keys(ziel.bilder).length} Image(s))`, release, pr: PR };
@@ -748,6 +754,21 @@ export async function regelnPruefen({ env, api, git, quellen, jetzt = Date.now()
     if (e instanceof Abgelehnt) return { ergebnis: "abgelehnt", grund: e.message, release: "nein", pr: /^\d+$/.test(PR || "") ? PR : "" };
     return { ergebnis: "abgelehnt", grund: `Prüfung fehlgeschlagen: ${e.message}`, release: "nein", pr: /^\d+$/.test(PR || "") ? PR : "" };
   }
+}
+
+// Ergebnis des Jobs "test / visuell" (ci.yml, aufgerufen von auto-merge.yml) für einen Commit: Schlussfolgerung des neuesten
+// abgeschlossenen Jobs aus pull_request-Läufen dieses Repositorys, sonst "fehlt". Braucht nur Leserechte (actions: read).
+export const VISUELL_JOB = "test / visuell";
+export async function visuellErgebnis({ api, repo, sha }) {
+  if (!SHA.test(sha || "")) return "fehlt";
+  const r = await api(`repos/${repo}/actions/workflows/auto-merge.yml/runs?event=pull_request&head_sha=${sha}&per_page=20`);
+  const laeufe = (r?.workflow_runs || []).filter((x) => x.head_sha === sha && x.head_repository?.full_name === repo).sort((a, b) => b.id - a.id);
+  for (const l of laeufe) {
+    const j = await api(`repos/${repo}/actions/runs/${Number(l.id)}/jobs?filter=latest&per_page=100`);
+    const job = (j?.jobs || []).filter((x) => x.name === VISUELL_JOB && x.status === "completed").sort((a, b) => b.id - a.id)[0];
+    if (job) return String(job.conclusion || "unbekannt");
+  }
+  return "fehlt";
 }
 
 // ---------- Kommandozeile ----------

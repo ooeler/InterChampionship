@@ -477,7 +477,7 @@ test("Komponenten prüfen: nur Major mit Freigabe, Regeln mit Leserechten vom ma
   // regeln: nur mit Freigabe auf einem Major-Branch, nur lesen, Skript von main
   expect(jobKey(J.regeln, "if")).toBe("inputs.major_freigeben && startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-major-')");
   expect(jobKey(J.regeln, "needs")).toBe("");
-  expect(block(J.regeln, "    permissions:").filter((l) => l.trim()).map((l) => l.trim())).toEqual(["contents: read", "pull-requests: read"]);
+  expect(block(J.regeln, "    permissions:").filter((l) => l.trim()).map((l) => l.trim())).toEqual(["contents: read", "pull-requests: read", "actions: read"]); // actions: Regel 7 (visuell)
   const R = schritte(J.regeln);
   expect(R[0]).toMatch(/uses: actions\/checkout@[0-9a-f]{40} # v\d+/);
   expect(R[0]).toContain("ref: main");
@@ -506,7 +506,8 @@ test("Komponenten prüfen: nur Major mit Freigabe, Regeln mit Leserechten vom ma
 test("Tests: Container-Images aus .github/container-images.json, nicht aus der Workflow-Datei", { tag: "@logik" }, () => {
   // Der Workflow Komponenten-Updates darf mit dem GITHUB_TOKEN keine Workflow-Dateien ändern – darum stehen Tag und Digest daneben
   const J = relJobs("ci.yml");
-  expect(Object.keys(J)).toEqual(["bilder", "shard", "test", "e2e", "security"]);
+  expect(Object.keys(J)).toEqual(["bilder", "shard", "test", "e2e", "security", "visuell"]);
+  expect(jobKey(J.visuell, "needs")).toBe("bilder");
   expect(jobKey(J.shard, "needs")).toBe("bilder");
   expect(jobKey(J.security, "needs")).toBe("bilder");
   expect(schritte(J.bilder)[0]).toContain("persist-credentials: false");
@@ -522,4 +523,72 @@ test("Passwort-Mails laufen über die Edge Function passwort, nicht über den Ma
   expect(fs.existsSync(path.join(__dirname, "..", "supabase", "functions", "passwort", "index.ts"))).toBe(true);
   // im e2e-Test wie in Produktion
   expect(wf("ci.yml")).toMatch(/for fn in [^;]*\bpasswort\b[^;]*; do printf .*verify_jwt = false/);
+});
+
+// ---- Visueller Vergleich (Job visuell in ci.yml): Basis-Stand als Referenz, PR-Stand dagegen; sperrt nur Abhängigkeits-Updates ----
+test("Visuell: nur in Pull Requests, Referenz vom Basis-Stand, Spec aus dem PR, nicht im Pflicht-Check test", { tag: "@logik" }, () => {
+  const J = relJobs("ci.yml");
+  const v = J.visuell;
+  expect(jobKey(v, "if")).toBe("github.event_name == 'pull_request'"); // in release.yml und auf main übersprungen
+  expect(v).toContain("image: ${{ needs.bilder.outputs.playwright }}"); // gleiches Image wie die Testteile
+  expect(v).not.toContain("secrets.");
+  // Der Pflicht-Check test sammelt nur die Testteile; der visuelle Vergleich blockiert über den Lauf, nicht über test / test
+  expect(jobKey(J.test, "needs")).toBe("shard");
+  const S = schritte(v);
+  for (const s of S.filter((s) => s.includes("actions/checkout@"))) expect(s).toContain("persist-credentials: false");
+  const basis = S.find((s) => s.includes("path: basis"));
+  expect(basis).toContain("ref: ${{ github.event.pull_request.base.sha }}");
+  const ref = S.find((s) => s.includes("id: referenz"));
+  expect(ref).toContain("npm ci --ignore-scripts");
+  expect(ref).toContain("mv app app-pr && cp -r basis/app app");
+  expect(ref).toContain("VISUELL_MODUS=referenz npx playwright test -c playwright.visuell.config.js --update-snapshots=all");
+  expect(ref).toContain("rm -rf app && mv app-pr app"); // PR-Stand zurück, auch wenn der Basis-Lauf scheitert (set +e)
+  expect(ref.indexOf("set +e")).toBeLessThan(ref.indexOf("VISUELL_MODUS=referenz"));
+  const vgl = S.find((s) => s.includes("id: vergleich"));
+  expect(vgl).toContain("continue-on-error: true");
+  expect(vgl).toContain("VISUELL_MODUS: vergleich");
+  expect(vgl).toMatch(/run: npx playwright test -c playwright\.visuell\.config\.js$/m);
+  expect(vgl).not.toContain("update-snapshots");
+  const art = S.find((s) => s.includes("actions/upload-artifact@"));
+  expect(art).toContain("if: steps.vergleich.outcome == 'failure'");
+  expect(art).toContain("visuell-ergebnis");
+  // Referenzbilder nie im Repo; normale Läufe ohne die visuelle Spec
+  expect(v).toContain("VISUELL_REFERENZ: /tmp/");
+  expect(String(require("../playwright.config.js").testIgnore)).toContain("visuell");
+  expect(fs.readFileSync(path.join(__dirname, "..", ".gitignore"), "utf8")).toContain("visuell-referenz/");
+});
+
+test("Visuell: Abweichung sperrt nur fix/abhaengigkeiten-… und dependabot/…, sonst nur Warnung", { tag: "@logik" }, () => {
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+  const s = schritte(relJobs("ci.yml").visuell).find((x) => x.includes("name: Ergebnis"));
+  expect(s).toContain("if: always()");
+  for (const k of ["VERGLEICH: ${{ steps.vergleich.outcome }}", "ANZAHL: ${{ steps.referenz.outputs.anzahl }}", "BRANCH: ${{ github.head_ref }}"]) expect(s).toContain(k);
+  const skript = block(s, "        run: |").map((l) => l.slice(10)).join("\n");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "visuell-"));
+  const lauf = (BRANCH, VERGLEICH, ANZAHL = "64") => {
+    const sum = path.join(dir, "s");
+    fs.writeFileSync(sum, "");
+    const r = spawnSync("bash", ["-c", skript], { env: { ...process.env, BRANCH, VERGLEICH, ANZAHL, GITHUB_STEP_SUMMARY: sum }, encoding: "utf8" });
+    if (r.error && r.error.code == "ENOENT" && !process.env.CI) test.skip(true, "bash fehlt");
+    return { status: r.status, out: r.stdout };
+  };
+  try {
+    const sperren = ["fix/abhaengigkeiten-2026-11-16", "fix/abhaengigkeiten-major-2026-11-16", "dependabot/npm_and_yarn/x", "dependabot/github_actions/y"];
+    const frei = ["ci/x", "feature/x", "fix/tippfehler", "fix/abhaengigkeit-anzeige", "docs/x", ""];
+    for (const b of [...sperren, ...frei]) expect(lauf(b, "success").status, b).toBe(0);
+    for (const b of sperren) {
+      expect(lauf(b, "failure").status, b).toBe(1);
+      expect(lauf(b, "success", "0").status, b + " ohne Referenz").toBe(1);
+      expect(lauf(b, "success", "").status, b + " Referenz-Schritt gescheitert").toBe(1);
+    }
+    for (const b of frei) {
+      const r = lauf(b, "failure");
+      expect(r.status, b).toBe(0);
+      expect(r.out, b).toContain("::warning::");
+      expect(lauf(b, "success", "0").status, b).toBe(0);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

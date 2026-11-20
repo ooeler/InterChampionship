@@ -4,7 +4,9 @@
 # Tests laufen hier nicht nochmals: Check-Runs aus workflow_dispatch zählen nicht für die Pflicht-Prüfungen von main
 # (test / test, test / e2e, test / security, codeql / analyze …). Der Merge gelingt nur, wenn der pull_request-Lauf von
 # auto-merge.yml genau diesen Commit grün geprüft hat (Branch-Schutz von main, --match-head-commit).
-# Gemergt wird nur, wenn die Regelprüfung (scripts/komponenten-updates.mjs regeln, Skript von main, nur Leserechte) ok meldet.
+# Gemergt wird nur, wenn die Regelprüfung (scripts/komponenten-updates.mjs regeln, Skript von main, nur Leserechte) ok meldet –
+# dazu gehört ein grüner visueller Vergleich (Job test / visuell) für genau diesen Commit. Zeigt er eine Abweichung, nach
+# Sichtung der Diff-Bilder (Artefakt visuell-abweichungen) von Hand mergen.
 # Release (Patch) nur, wenn App-Abhängigkeiten oder Edge Functions betroffen sind.
 name: Komponenten prüfen
 
@@ -30,12 +32,14 @@ jobs:
   regeln:
     # Nur mit Freigabe auf einem Major-Branch. Das Skript kommt von main, nicht aus dem PR: ein PR kann seine eigene Prüfung
     # nicht verändern. Die Freigabe gilt im Skript nur, wenn eine Person (nicht github-actions[bot]) den Lauf gestartet hat.
+    # actions: read für Regel 7 (Ergebnis des visuellen Vergleichs test / visuell im pull_request-Lauf).
     if: inputs.major_freigeben && startsWith(github.ref, 'refs/heads/fix/abhaengigkeiten-major-')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
+      actions: read
     outputs:
       ergebnis: ${{ steps.pruefen.outputs.ergebnis }}
       release: ${{ steps.pruefen.outputs.release }}

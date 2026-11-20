@@ -2,6 +2,8 @@ const { defineConfig, devices } = require("@playwright/test");
 
 module.exports = defineConfig({
   testDir: "tests",
+  // Visuelle Regressionstests nur mit playwright.visuell.config.js (eigener CI-Job "visuell", vergleicht Basis ↔ PR)
+  testIgnore: /visuell\.spec\.js$/,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
