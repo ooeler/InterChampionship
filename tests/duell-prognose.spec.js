@@ -20,3 +20,17 @@ test("Prognose zeigt, was eine Abmeldung am nächsten Training bewirkt", async (
   await expect(prog).toContainText(`${after.c[0]} : ${after.c[1]} angemeldet`);
   await expect(prog.locator(".kv b").first()).toContainText(`${after.p[0]} %`);
 });
+
+test("am Match Day gibt es eine Prognose, der Match Day zählt zur Anwesenheit", async ({ page }) => {
+  await login(page);
+  // Uhr auf den Match Day des laufenden Blocks stellen, noch ohne eingetragene Anwesenheit
+  const md = await page.evaluate(() => { const m = S.m.find((m) => m.tr.length && m.tr[m.tr.length - 1].d >= TD), x = m.tr[m.tr.length - 1]; m.tr.forEach((y) => { if (y !== x && !y.p.length) y.p = S.t[0].p.concat(S.t[1].p) }); x.p = []; TD = x.d; render(); return { d: wd(x.d), n0: S.t[0].p.length }; });
+  await page.click("nav [data-tab=train]");
+  const prog = page.locator(".card.duel .dprog");
+  await expect(prog).toContainText("Prognose nach dem Match Day vom " + md.d);
+  await expect(prog).toContainText(`${md.n0} : `);
+  // nach dem Eintragen der Anwesenheit zählt der Match Day mit, die Prognose entfällt
+  const r = await page.evaluate(() => { const m = S.m.find((m) => m.tr.length && m.tr[m.tr.length - 1].d >= TD), x = m.tr[m.tr.length - 1], a = pct(m, 0); x.p = S.t[0].p.slice(); render(); return { vor: a, nach: pct(m, 0), b: pct(m, 1) }; });
+  expect(r.nach).toBeGreaterThanOrEqual(r.vor);
+  await expect(prog).toHaveCount(0);
+});
