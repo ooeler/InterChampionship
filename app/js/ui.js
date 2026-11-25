@@ -81,15 +81,15 @@ else if(D.tg!=null){SLIDE={q:'h3[data-tg="'+D.tg+'"]',h:d.closest(".card").offse
 else if(D.rmimg!=null){var rk=D.rmimg;if(rk=="club"){delete S.logo;try{localStorage.removeItem("ic_logo")}catch(e){}}else if(rk=="sp")delete S.sp;else delete S.t[+rk].img;save()}
 else if(D.rs!=null){var l2=lead(S.m[cur]);S.m[cur].res=[l2[0]+gsum(S.m[cur],0),l2[1]+gsum(S.m[cur],1)];save()}
 else if(D.all!=null){S.m[cur].tr[+D.all].p=S.t[0].p.concat(S.t[1].p);save()}
-else if(D.gs!=null){var gn=(prompt("Name des Gastspielers")||"").trim();if(gn)S.m[cur].gs.push({n:gn,t:+D.gs,k:"★"+gn,gk:confirm(gn+" als Torhüter erfassen?\n\nOK = Torhüter · Abbrechen = Feldspieler")});save()}
+
 else if(D.kp!=null){kpSet(+D.kp,D.p)}
-else if(D.rgk!=null){var RG=S.m[cur].gs[+D.rgk];RG.gk=!RG.gk;save()}
-else if(D.rg!=null){var G=S.m[cur].gs,gk=G[+D.rg].k;delete S.m[cur].g[gk];delete S.m[cur].a[gk];G.splice(+D.rg,1);save()}
+else if(D.rgk!=null){var RM=S.m[cur],RG=RM.gs[+D.rgk];gkGuest(RM,RM.tr[RM.tr.length-1],RG.n,!RG.gk);save()}
+else if(D.rg!=null){var GM=S.m[cur];delGuest(GM,GM.tr[GM.tr.length-1],GM.gs[+D.rg].n);save()}
 else if(D.cap!=null){S.t[+D.cap].c=D.p;save()}
 else if(D.gkp!=null){var GT=S.t[+D.gkp],G=GT.gk||(GT.gk=[]),gq=G.indexOf(D.p);gq<0?G.push(D.p):G.splice(gq,1);save()}
 else if(D.catedit!=null){CATE=D.catedit?+D.catedit:null;render();var cf=document.querySelector("#cate input[name=g]");if(cf)cf.focus();return}
 else if(D.catdel!=null){var cd=cat().filter(function(c){return String(c.id)==D.catdel})[0];if(cd&&confirm("„"+cd.reason+"“ aus dem Katalog löschen?"))sb.from("penalty_catalog").delete().eq("id",+D.catdel).then(function(r){if(r.error)alert(r.error.message);CAT=null;render()});return}
-else if(D.tgdel!=null){var gx=trAt(TSEL).x;(gx.gs||[]).splice(+D.tgdel,1);save()}
+else if(D.tgdel!=null){var gx=trAt(TSEL).x;delGuest(mdOf(gx),gx,(gx.gs||[])[+D.tgdel].n);save()}
 else if(D.k){var m=S.m[cur],v=+D.d,k=D.k,t=+D.t;if(k=="pre"){if(v>0&&preFull(m,t))return;m.pre[t]=Math.max(0,Math.min(3,m.pre[t]+v))}else if(k=="res")m.res[t]=Math.max(0,(m.res[t]||0)+v),m.res[1-t]==null&&(m.res[1-t]=0);else m[k][D.p]=Math.max(0,(m[k][D.p]||0)+v);save()}
 else if(D.add){S.t[+D.add].p.push("Neuer Spieler "+(S.t[+D.add].p.length+1));fix(S);save()}
 else if(D.rm){var P=S.t[+D.rm].p,rj=D.p!=null&&P.indexOf(D.p)>=0?P.indexOf(D.p):+D.j,nm=P[rj];if(nm!=null&&confirm(nm+" entfernen?")){P.splice(rj,1);if(S.t[+D.rm].c==nm)S.t[+D.rm].c=P[0]||"";var RG=S.t[+D.rm].gk||[];if(RG.indexOf(nm)>=0)RG.splice(RG.indexOf(nm),1);save()}}

@@ -25,8 +25,14 @@ return '<div class="tsum"><table class="mt"><tbody>'+row("🧤 Torhüter",w.gk,g
 +(u.length?'<tr class="tsn"><th scope="row">❔ Unsicher</th><td>'+u.map(esc).join(", ")+'</td></tr>':'')+'</tbody></table>'
 +(gs.length?'<div class="sp">inkl. '+gs.length+(gs.length==1?' Gast':' Gäste')+'</div>':'')
 +'<button class="lnk tdl" data-tjump="'+k+'">Details mit allen Namen</button></div>'}
-function guestField(x){var G=x.gs||[],c=trCount(x);return '<div class="sk"><div class="kv"><b>Gastspieler</b><span class="sp">'+G.length+'</span></div><div class="pt">'+(G.map(function(g,i){return '<span class="pb in">'+esc(g.n)+(g.gk?' 🧤':'')+(me?' <button class="bd" data-tgdel="'+i+'" aria-label="'+esc(g.n)+' entfernen">🗑</button>':'')+'</span>'}).join("")||'<span class="sp">–</span>')+'</div>'
-+(me?'<form id="tgs" class="tgs"><input class="t" name="n" placeholder="Name Gastspieler" aria-label="Name Gastspieler" maxlength="60" required><label class="gkl"><input type="checkbox" name="gk"> 🧤 Torhüter</label><button class="add">+ Gast</button></form>':'')+'</div>'
+// Gäste am Match Day: Training und Spieltag teilen sich die Gäste (gleicher Name = gleicher Gast)
+function mdOf(x){for(var i=0;i<S.m.length;i++){var T=S.m[i].tr;if(T.length&&T[T.length-1]===x)return S.m[i]}return null}
+function gsSame(a,b){return String(a).trim().toLowerCase()==String(b).trim().toLowerCase()}
+function addGuest(m,x,n,gk,t){if(x){var L=x.gs||(x.gs=[]);if(!L.some(function(g){return gsSame(g.n,n)}))L.push({n:n,gk:gk})}if(m&&(t===0||t===1)&&!m.gs.some(function(g){return gsSame(g.n,n)}))m.gs.push({n:n,t:t,k:"★"+n,gk:gk})}
+function delGuest(m,x,n){if(x&&x.gs)x.gs=x.gs.filter(function(g){return !gsSame(g.n,n)});if(m){var j=m.gs.findIndex(function(g){return gsSame(g.n,n)});if(j>=0){var k=m.gs[j].k;delete m.g[k];delete m.a[k];m.gs.splice(j,1)}}}
+function gkGuest(m,x,n,gk){[(x&&x.gs)||[],m?m.gs:[]].forEach(function(L){L.forEach(function(g){if(gsSame(g.n,n))g.gk=gk})})}
+function guestField(x){var G=x.gs||[],c=trCount(x),md=mdOf(x);return '<div class="sk"><div class="kv"><b>Gastspieler</b><span class="sp">'+G.length+'</span></div><div class="pt">'+(G.map(function(g,i){return '<span class="pb in">'+esc(g.n)+(g.gk?' 🧤':'')+(me?' <button class="bd" data-tgdel="'+i+'" aria-label="'+esc(g.n)+' entfernen">🗑</button>':'')+'</span>'}).join("")||'<span class="sp">–</span>')+'</div>'
++(me?'<form id="tgs" class="tgs"><input class="t" name="n" placeholder="Name Gastspieler" aria-label="Name Gastspieler" maxlength="60" required>'+(md?'<select class="t" name="t" required aria-label="Team des Gastspielers" style="grid-column:1/-1"><option value="">Team wählen (auch im Spieltag)</option>'+S.t.map(function(t,k){return '<option value="'+k+'">'+esc(t.n)+'</option>'}).join("")+'</select>':'')+'<label class="gkl"><input type="checkbox" name="gk"> 🧤 Torhüter</label>'+'<button class="add">+ Gast</button></form>':'')+'</div>'
 +'<div class="tot" data-tot>Total '+c.field+' Feldspieler · '+c.gk+' Torhüter'+(c.guests?' (inkl. '+c.guests+(c.guests==1?' Gast':' Gäste')+')':'')+'</div>'}
 function allP(){return S.t[0].p.concat(S.t[1].p).sort(function(a,b){return a.localeCompare(b,"de")})}
 // Statistik Trainingsleitung (Teams-Tab): geleitete und geplante Trainings pro Spieler, Match Days zählen nicht
@@ -212,7 +218,8 @@ return acc("pst","Strafen-Statistik")+'<div class="kv"><span>Strafen</span><b>'+
 function penForm(e){var f=e.target.form;if(!f||f.id!="pen")return;var n=e.target.name;PND[n]=e.target.value;
 if(n=="k"){var kc=cat().filter(function(c){return String(c.id)==e.target.value})[0];if(kc){PND.g=kc.reason;PND.b=String(+kc.amount);PND.i=kc.item||"";render()}return}
 if(n=="g"||n=="b")PND.i="";if(n=="g"&&!PND.b){PND.b=lastAmt(PND.g.trim());f.elements.b.value=PND.b}}
-document.addEventListener("submit",function(e){if(e.target.id!="tgs")return;e.preventDefault();var f=e.target,n=f.elements.n.value.trim().slice(0,60);if(!n)return;var x=trAt(TSEL).x;(x.gs||(x.gs=[])).push({n:n,gk:f.elements.gk.checked});save();render()});
+document.addEventListener("submit",function(e){var f=e.target,sp=f.classList&&f.classList.contains("mgs");if(f.id!="tgs"&&!sp)return;e.preventDefault();var n=f.elements.n.value.trim().slice(0,60);if(!n)return;var gk=f.elements.gk.checked;
+if(sp){var m=S.m[cur];addGuest(m,m.tr[m.tr.length-1],n,gk,+f.dataset.t)}else{var x=trAt(TSEL).x,tv=f.elements.t?f.elements.t.value:"";addGuest(mdOf(x),x,n,gk,tv===""?null:+tv)}save();render()});
 document.addEventListener("submit",function(e){if(e.target.id!="catf")return;e.preventDefault();var f=e.target,g=f.elements.g.value.trim(),it=f.elements.i.value.trim(),a=it?0:parseFloat(String(f.elements.b.value).replace(",","."));if(!g||!(a>=0)){alert("Bitte Grund und Betrag oder Sachstrafe angeben.");return}
 sb.from("penalty_catalog").insert({reason:g,amount:a,item:it||null}).then(function(r){if(r.error){alert(/duplicate|unique/i.test(r.error.message)?"„"+g+"“ ist schon im Katalog.":"Eintrag konnte nicht gespeichert werden: "+r.error.message);return}CAT=null;render()})});
 document.addEventListener("submit",function(e){if(e.target.id!="cate")return;e.preventDefault();var f=e.target,g=f.elements.g.value.trim(),it=f.elements.i.value.trim(),a=it?0:parseFloat(String(f.elements.b.value).replace(",","."));if(!g||!(a>=0)){alert("Bitte Grund und Betrag oder Sachstrafe angeben.");return}
