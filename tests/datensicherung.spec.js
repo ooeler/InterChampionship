@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")));
@@ -48,7 +48,7 @@ test.describe("Datensicherung & Rollback", () => {
   test("Spielleitung sichert und stellt eine Version wieder her", async ({ page }) => {
     await seedOld(page);
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("h3[data-acc=ds]"); // standardmässig zugeklappt
     const card = page.locator(".card", { hasText: "Datensicherung" });
     await card.locator("[data-snap]").click();
@@ -72,7 +72,7 @@ test.describe("Datensicherung & Rollback", () => {
   test("Captains und Spieler sehen die Datensicherung nicht", async ({ page }) => {
     await seedOld(page);
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator(".card", { hasText: "Datensicherung" })).toHaveCount(0);
   });
 });

@@ -1,4 +1,4 @@
-const { test, expect, setup, login } = require("./fixtures");
+const { test, expect, setup, login, teamsOffen } = require("./fixtures");
 
 const plus = (k, t) => `[data-k=${k}][data-t="${t}"][data-d="1"]`;
 
@@ -63,7 +63,7 @@ test.describe("Spiellogik", () => {
 
   test("Spieler umbenennen übernimmt Statistiken", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first();
     const old = await inp.inputValue();
@@ -79,7 +79,7 @@ test.describe("Spiellogik", () => {
 test.describe("Daten & Synchronisation", () => {
   test("Änderungen werden ins Backend gespeichert", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='0']"); // Team bearbeiten
     await page.fill("input[data-tn='0']", "Pinguine");
     await page.locator("input[data-tn='0']").blur();
@@ -112,7 +112,7 @@ test.describe("Daten & Synchronisation", () => {
 
   test("Backup speichern und wieder laden", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("h3[data-acc=bk]"); // standardmässig zugeklappt
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-exp]")]);
     expect(dl.suggestedFilename()).toBe("interchampionship-26-27-2026-10-27.json");
@@ -126,7 +126,7 @@ test.describe("Daten & Synchronisation", () => {
 
   test("Backup und Datensicherung stehen zugeklappt am Ende des Teams-Tabs", async ({ page }) => {
     await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const titles = await page.locator("main .card > h3").allTextContents();
     expect(titles.slice(-3)).toEqual(["Backup", "Mail und Benachrichtigung testen", "Datensicherung"]);
     for (const k of ["bk", "ds"]) {
@@ -142,7 +142,7 @@ test.describe("Daten & Synchronisation", () => {
 
   test("Ungültiges Backup wird abgelehnt", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const msg = page.waitForEvent("dialog");
     await page.setInputFiles("[data-imp]", { name: "x.json", mimeType: "application/json", buffer: Buffer.from("{\"foo\":1}") });
     expect((await msg).message()).toContain("kein gültiges Backup");

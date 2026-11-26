@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")).data);
@@ -204,7 +204,7 @@ test.describe("Training-Tab", () => {
   test("Umbenennen zieht Abmeldung und Leitung mit", async ({ page }) => {
     await seed(page, { player: null, patch: `d.m[2].tr[1].lead = "Andreas Scherrer"; d.m[2].tr[1].ab = ["Andreas Scherrer"];` });
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first();
     await inp.fill("Andi Scherrer");
@@ -279,7 +279,7 @@ test.describe("Statistik Trainingsleitung", () => {
   test("Teams-Tab zeigt geleitete und geplante Trainings pro Spieler", async ({ page }) => {
     await seed(page, { player: null, patch: `d.m[2].tr[0].lead = "Beat Rentsch"; d.m[2].tr[1].lead = "Beat Rentsch"; d.m[3].tr[0].lead = "Othmar Oeler";` });
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("h3[data-acc=lst]")).toHaveText("Trainingsleitung · Statistik · ⚠️ 1 ohne Leitung");
     await page.click("h3[data-acc=lst]");
     const card = page.locator(".card", { has: page.locator("h3[data-acc=lst]") });

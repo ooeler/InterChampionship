@@ -2,7 +2,7 @@
 // Ohne Wahl gilt das berechnete Datum (2. Mittwoch im Dezember, 1. Freitag im Mai).
 const fs = require("fs");
 const path = require("path");
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
@@ -22,7 +22,7 @@ async function seed(page, { player = "Silvan Frey", patch = "" } = {}) {
 }
 async function openEditor(page) {
   await login(page, ADMIN);
-  await page.click("nav [data-tab=team]");
+  await page.click("nav [data-tab=team]"); await teamsOffen(page);
   await page.locator("#term [data-term]").click();
   await expect(page.locator("#term #tev")).toBeVisible();
 }
@@ -170,7 +170,7 @@ for (const [wer, user, player] of [["Captain", undefined, "Andreas Scherrer"], [
   test(`${wer}: kein Termin-Editor, keine Event-Felder`, async ({ page }) => {
     await seed(page, { player });
     await login(page, user);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("main")).toContainText("Lochball Legenden");
     await expect(page.locator("#term, [data-wev], [data-sev], [data-tsw]")).toHaveCount(0);
   });

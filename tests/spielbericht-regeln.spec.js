@@ -1,10 +1,10 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 // BB-1: Ein Textfeld speichert beim Verlassen ("change"). Der erste Klick auf einen Knopf danach darf nicht verloren gehen.
 test.describe("Team bearbeiten: erster Klick nach einer Eingabe zählt", () => {
   async function edit(page) {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='0']"); // Team bearbeiten
     await expect(page.locator("input[data-tn='0']")).toBeVisible();
   }

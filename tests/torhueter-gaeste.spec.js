@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__mock_db")).data);
@@ -18,7 +18,7 @@ test.describe("Torhüter", () => {
   test("Captain markiert Torhüter im Teams-Tab", async ({ page }) => {
     await seed(page);
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='1']"); // Team bearbeiten
     const b = page.locator("button[data-gkp='1'][data-p='Tobias Keller']");
     await expect(b).toHaveAttribute("aria-pressed", "false");
@@ -42,7 +42,7 @@ test.describe("Torhüter", () => {
   test("Umbenennen und Entfernen ziehen die Torhüter-Markierung mit", async ({ page }) => {
     await seed(page, `d.t[1].gk = ["Tobias Keller"];`);
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='1']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='1'][value='Tobias Keller']");
     await inp.fill("Tobi Keller");

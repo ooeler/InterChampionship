@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
@@ -23,7 +23,7 @@ test.describe("Strafenkatalog", () => {
   test("Spielleitung erstellt, ändert und löscht Einträge im Teams-Tab", async ({ page }) => {
     await seed(page);
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(katalog(page)).toContainText("Noch keine Einträge.");
     await addEntry(page, "zu spät", 5);
     await addEntry(page, "Handy im Training", 10);
@@ -63,7 +63,7 @@ test.describe("Strafenkatalog", () => {
     await seed(page);
     await page.evaluate(() => localStorage.setItem("__mock_strafen", "1"));
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("main .card > h3")).toHaveText(["Strafenkatalog", /Spieler$/, /Spieler$/, /^Trainingsleitung/]);
     await addEntry(page, "Material vergessen", 3);
     await expect.poll(async () => (await cat(page)).map((c) => c.reason)).toEqual(["Material vergessen"]);
@@ -72,7 +72,7 @@ test.describe("Strafenkatalog", () => {
   test("Captains wählen aus dem Katalog, pflegen ihn aber nicht", async ({ page }) => {
     await seed(page, [{ reason: "zu spät", amount: 5 }, { reason: "Handy im Training", amount: 10 }]);
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(katalog(page)).toContainText("Handy im Training"); // nur lesen
     await expect(katalog(page).locator("[data-catedit], [data-catdel], #catf")).toHaveCount(0);
     // Server: Captain darf den Katalog nicht ändern
@@ -92,7 +92,7 @@ test.describe("Strafenkatalog", () => {
   test("Spieler ohne Zusatzrolle: kein Katalog im Teams-Tab, nicht änderbar", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(katalog(page)).toHaveCount(0);
     const r = await page.evaluate(() => sb.from("penalty_catalog").insert({ reason: "x", amount: 1 }));
     expect(r.error.message).toContain("row-level security");
@@ -103,7 +103,7 @@ test.describe("Sachstrafen (z. B. Kiste Bier)", () => {
   test("im Katalog erfassen und beim Eintragen auswählen; zählt nicht ins CHF-Total", async ({ page }) => {
     await seed(page, [{ reason: "zu spät", amount: 5 }]);
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const f = katalog(page).locator("form#catf");
     await f.locator("input[name=g]").fill("Shutout vom Goali (Hauptmatch)");
     await f.locator("input[name=i]").fill("Kiste Bier");
