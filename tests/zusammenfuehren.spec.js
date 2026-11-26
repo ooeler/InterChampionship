@@ -30,6 +30,8 @@ test.describe("Alter Stand überschreibt nichts", () => {
 
     await card(page, "Meine Trainings").locator("[data-abw]").first().click();
     await page.locator("[data-stt$='|v']").click();
+    await page.locator("form#abf input[name=g]").fill("ca. 15 Min. später");
+    await page.locator("form#abf button").first().click();
     await expect.poll(async () => (await db(page)).m[2].tr[1].st).toEqual({ "Silvan Frey": "v" });
     const d = await db(page);
     expect(d.m[2].tr[0].r).toBe("Rössli");

@@ -149,7 +149,7 @@ export function signupMessage(state, { player, d, off }, uid = "", now = 0) {
 // Prüft gegen den gespeicherten Stand: echter Spieler, echtes Training an diesem Datum, dort als verspätet ("v") und nicht abgemeldet,
 // heute (Zürich) und vor Beginn. Beginn und Leitung kommen aus den Daten, nie vom Client.
 // Der Schlüssel erlaubt eine Nachricht pro Spieler und Training (push_log).
-export function lateMessage(state, { player, d } = {}, now = 0) {
+export function lateMessage(state, { player, d } = {}, now = 0, reason = "") {
   if (typeof player !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return null;
   if (!(state.t || []).some((t) => (t.p || []).includes(player))) return null;
   const x = (state.m || []).flatMap((m) => m.tr || []).concat(state.evt || []).find((tr) => tr && tr.d === d);
@@ -161,7 +161,7 @@ export function lateMessage(state, { player, d } = {}, now = 0) {
     tag: `late-${d}`,
     lead: typeof x.lead === "string" && x.lead ? x.lead : null,
     title: `⏰ ${player} kommt später`,
-    body: `Training heute, ${t} Uhr: ${player} hat sich als verspätet gemeldet.`,
+    body: `Training heute, ${t} Uhr: ${player} hat sich als verspätet gemeldet.` + (typeof reason === "string" && reason.trim() ? ` Grund: ${reason.trim().slice(0, 200)}` : ""),
     url: URL_TRAININGS,
   };
 }

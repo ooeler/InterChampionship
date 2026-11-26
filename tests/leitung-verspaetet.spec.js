@@ -140,6 +140,8 @@ test.describe("Verspätet bis 30 Minuten vor Beginn", () => {
     await first(page).locator("[data-abw]").click();
     await expect(mine(page).locator(".stl")).toHaveCount(0);
     await mine(page).locator("[data-stt$='|v']").click();
+    await mine(page).locator("form#abf input[name=g]").fill("ca. 15 Min. später");
+    await mine(page).locator("form#abf button").first().click();
     await expect(first(page).locator("[data-abw]")).toHaveText("⏰ verspätet");
     // zuerst gespeichert, dann die Push angefordert (der Server prüft den gespeicherten Status)
     await expect.poll(async () => (await log(page)).findIndex((l) => l.op == "invoke" && l.body.type == "late")).toBeGreaterThan(-1);
@@ -184,6 +186,8 @@ test.describe("Verspätet bis 30 Minuten vor Beginn", () => {
     await open(page, SPIELER);
     await first(page).locator("[data-abw]").click();
     await mine(page).locator("[data-stt$='|v']").click();
+    await mine(page).locator("form#abf input[name=g]").fill("ca. 15 Min. später");
+    await mine(page).locator("form#abf button").first().click();
     await expect.poll(async () => (await db(page)).m[2].tr[1].st).toEqual({ "Silvan Frey": "v" });
     await page.waitForTimeout(300);
     expect((await log(page)).some((l) => l.op == "invoke" && l.body.type == "late")).toBe(false);
@@ -217,6 +221,8 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
     // eigene Startzeit aus den Daten, ohne Leitung
     const n = L.lateMessage(st, { player: "Silvan Frey", d: "2026-11-04", t: "06:00 evil" }, at("2026-11-04T18:00:00Z"));
     expect(n).toMatchObject({ lead: null, body: "Training heute, 19:30 Uhr: Silvan Frey hat sich als verspätet gemeldet." });
+    // mit Grund aus absence_reasons
+    expect(L.lateMessage(st, { player: "Silvan Frey", d: "2026-11-04" }, at("2026-11-04T18:00:00Z"), "  ca. 20 Min. später, Stau ").body).toBe("Training heute, 19:30 Uhr: Silvan Frey hat sich als verspätet gemeldet. Grund: ca. 20 Min. später, Stau");
   });
 
   test("Empfänger: Konten der Trainingsleitung und Spielleitung, nie die verspätete Person", { tag: "@logik" }, () => {
@@ -236,7 +242,8 @@ test.describe("Push „kommt später“ (Edge Function notify, type late)", () =
     const src = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/notify/index.ts"), "utf8");
     const b = src.slice(src.indexOf('body.type === "late"'), src.indexOf('body.type === "matchday"'));
     expect(b).toContain("if (!member || !mayNotifyFor(member, body.player)) return json({ error: \"forbidden\" }, 403);");
-    expect(b).toContain("const m = lateMessage(row.data, body, Date.now());"); // gespeicherter Stand (league_state), nicht der Client
+    expect(b).toContain("const m = lateMessage(row.data, body, Date.now(), ab?.reason ?? \"\");"); // gespeicherter Stand (league_state), nicht der Client
+    expect(b).toContain('db.from("absence_reasons").select("reason").eq("d", body.d).eq("player", body.player)'); // Grund aus der Datenbank, nicht vom Client
     expect(b).toContain("onlyUsers = lateRecipients(mem ?? [], m.lead, body.player, user.id);");
     expect(b).toContain("const { lead: _l, ...msg } = m;");
     expect(b.indexOf("lateMessage(")).toBeLessThan(b.indexOf("lateRecipients("));
