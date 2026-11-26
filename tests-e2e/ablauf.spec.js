@@ -7,6 +7,8 @@ const URL = process.env.E2E_SUPABASE_URL, ANON = process.env.E2E_ANON_KEY, SERVI
 const pw = () => crypto.randomBytes(12).toString("base64url"); // Test-Passwörter nur für diese lokale Datenbank
 const ADMIN = { email: "spielleitung@e2e.test", password: pw() };
 const PLAYER = { email: "silvan@e2e.test", password: pw() };
+// Reiter Teams: alle Karten starten zugeklappt; die früher offenen Karten für die Schritte öffnen
+const teamsOffen = (page) => page.evaluate(() => { ["gen", "term", "tm0", "tm1", "cat", "inv", "na"].forEach((k) => { ACC[k] = true }); render() });
 
 // Direkter Zugriff auf die lokale Test-Datenbank (Service-Key = an RLS vorbei, nur zum Vorbereiten und Nachprüfen)
 async function rest(path, { key = SERVICE, method = "GET", body } = {}) {
@@ -68,7 +70,7 @@ test("Ohne Login: keine geschützten Daten, keine Änderungen (RLS)", async () =
 test("Spielleitung meldet sich an und sieht die Verwaltung", async () => {
   await login(admin, ADMIN);
   await expect(admin.locator("nav [data-tab=team]")).toBeVisible();
-  await admin.click("nav [data-tab=team]");
+  await admin.click("nav [data-tab=team]"); await teamsOffen(admin);
   await admin.click("h3[data-acc=us]");
   await expect(admin.locator(".card", { hasText: "Benutzer & Rollen" })).toContainText(ADMIN.email);
 });
@@ -90,7 +92,7 @@ test("Einladungslink: neues Mitglied erstellt sein Konto und ist dem Spieler zug
   await a.locator("form button.btn").click();
   await expect(player.locator("#lo")).toBeVisible();
   await expect(player.locator("#hi")).toContainText("Silvan");
-  await player.click("nav [data-tab=team]"); // Statistiken für alle, aber keine Verwaltung
+  await player.click("nav [data-tab=team]"); await teamsOffen(player); // Statistiken für alle, aber keine Verwaltung
   await expect(player.locator("h3", { hasText: /^Trainingsleitung/ }).first()).toBeVisible();
   await expect(player.locator("h3", { hasText: /^Team 1/ })).toHaveCount(0);
 
@@ -377,7 +379,7 @@ test("Push-Abo: nur bekannte Push-Dienste, gespeichertes Abo muss zur Adresse pa
 
 test("Spielleitung macht den Spieler zum Strafenchef – danach darf er Strafen eintragen", async () => {
   await admin.reload();
-  await admin.click("nav [data-tab=team]");
+  await admin.click("nav [data-tab=team]"); await teamsOffen(admin);
   await admin.click("h3[data-acc=us]");
   await admin.locator(`input[data-mstraf='${playerId}']`).check();
   await expect.poll(async () => (await rest("/rest/v1/members?user_id=eq." + playerId + "&select=strafen")).data[0].strafen).toBe(true);
@@ -393,7 +395,7 @@ test("Spielleitung macht den Spieler zum Strafenchef – danach darf er Strafen 
 });
 
 test("Strafenchef pflegt den Strafenkatalog im Teams-Tab, Spieler ohne Rolle nicht", async () => {
-  await player.click("nav [data-tab=team]");
+  await player.click("nav [data-tab=team]"); await teamsOffen(player);
   const f = player.locator("form#catf");
   await f.locator("input[name=g]").fill("Handy im Training");
   await f.locator("input[name=b]").fill("10");
@@ -433,14 +435,14 @@ test("Rolle Trainer: nur die Spielleitung vergibt sie, nur Trainer schalten ihre
 
   // Spielleitung vergibt die Rolle unter Benutzer & Rollen
   await admin.reload();
-  await admin.click("nav [data-tab=team]");
+  await admin.click("nav [data-tab=team]"); await teamsOffen(admin);
   await admin.click("h3[data-acc=us]");
   await admin.locator(`input[data-mtrainer='${playerId}']`).check();
   await expect.poll(trainer).toEqual({ trainer: true, lead_mail_cc: true });
 
   // Trainer schaltet seine Kopie in der App aus, darf aber anderen keine Rolle geben
   await player.reload();
-  await player.click("nav [data-tab=team]");
+  await player.click("nav [data-tab=team]"); await teamsOffen(player);
   await player.click("h3[data-acc=trc]");
   await player.locator("[data-leadcc]").uncheck();
   await expect.poll(trainer).toEqual({ trainer: true, lead_mail_cc: false });
@@ -546,7 +548,7 @@ test("Spielleitung löscht einen Benutzer – Konto weg, Spieler und Daten bleib
   const r = await player.evaluate(async (uid) => (await sb.rpc("delete_member", { uid })).error.message, playerId);
   expect(r).toContain("Nur die Spielleitung");
   await admin.reload();
-  await admin.click("nav [data-tab=team]");
+  await admin.click("nav [data-tab=team]"); await teamsOffen(admin);
   await admin.click("h3[data-acc=us]");
   admin.once("dialog", (d) => d.accept());
   await admin.locator(`[data-mdel='${playerId}']`).click();
