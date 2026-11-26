@@ -35,41 +35,59 @@ test.describe("Spieltage nach Winter und Sommer", () => {
   });
 });
 
+// Alle Danke-Texte an einem Ort: Reiter Teams, Karte „Danke & Einladung“, nach Winter und Sommer gruppiert
+async function openDank(page) {
+  await page.click("nav [data-tab=team]");
+  const h = page.locator("h3[data-acc=dank]");
+  await h.click();
+  return page.locator(".card", { has: h });
+}
+
 test.describe("Danke & Einladung per WhatsApp", () => {
-  test("Spielleitung: Schiri und Gäste im Winter bekommen eine Einladung an den Winter Event", async ({ page }) => {
+  test("Spielleitung: alle Schiris und Gäste an einem Ort, nach Winter und Sommer gruppiert", async ({ page }) => {
     await seed(page);
+    await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("__mock_db")); d.data.m[3].ref = "rita pfiff"; localStorage.setItem("__mock_db", JSON.stringify(d)) });
     await login(page, ADMIN);
+    const card = await openDank(page);
+    const w = card.locator("[data-dkh=w]"), s = card.locator("[data-dkh=s]");
+    await expect(w.locator(".rlh")).toHaveText("❄️ Winter (Sep–Dez)");
+    await expect(s.locator(".rlh")).toHaveText("☀️ Sommer (Jan–Apr)");
+    // gleicher Schiri zweimal im Winter = ein Eintrag mit beiden Match Days; Schiris vor Gästen
+    await expect(w.locator("[data-dkwa]")).toHaveCount(3);
+    await expect(w.locator("[data-dkwa]").nth(0)).toContainText("💬 Schiri Rita Pfiff danken");
+    await expect(w.locator("[data-dkwa]").nth(1)).toContainText("💬 Gast Gabi Gast danken");
+    await expect(w.locator("[data-dkwa]").nth(2)).toContainText("💬 Gast Toni Tor danken");
+    const ev = await page.evaluate(() => { const md = (i) => fd(S.m[i].tr[S.m[i].tr.length - 1].d); return { w: wd(wevD()), s: wd(sevD()), nov: md(2), dez: md(3) } });
+    const ref = await waText(w.locator("[data-dkwa=r]"));
+    expect(ref).toContain("Danke, Rita Pfiff, dass du an den Match Days vom " + ev.nov + " und " + ev.dez + " bei Herren Inter Schiri warst!");
+    expect(ref).toContain("herzlich an unseren Winter Event am " + ev.w + " eingeladen");
+    const gast = await waText(w.locator("[data-dkwa=g]").nth(1));
+    expect(gast).toContain("Danke, Toni Tor, dass du am Match Day vom " + ev.nov + " bei Herren Inter als Gastspieler mitgespielt hast!");
+    // Sommer: Einladung an den Sommer Event
+    await expect(s.locator("[data-dkwa]")).toHaveCount(1);
+    const so = await waText(s.locator("[data-dkwa=r]"));
+    expect(so).toContain("Danke, Sepp Sommer,");
+    expect(so).toContain("an unseren Sommer Event am " + ev.s);
+    // im Spieltag selbst gibt es keine eigene Danke-Karte mehr
     await page.click("nav [data-tab=spiel]");
     await page.click("[data-c='2']");
-    const card = page.locator(".card.dank");
-    await expect(card).toBeVisible();
-    const ev = await page.evaluate(() => ({ w: wd(wevD()), md: fd(S.m[2].tr[S.m[2].tr.length - 1].d) }));
-    const ref = await waText(card.locator("[data-dkwa=ref]"));
-    expect(ref).toContain("Danke, Rita Pfiff, dass du am Match Day vom " + ev.md + " bei Herren Inter Schiri warst!");
-    expect(ref).toContain("herzlich an unseren Winter Event am " + ev.w + " eingeladen");
-    await expect(card.locator("[data-dkwa]")).toHaveText(["💬 Schiri Rita Pfiff danken", "💬 Gast Gabi Gast danken", "💬 Gast Toni Tor danken"]);
-    const gast = await waText(card.locator("[data-dkwa='1']"));
-    expect(gast).toContain("Danke, Toni Tor, dass du am Match Day vom " + ev.md + " bei Herren Inter als Gastspieler mitgespielt hast!");
-    expect(gast).toContain("Winter Event");
-    // im Sommer: Einladung an den Sommer Event
-    await page.click("[data-c='5']");
-    const so = await waText(card.locator("[data-dkwa=ref]"));
-    const sev = await page.evaluate(() => wd(sevD()));
-    expect(so).toContain("Danke, Sepp Sommer,");
-    expect(so).toContain("an unseren Sommer Event am " + sev);
-    // ohne Schiri und Gäste keine Karte
-    await page.click("[data-c='3']");
-    await expect(card).toHaveCount(0);
+    await expect(page.locator("[data-dkwa]")).toHaveCount(0);
+  });
+
+  test("ohne Einträge zeigt jede Hälfte einen Hinweis", async ({ page }) => {
+    await login(page, ADMIN);
+    const card = await openDank(page);
+    await expect(card.locator(".dkh")).toHaveCount(2);
+    await expect(card.locator(".dkh", { hasText: "Noch kein Schiri oder Gast erfasst." })).toHaveCount(2);
   });
 
   for (const [wer, user] of [["Captain", undefined], ["Spieler", SPIELER]]) {
     test(`${wer} ohne Trainer-Aufgabe sieht die Karte nicht`, async ({ page }) => {
       await seed(page);
       await login(page, user);
-      await page.click("nav [data-tab=spiel]");
-      await page.click("[data-c='2']");
-      await expect(page.locator(".score .vs").first()).toHaveText("November");
-      await expect(page.locator(".card.dank")).toHaveCount(0);
+      await page.click("nav [data-tab=team]");
+      await expect(page.locator(".card").first()).toBeVisible();
+      await expect(page.locator("h3[data-acc=dank]")).toHaveCount(0);
     });
   }
 
@@ -77,8 +95,7 @@ test.describe("Danke & Einladung per WhatsApp", () => {
     await seed(page);
     await page.evaluate(() => localStorage.setItem("__mock_trainer", "1"));
     await login(page, SPIELER);
-    await page.click("nav [data-tab=spiel]");
-    await page.click("[data-c='2']");
-    await expect(page.locator(".card.dank [data-dkwa]")).toHaveCount(3);
+    const card = await openDank(page);
+    await expect(card.locator("[data-dkwa]")).toHaveCount(4);
   });
 });
