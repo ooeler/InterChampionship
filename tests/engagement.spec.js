@@ -255,6 +255,8 @@ test.describe("Monats-Rückblick", () => {
     await page.click("nav [data-tab=train]");
     await mine(page).locator("[data-abw]").first().click();
     await mine(page).locator("[data-stt$='|v']").click();
+    await mine(page).locator("form#abf input[name=g]").fill("ca. 15 Min. später");
+    await mine(page).locator("form#abf button").first().click();
     await expect.poll(() => page.evaluate(() => window.__a)).toEqual([true]);
   });
 

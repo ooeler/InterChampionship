@@ -136,7 +136,8 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "unauthorized" }, 401);
     const { data: member } = await db.from("members").select("role, player").eq("user_id", user.id).maybeSingle();
     if (!member || !mayNotifyFor(member, body.player)) return json({ error: "forbidden" }, 403);
-    const m = lateMessage(row.data, body, Date.now());
+    const { data: ab } = await db.from("absence_reasons").select("reason").eq("d", body.d).eq("player", body.player).maybeSingle();
+    const m = lateMessage(row.data, body, Date.now(), ab?.reason ?? "");
     if (!m) return json({ error: "ungültig" }, 400);
     const { data: mem } = await db.from("members").select("user_id, role, player");
     onlyUsers = lateRecipients(mem ?? [], m.lead, body.player, user.id);

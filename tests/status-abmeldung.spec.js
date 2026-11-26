@@ -51,7 +51,10 @@ test.describe("Status pro Training", () => {
     await expect(overview(page)).toContainText("1 unsicher");
 
     await choose(page, "v");
+    await expect(mine(page).locator("form#abf input[name=g]")).toHaveValue(""); // Grund von Unsicher wird nicht übernommen
+    await grund(page, "Stau");
     await expect(btn).toHaveText("⏰ verspätet");
+    await expect(overview(page)).toContainText("Silvan Frey: Stau");
     await expect(chip).toContainText("⏰");
     await expect(overview(page)).toContainText("1 verspätet");
 
@@ -68,6 +71,7 @@ test.describe("Status pro Training", () => {
     await first(page).locator("[data-abw]").click();
     await expect(mine(page).locator("[data-stt$='|off']")).toHaveCount(0);
     await mine(page).locator("[data-stt$='|v']").click();
+    await grund(page, "ca. 10 Min. später");
     await expect(first(page).locator("[data-abw]")).toHaveText("⏰ verspätet");
   });
 
@@ -125,7 +129,7 @@ test.describe("Grund bei Unsicher", () => {
     expect((await db(page)).m[2].tr[1].st).toBeUndefined();
   });
 
-  test("Grund ändern; Dabei und Verspätet entfernen ihn", async ({ page }) => {
+  test("Grund ändern; Verspätet braucht einen eigenen Grund, Dabei entfernt ihn", async ({ page }) => {
     await seed(page);
     await open(page);
     await choose(page, "u");
@@ -139,9 +143,18 @@ test.describe("Grund bei Unsicher", () => {
     expect(await reasons(page)).toHaveLength(1);
 
     await choose(page, "v");
+    const f = mine(page).locator("form#abf");
+    await expect(f.locator("input[name=g]")).toHaveAttribute("placeholder", "Grund der Verspätung (z. B. ca. 20 Min. später, Stau)");
+    await expect(f.locator("input[name=g]")).toHaveValue("");
+    await expect(f.locator("button").first()).toHaveText("Verspätet melden");
+    // ohne Grund: kein Statuswechsel
+    await f.locator("button").first().click();
+    await expect(f).toBeVisible();
+    await expect(first(page).locator("[data-abw]")).toHaveText("❔ unsicher");
+    await grund(page, "ca. 20 Min. später");
     await expect(first(page).locator("[data-abw]")).toHaveText("⏰ verspätet");
-    await expect.poll(() => reasons(page)).toEqual([]);
-    await expect(first(page)).not.toContainText("Grund:");
+    await expect.poll(async () => (await reasons(page)).map((r) => r.reason)).toEqual(["ca. 20 Min. später"]);
+    await expect(first(page)).toContainText("Grund: ca. 20 Min. später");
 
     await choose(page, "u");
     await grund(page, "Knie zwickt");
