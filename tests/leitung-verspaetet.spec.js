@@ -2,7 +2,7 @@
 // und „Verspätet“ bis 30 Minuten vor Beginn, am Trainingstag mit Push an Trainingsleitung und Spielleitung.
 const fs = require("fs");
 const path = require("path");
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const CAPTAIN = { email: "captain@flyingpenguins.test", password: "geheim123" };
@@ -59,7 +59,7 @@ test.describe("Trainingsleitung einteilen nur die Spielleitung", () => {
     await seed(page, { patch: "delete d.m[2].tr[1].lead" });
     await open(page, CAPTAIN);
     await expect(overview(page).locator(".tlro")).toContainText("– Leitung offen –");
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("h3[data-acc=tl]")).toHaveCount(0);
     await expect(page.locator("main select[data-lead]")).toHaveCount(0);
   });
@@ -121,7 +121,7 @@ test.describe("Trainingsleitung einteilen nur die Spielleitung", () => {
   test("Captain benennt einen Spieler um: die Leitung zieht mit", async ({ page }) => {
     await seed(page, { player: null, patch: `d.m[2].tr[0].lead = "Andreas Scherrer"` });
     await open(page, CAPTAIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first(); // Andreas Scherrer
     await inp.fill("Andi Scherrer");

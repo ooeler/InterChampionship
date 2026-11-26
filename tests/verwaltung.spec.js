@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 const card = (page, k) => page.locator(".card", { has: page.locator(`h3[data-acc=${k}]`) });
@@ -6,7 +6,7 @@ const log = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__moc
 
 async function teams(page) {
   await login(page, ADMIN);
-  await page.click("nav [data-tab=team]");
+  await page.click("nav [data-tab=team]"); await teamsOffen(page);
 }
 
 test.describe("Verwaltung durch die Spielleitung", () => {
@@ -22,7 +22,7 @@ test.describe("Verwaltung durch die Spielleitung", () => {
     await expect(page.locator(".card", { hasText: "Übersicht pro Training" })).not.toContainText("Als Spielleitung kannst du");
     await page.reload();
     await expect(page.locator(".vw.pv")).toBeVisible();
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("h3[data-acc=us]")).toHaveCount(0);
     await page.locator("[data-view=admin]").click();
     await expect(page.locator(".vw.pv")).toHaveCount(0);
@@ -119,7 +119,7 @@ test("Spieleransicht berücksichtigt die Zusatzrollen Strafenchef und Restaurant
   await page.evaluate(() => { localStorage.setItem("__mock_strafen", "1"); localStorage.setItem("__mock_resto", "1"); localStorage.setItem("ic_view", "player"); });
   await login(page, ADMIN);
   await expect(page.locator(".vw.pv")).toBeVisible();
-  await page.click("nav [data-tab=team]"); // Strafenchef: Teams-Tab mit Strafenkatalog, aber keine Verwaltung
+  await page.click("nav [data-tab=team]"); await teamsOffen(page); // Strafenchef: Teams-Tab mit Strafenkatalog, aber keine Verwaltung
   await expect(page.locator(".card", { has: page.locator("h3", { hasText: /^Strafenkatalog$/ }) })).toBeVisible();
   await expect(page.locator("h3[data-acc=us]")).toHaveCount(0);
   await page.click("nav [data-tab=train]"); // Restaurant-Chef: Restaurant eintragen
@@ -150,7 +150,7 @@ test.describe("Spieler ohne Konto", () => {
 
   test("Captains sehen die Liste nicht", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("h3[data-acc=na]")).toHaveCount(0);
   });
 });

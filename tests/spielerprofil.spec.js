@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
@@ -53,7 +53,7 @@ test.describe("Spielerprofil (#103)", () => {
   test("Spieler sehen beide Teams nur lesend, Antippen öffnet das Profil", async ({ page }) => {
     await seed(page, () => localStorage.setItem("__mock_prof", JSON.stringify([{ player: "Beat Rentsch", pos: "f", stick: "l", nr: 7 }])));
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("main [data-prof]")).toHaveCount(await page.evaluate(() => allP().length));
     await expect(page.locator("[data-ted], input[data-pn], input[data-tn]")).toHaveCount(0);
     await page.click("[data-prof='Beat Rentsch']");
@@ -132,7 +132,7 @@ test.describe("Spielerprofil (#103)", () => {
   test("Teams zeigen auch das eigene Profil nur lesend, mit Skorerpunkten statt Assists", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-prof='Silvan Frey']");
     await expect(page.locator("#ovl")).toBeVisible();
     await expect(prof(page).locator("form")).toHaveCount(0);
@@ -145,7 +145,7 @@ test.describe("Spielerprofil (#103)", () => {
   test("durch die Profile blättern: Knöpfe, Pfeiltasten und Wischen", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const L = await page.evaluate(() => profList());
     await page.click(`main [data-prof='${L[0]}']`);
     await expect(prof(page).locator("h3")).toContainText(L[0]);
@@ -174,7 +174,7 @@ test.describe("Spielerprofil (#103)", () => {
 
   test("Captain: Team bearbeiten öffnet die Bearbeitung, Fertig schliesst sie", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("input[data-pn]")).toHaveCount(0);
     await page.click("[data-ted='0']");
     await expect(page.locator("input[data-tn='0']")).toBeVisible();
@@ -187,7 +187,7 @@ test.describe("Spielerprofil (#103)", () => {
   test("Spielleitung archiviert die Saison, das Profil zeigt frühere Saisons", async ({ page }) => {
     await seed(page, () => localStorage.setItem("__mock_pse", JSON.stringify([{ season: "25/26", player: "Silvan Frey", team: "Alte Füchse", goals: 9, assists: 4, trainings: 30, potm: 2, rank_goals: 3, rank_points: 5, rank_trainings: 1 }])));
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.evaluate(() => S.m.forEach((m, i) => actPts(i, m))); // Monatswertungen laden
     await expect.poll(() => page.evaluate(() => S.m.every((m, i) => m.res[0] == null || m.res[1] == null || AP[i]))).toBe(true);
     await page.click("[data-arch]");
@@ -212,7 +212,7 @@ test.describe("Spielerprofil (#103)", () => {
   test("Spielleitung importiert frühere Saisons aus einer Datei", async ({ page }) => {
     await seed(page, () => localStorage.setItem("__mock_pse", JSON.stringify([{ season: "23/24", player: "Silvan Frey", team: "Alt", goals: 1, assists: 1, trainings: 1, potm: 0 }])));
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const msg = [];
     page.on("dialog", (d) => msg.push(d.message()));
     const up = (o) => page.setInputFiles("[data-pimp]", { name: "archiv.json", mimeType: "application/json", buffer: Buffer.from(typeof o == "string" ? o : JSON.stringify(o)) });
@@ -250,7 +250,7 @@ test.describe("Spielerprofil (#103)", () => {
   test("Spieler können nicht archivieren und kein fremdes Profil speichern", async ({ page }) => {
     await seed(page);
     await login(page, SPIELER);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("[data-arch]")).toHaveCount(0);
     await expect(page.locator("[data-pimp]")).toHaveCount(0);
     const r = await page.evaluate(async () => [(await sb.from("player_profiles").upsert({ player: "Beat Rentsch", pos: "g" })).error, (await sb.from("player_seasons").upsert([{ season: "x", player: "Silvan Frey" }])).error]);

@@ -1,6 +1,6 @@
 // Spielleitung: Trainings und Match Days bearbeiten, Trainings einem anderen Monat zuteilen (Teams-Reiter)
 // Der Match Day eines Monats ist immer sein spätester Termin.
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
@@ -28,7 +28,7 @@ async function seed(page, { player = "Andreas Scherrer", patch = "", view = "" }
 }
 async function openEditor(page) {
   await login(page, ADMIN);
-  await page.click("nav [data-tab=team]");
+  await page.click("nav [data-tab=team]"); await teamsOffen(page);
   await page.locator("#term [data-term]").click();
   await expect(page.locator("#term .tmb")).toHaveCount(8);
   // vergangene Termine sind zugeklappt – für die Bearbeitungstests alle aufklappen
@@ -39,7 +39,7 @@ async function openEditor(page) {
 test("vergangene Termine sind im Editor zugeklappt, pro Monat aufklappbar", async ({ page }) => {
   await seed(page);
   await login(page, ADMIN);
-  await page.click("nav [data-tab=team]");
+  await page.click("nav [data-tab=team]"); await teamsOffen(page);
   await page.locator("#term [data-term]").click();
   const td = await page.evaluate(() => TD);
   const vergangen = await page.evaluate(() => S.m.map((m) => m.tr.filter((x) => x.d < TD).length));
@@ -67,7 +67,7 @@ const cells = (page, name) => monat(page).locator("tr", { hasText: name }).locat
 test("nur die Spielleitung sieht „Trainings und Spieldaten bearbeiten“", async ({ page }) => {
   await seed(page);
   await login(page, ADMIN);
-  await page.click("nav [data-tab=team]");
+  await page.click("nav [data-tab=team]"); await teamsOffen(page);
   await expect(page.getByRole("button", { name: BTN })).toBeVisible();
   // Ansicht „Spieler“ der Spielleitung: kein Button
   await page.locator("[data-view=player]").click();
@@ -80,7 +80,7 @@ for (const [wer, user] of [["Captain", undefined], ["Spieler", SPIELER]]) {
   test(`${wer} sieht den Termin-Editor nicht`, async ({ page }) => {
     await seed(page, { player: user ? null : "Andreas Scherrer" });
     await login(page, user);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("main")).toContainText("Lochball Legenden");
     await expect(page.getByRole("button", { name: BTN })).toHaveCount(0);
     await expect(page.locator("#term")).toHaveCount(0);

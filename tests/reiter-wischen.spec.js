@@ -34,6 +34,7 @@ test("kein Reiterwechsel beim Wischen in waagrecht scrollbaren Leisten und im Pr
     await expect.poll(() => page.evaluate(() => tab)).toBe("train");
   }
   await page.click("#nav [data-tab='team']");
+  await page.click("h3[data-acc=tm0]"); // Team-Karten starten zugeklappt
   await page.locator("main [data-prof]").first().click();
   await swipe(page, "#ovc h3", 300, 120);
   await expect.poll(() => page.evaluate(() => tab)).toBe("team");

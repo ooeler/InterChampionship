@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
@@ -88,7 +88,7 @@ test.describe("Torhüter-Statistik", () => {
     await login(page, ADMIN);
     await page.click("nav [data-tab=rang]");
     await expect(card(page, "Torhüter")).toContainText("Max (Gast)");
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click(`[data-ted='${await page.evaluate(() => S.t[0].p.includes("Silvan Frey") ? 0 : 1)}']`); // Team bearbeiten
     const inp = page.locator("input[data-pn][value='Silvan Frey']");
     await inp.fill("Silvan Neu");

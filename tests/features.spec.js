@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const SPIELER = { email: "spieler@flyingpenguins.test", password: "spieler123" };
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
@@ -8,14 +8,14 @@ test.describe("Rollen", () => {
     await login(page, SPIELER);
     await expect(page.locator("nav [data-tab=rang]")).toBeVisible();
     await expect(page.locator("nav [data-tab=spiel]")).toBeVisible();
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("main")).toContainText("Trainingsleitung");
     await expect(page.locator("main")).not.toContainText("Team 1 ·");
   });
 
   test("Captains sehen den Bereich Teams", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("[data-ted]")).toHaveCount(2); // beide Teams mit „Team bearbeiten“
     await page.click("[data-ted='0']"); // Team bearbeiten
     await expect(page.locator("main")).toContainText("Team 1 · 8 Spieler");
@@ -42,7 +42,7 @@ test.describe("Rollen", () => {
 test.describe("Benutzer & Spieler-Zuordnung", () => {
   test("Spielleitung ordnet Benutzern Rolle und Spieler zu", async ({ page }) => {
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const card = page.locator(".card", { hasText: "Benutzer & Rollen" });
     await page.click("h3[data-acc=us]"); // standardmässig zugeklappt
     await expect(card).toContainText("spieler@flyingpenguins.test");
@@ -55,7 +55,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
 
   test("Spielleitung kann sich die Admin-Rolle nicht selbst entziehen", async ({ page }) => {
     await login(page, ADMIN);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("h3[data-acc=us]");
     const msg = page.waitForEvent("dialog");
     await page.locator("select[data-mrole='u-admin@flyingpenguins.test']").selectOption("player");
@@ -65,7 +65,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
 
   test("Captains sehen die Benutzerverwaltung nicht", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator(".card", { hasText: "Benutzer & Rollen" })).toHaveCount(0);
   });
 
@@ -78,7 +78,7 @@ test.describe("Benutzer & Spieler-Zuordnung", () => {
 
   test("Umbenennen eines Spielers behält die Zuordnung", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await page.click("[data-ted='0']"); // Team bearbeiten
     const inp = page.locator("input[data-pn='0']").first();
     const old = await inp.inputValue();

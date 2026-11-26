@@ -31,6 +31,12 @@ async function login(page, user = USER) {
   await base.expect(page.locator("header")).toBeVisible();
 }
 
+// Reiter Teams: alle Karten starten zugeklappt. Für Tests, die darin arbeiten, die Karten öffnen,
+// die früher standardmässig offen waren (Allgemein, Termine, Teams, Strafenkatalog, Einladen, ohne Konto).
+async function teamsOffen(page) {
+  await page.evaluate(() => { ["gen", "term", "tm0", "tm1", "cat", "inv", "na"].forEach((k) => { ACC[k] = true }); render() });
+}
+
 const test = base.test.extend({
   page: async ({ page }, use, info) => {
     // @logik-Tests laufen nur einmal (Projekt logik): wer eine Seite braucht, muss auf allen Geräten laufen
@@ -40,4 +46,4 @@ const test = base.test.extend({
   },
 });
 
-module.exports = { test, expect: base.expect, setup, login, openLogin, USER };
+module.exports = { test, expect: base.expect, setup, login, openLogin, USER, teamsOffen };

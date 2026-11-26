@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const ADMIN = { email: "admin@flyingpenguins.test", password: "admin123" };
 const card = (page) => page.locator(".card", { has: page.locator("h3", { hasText: "Mitglied einladen" }) });
@@ -7,7 +7,7 @@ const calls = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("__m
 // Erstellt als Spielleitung einen Link und gibt ihn zurück
 async function createLink(page, player, role) {
   await login(page, ADMIN);
-  await page.click("nav [data-tab=team]");
+  await page.click("nav [data-tab=team]"); await teamsOffen(page);
   const c = card(page);
   if (player) await c.locator("select[name=player]").selectOption(player);
   if (role) await c.locator("select[name=role]").selectOption(role);
@@ -41,7 +41,7 @@ test.describe("Mitglieder per Einladungslink einladen", () => {
 
   test("Captains laden nur Spieler ein", async ({ page }) => {
     await login(page);
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     const c = card(page);
     await expect(c.locator("select[name=role]")).toHaveCount(0);
     await expect(c).toContainText("Rolle: Spieler");

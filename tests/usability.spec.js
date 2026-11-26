@@ -1,4 +1,4 @@
-const { test, expect, login } = require("./fixtures");
+const { test, expect, login, teamsOffen } = require("./fixtures");
 
 const titles = (page) => page.locator("main .card > h3").allTextContents();
 const card = (page, t) => page.locator(".card", { has: page.locator("h3", { hasText: t }) });
@@ -6,7 +6,7 @@ const card = (page, t) => page.locator(".card", { has: page.locator("h3", { hasT
 test.describe("Usability", () => {
   test("Teams: Einladen direkt über den Rollen, C und 🗑 erklärt, Sicherung am Ende", async ({ page }) => {
     await login(page, { email: "admin@flyingpenguins.test", password: "admin123" });
-    await page.click("nav [data-tab=team]");
+    await page.click("nav [data-tab=team]"); await teamsOffen(page);
     await expect(page.locator("h3", { hasText: "Benutzer & Rollen" })).toBeVisible(); // Liste wird nachgeladen
     const t = await titles(page);
     expect(t[0]).toBe("Allgemein");
