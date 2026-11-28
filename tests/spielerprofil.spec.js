@@ -138,6 +138,9 @@ test.describe("Spielerprofil (#103)", () => {
     await expect(prof(page).locator("form")).toHaveCount(0);
     await expect(prof(page)).toContainText("Skorerpunkte");
     await expect(prof(page)).not.toContainText("Assists");
+    // #189: Unihockey- statt Eishockey-Icon bei den Skorerpunkten
+    await expect(prof(page).locator(".kv", { hasText: "Skorerpunkte" }).locator("svg.uhi")).toHaveCount(1);
+    await expect(prof(page)).not.toContainText("🏒");
     await page.click("#ovl .ovb", { position: { x: 5, y: 5 } }); // Klick auf den Hintergrund schliesst
     await expect(page.locator("#ovl")).toBeHidden();
   });
