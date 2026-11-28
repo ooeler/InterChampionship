@@ -5,7 +5,7 @@ import { sendMail as send, mailReady, mailProvider, MAIL_MISSING } from "./mail.
 
 type Cfg = { host: string; port: number; user: string; pass: string };
 async function smtp(c: Cfg, msg: Record<string, unknown>) {
-  const { default: nodemailer } = await import("npm:nodemailer@10.4.0");
+  const { default: nodemailer } = await import("npm:nodemailer@10.6.0");
   const t = nodemailer.createTransport({ host: c.host, port: c.port, secure: c.port === 465, auth: { user: c.user, pass: c.pass } });
   await t.sendMail(msg);
 }
