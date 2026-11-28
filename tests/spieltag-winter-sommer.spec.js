@@ -61,6 +61,7 @@ test.describe("Danke & Einladung per WhatsApp", () => {
     const ref = await waText(w.locator("[data-dkwa=r]"));
     expect(ref).toContain("Danke, Rita Pfiff, dass du an den Match Days vom " + ev.nov + " und " + ev.dez + " bei Herren Inter Schiri warst!");
     expect(ref).toContain("herzlich an unseren Winter Event am " + ev.w + " eingeladen");
+    expect(ref).toContain("Melde dich doch gerne an, damit wir den Event planen können.");
     const gast = await waText(w.locator("[data-dkwa=g]").nth(1));
     expect(gast).toContain("Danke, Toni Tor, dass du am Match Day vom " + ev.nov + " bei Herren Inter als Gastspieler mitgespielt hast!");
     // Sommer: Einladung an den Sommer Event
